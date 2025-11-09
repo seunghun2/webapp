@@ -4,24 +4,24 @@
 -- =====================================================
 
 -- 1. 세종 엘리프세종6-3M4 신혼희망타운
--- 실거래가: 분양권 2.8억~4.2억 (2024년 11-12월 기준)
+-- 최신 실거래가: 2025년 2월 84.71㎡ 4.95억원, 2025년 1월 74.98㎡ 3.97억원
 UPDATE properties SET
-  recent_trade_price = 3.5,
-  recent_trade_date = '2024-12',
-  description = '신혼희망타운 공공분양 추가입주자 모집. 총 1035세대 중 신혼희망타운 316세대. 금회 무순위로 3세대 공급(55A형 1세대, 55B형 2세대). LH와 계룡건설 컨소시엄 공동 시행. 2024년 12월 기준 55㎡ 분양권 실거래가 약 2.8억~3.2억원대, 74㎡는 4.2억원대에 거래되고 있음.',
+  recent_trade_price = 4.95,
+  recent_trade_date = '2025-02',
+  description = '신혼희망타운 공공분양 추가입주자 모집. 총 1035세대 중 신혼희망타운 316세대. 2025년 1월 입주. 금회 무순위로 3세대 공급(55A형 1세대, 55B형 2세대). LH와 계룡건설 컨소시엄 공동 시행. 2025년 2월 기준 84㎡ 입주권 실거래가 약 4.95억원, 74㎡ 3.97억원, 46㎡ 3.2억원대 거래.',
   updated_at = datetime('now')
 WHERE id = 13 AND source = 'lh_auto';
 
 -- 2. 인천영종 A33·37·60블록 공공분양 잔여세대
--- 84㎡ 기준 3억원대 분양가, 전용 59㎡~84㎡
+-- 2025년 11월 기준 계속 공급 중 (2025.10.30 공고, 2025.11.07 잔여동호 공개)
 UPDATE properties SET
-  recent_trade_price = 3.5,
-  recent_trade_date = '2024-08',
+  recent_trade_price = 3.8,
+  recent_trade_date = '2025-07',
   price = '3.0억~3.8억',
   sale_price_min = 3.0,
   sale_price_max = 3.8,
-  sale_price_date = '2024-08',
-  description = '공공분양 잔여세대 선착순 동·호 지정. 방문 접수만 가능. 1인 최대 2주택 계약 가능. 청약저축, 주택소유, 소득 무관. 전용 84㎡ 기준 3억원대 분양가로 공급. 분양가 상한제 적용으로 시세 대비 가격 경쟁력 우수. 계약금 1,000만원. 공항철도 영종역 생활권.',
+  sale_price_date = '2025-07',
+  description = '공공분양 잔여세대 선착순 동·호 지정. 방문 접수만 가능. 1인 최대 2주택 계약 가능. 청약저축, 주택소유, 소득 무관. 전용 84㎡ 기준 3억원대 분양가로 공급. 분양가 상한제 적용으로 시세 대비 가격 경쟁력 우수. 계약금 1,000만원. 공항철도 영종역 생활권. 2025년 10월 재공고로 계속 공급 중.',
   updated_at = datetime('now')
 WHERE id = 14 AND source = 'lh_auto';
 
@@ -58,18 +58,18 @@ UPDATE properties SET
 WHERE id = 16 AND source = 'lh_auto';
 
 -- 5. 부산범천2 1BL 공공분양 잔여세대
--- 59㎡ 분양가 약 2.8억원 (프리미엄 1천만원 포함)
+-- 2025년 10월 기준 범천경남 아파트 실거래가 2.35억 (78㎡)
 UPDATE properties SET
-  recent_trade_price = 2.8,
-  recent_trade_date = '2024-10',
-  price = '2.7억~2.9억',
+  recent_trade_price = 2.35,
+  recent_trade_date = '2025-10',
+  price = '2.7억~3.0억',
   sale_price_min = 2.7,
-  sale_price_max = 2.9,
+  sale_price_max = 3.0,
   sale_price_date = '2024-10',
-  area_type = '59㎡',
-  supply_area = '59㎡',
-  exclusive_area = '59㎡',
-  description = '공공분양 잔여세대 무순위 청약. 부산 범천동 생활권, 부산진구 위치. 59B 기준 분양권 프리미엄 약 1,000만원. 현재 금액대 약 2억 8,000만원 수준. LH센트럴힐 브랜드. 범천동 생활 인프라 양호.',
+  area_type = '59㎡, 74㎡',
+  supply_area = '59㎡, 74㎡',
+  exclusive_area = '59㎡, 74㎡',
+  description = '공공분양 잔여세대 무순위 청약. 부산 범천동 생활권, 부산진구 위치. 59A 2.66억원, 59B 2.61억원, 74A 3.0억원대 분양가. LH센트럴힐 브랜드. 범천동 생활 인프라 양호. 주변 범천경남 아파트 2025년 10월 2.35억 실거래.',
   badge = 'NEW',
   updated_at = datetime('now')
 WHERE id = 17 AND source = 'lh_auto';
@@ -86,17 +86,17 @@ UPDATE properties SET
 WHERE id = 18 AND source = 'lh_auto';
 
 -- 7. 제주하귀휴먼시아2단지 잔여세대
--- 2010년 준공, 246세대, 실거래가 4.2억~4.5억 (34평 기준, 2024년)
+-- 2025년 7월 실거래가 4.2억원 (84.85㎡, 10층)
 UPDATE properties SET
-  recent_trade_price = 4.4,
-  recent_trade_date = '2024-05',
-  price = '4.2억~4.5억',
+  recent_trade_price = 4.2,
+  recent_trade_date = '2025-07',
+  price = '4.2억~4.4억',
   sale_price_min = 4.2,
-  sale_price_max = 4.5,
-  sale_price_date = '2024-05',
+  sale_price_max = 4.4,
+  sale_price_date = '2025-07',
   area_type = '34평',
   supply_area = '112㎡',
   exclusive_area = '84.85㎡',
-  description = '공공임대 분양전환 잔여세대. 2010년 준공 단지로 입주 완료. 246세대 규모, 12층 높이. 제주시 애월읍 하귀리 위치. 34평형 실거래가 약 4.2억~4.5억원대 (2024년 기준). 제주 지역 특성상 높은 가격대 형성. 하귀일초, 귀일중 학군.',
+  description = '공공임대 분양전환 잔여세대. 2010년 준공 단지로 입주 완료. 246세대 규모, 12층 높이. 제주시 애월읍 하귀리 위치. 34평형 실거래가 2025년 7월 4.2억원 (10층), 2025년 4월 4.19억원 (5층) 거래. 제주 지역 특성상 높은 가격대 유지. 하귀일초, 귀일중 학군.',
   updated_at = datetime('now')
 WHERE id = 19 AND source = 'lh_auto';
