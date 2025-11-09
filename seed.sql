@@ -1,30 +1,222 @@
--- Insert test properties data
-INSERT INTO properties (type, title, location, status, deadline, price, households, tags, badge, description) VALUES 
-  ('unsold', '시흥센트럴 푸르지오', '경기 시흥시', '무순위 접수중', '2025-01-18', '3억 2천만원~', '25세대', '["무순위", "LH"]', 'NEW', '시흥역 역세권 프리미엄 아파트'),
-  ('unsold', '인천 검단신도시 A7블록', '인천 서구', '무순위 접수중', '2025-01-20', '2억 8천만원~', '12세대', '["무순위", "LH"]', '', '검단신도시 초역세권 단지'),
-  ('unsold', '광명 하안뉴타운', '경기 광명시', '무순위 접수중', '2025-01-22', '3억 9천만원~', '8세대', '["무순위", "즉시입주"]', '', '즉시 입주 가능한 실속형 아파트'),
-  ('unsold', '부천 상동 파크자이', '경기 부천시', '무순위 접수중', '2025-01-25', '4억 1천만원~', '15세대', '["무순위", "즉시입주"]', '', '부천 상동역 도보 5분'),
-  ('unsold', '안양 평촌 더샵', '경기 안양시', '무순위 접수중', '2025-01-28', '5억 2천만원~', '18세대', '["무순위", "LH"]', 'HOT', '평촌역 초역세권 프리미엄'),
-  
-  ('johab', '하남 교산신도시', '경기 하남시', '1순위 청약중', '2025-01-15', '5억 1천만원~', '856세대', '["1순위", "특별공급"]', 'HOT', '교산신도시 대단지 아파트'),
-  ('johab', '성남 복정 힐스테이트', '경기 성남시', '일반공급 청약중', '2025-01-17', '6억 3천만원~', '432세대', '["일반공급", "특별공급"]', '', '복정역 역세권 힐스테이트'),
-  ('johab', '용인 수지 자이', '경기 용인시', '특별공급 청약중', '2025-01-19', '7억 5천만원~', '624세대', '["특별공급", "신혼부부"]', '', '수지구 프리미엄 자이'),
-  
-  ('next', '김포 한강신도시', '경기 김포시', '청약 예정', '2025-02-01', '4억 5천만원~', '1,234세대', '["분양예정", "SH"]', '', '김포 한강신도시 대단지'),
-  ('next', '평택 고덕국제신도시', '경기 평택시', '청약 예정', '2025-02-05', '3억 8천만원~', '892세대', '["분양예정", "LH"]', 'NEW', '고덕국제신도시 역세권'),
-  ('next', '화성 동탄2신도시', '경기 화성시', '청약 예정', '2025-02-10', '5억 9천만원~', '1,456세대', '["분양예정", "특별공급"]', 'HOT', '동탄2신도시 메가단지'),
-  ('next', '파주 운정신도시', '경기 파주시', '청약 예정', '2025-02-15', '4억 2천만원~', '768세대', '["분양예정", "SH"]', '', '운정신도시 브랜드 아파트'),
-  
-  ('unsold', '수원 영통 푸르지오', '경기 수원시', '무순위 접수중', '2025-01-30', '4억 8천만원~', '22세대', '["무순위", "즉시입주"]', '', '영통역 도보 10분 거리'),
-  ('unsold', '의정부 민락 롯데캐슬', '경기 의정부시', '무순위 접수중', '2025-02-02', '3억 5천만원~', '10세대', '["무순위", "LH"]', '', '의정부경전철 민락역 인근'),
-  ('unsold', '구리 갈매 자이', '경기 구리시', '무순위 접수중', '2025-02-05', '5억 6천만원~', '28세대', '["무순위", "즉시입주"]', 'NEW', '갈매역 역세권 프리미엄'),
-  ('unsold', '남양주 다산 e편한세상', '경기 남양주시', '무순위 접수중', '2025-02-08', '4억 3천만원~', '14세대', '["무순위", "LH"]', '', '다산신도시 중심 단지'),
-  ('unsold', '고양 삼송 힐스테이트', '경기 고양시', '무순위 접수중', '2025-02-10', '5억 9천만원~', '32세대', '["무순위", "즉시입주"]', 'HOT', '삼송역 초역세권'),
-  ('unsold', '용인 기흥 푸르지오', '경기 용인시', '무순위 접수중', '2025-02-12', '4억 7천만원~', '19세대', '["무순위", "LH"]', '', '기흥역 도보 5분'),
-  ('unsold', '안산 고잔 자이', '경기 안산시', '무순위 접수중', '2025-02-15', '3억 1천만원~', '11세대', '["무순위", "즉시입주"]', '', '고잔역 역세권 아파트'),
-  ('unsold', '성남 분당 더샵', '경기 성남시', '무순위 접수중', '2025-02-18', '7억 2천만원~', '25세대', '["무순위", "프리미엄"]', 'HOT', '분당 중심지 초역세권'),
-  ('unsold', '화성 봉담 롯데캐슬', '경기 화성시', '무순위 접수중', '2025-02-20', '3억 6천만원~', '16세대', '["무순위", "LH"]', '', '봉담읍 중심지 단지'),
-  ('unsold', '오산 세교 힐스테이트', '경기 오산시', '무순위 접수중', '2025-02-22', '4억 4천만원~', '20세대', '["무순위", "즉시입주"]', '', '세교신도시 브랜드 아파트'),
-  ('unsold', '시흥 정왕 자이', '경기 시흥시', '무순위 접수중', '2025-02-25', '3억 8천만원~', '13세대', '["무순위", "LH"]', 'NEW', '정왕역 역세권 단지'),
-  ('unsold', '광주 경안 푸르지오', '경기 광주시', '무순위 접수중', '2025-02-28', '4억 9천만원~', '17세대', '["무순위", "즉시입주"]', '', '경안동 중심 아파트'),
-  ('unsold', '하남 미사 더샵', '경기 하남시', '무순위 접수중', '2025-03-02', '6억 1천만원~', '24세대', '["무순위", "프리미엄"]', 'HOT', '미사역 초역세권 프리미엄');
+-- LH 실제 공고 데이터 기반 seed data
+-- 공고일: 2025년 10월~11월
+
+-- Clear existing data
+DELETE FROM properties;
+DELETE FROM sqlite_sequence WHERE name='properties';
+
+-- 1. 세종시 첫마을 4단지 - 공가 일반매각
+INSERT INTO properties (
+  title, location, full_address, region, type, status, deadline,
+  price, households, household_count, sale_price_min, sale_price_max,
+  tags, description, created_at, updated_at
+) VALUES (
+  '세종시 첫마을 4단지',
+  '세종특별자치시',
+  '세종특별자치시 누리로 119 (한솔동 1226)',
+  '세종/충청',
+  'unsold',
+  '모집중',
+  '2025-11-14',
+  '2.96억~3.49억',
+  '20호',
+  20,
+  2.96,
+  3.49,
+  '["공가매각", "청약통장불요", "무주택요건無"]',
+  '59㎡ 20호 일반매각. 1년 이상 세종시 거주자만 신청 가능. 순번추첨 후 동호지정.',
+  datetime('now'),
+  datetime('now')
+);
+
+-- 2. 세종시 첫마을 5단지 - 공가 일반매각
+INSERT INTO properties (
+  title, location, full_address, region, type, status, deadline,
+  price, households, household_count, sale_price_min, sale_price_max,
+  tags, description, created_at, updated_at
+) VALUES (
+  '세종시 첫마을 5단지',
+  '세종특별자치시',
+  '세종특별자치시 누리로 59 (한솔동 1045)',
+  '세종/충청',
+  'unsold',
+  '모집중',
+  '2025-11-14',
+  '2.96억~5.09억',
+  '22호',
+  22,
+  2.96,
+  5.09,
+  '["공가매각", "청약통장불요", "무주택요건無"]',
+  '59㎡/84㎡ 22호 일반매각. 1년 이상 세종시 거주자만 신청 가능.',
+  datetime('now'),
+  datetime('now')
+);
+
+-- 3. 세종시 첫마을 6단지 - 공가 일반매각
+INSERT INTO properties (
+  title, location, full_address, region, type, status, deadline,
+  price, households, household_count, sale_price_min, sale_price_max,
+  tags, description, created_at, updated_at
+) VALUES (
+  '세종시 첫마을 6단지',
+  '세종특별자치시',
+  '세종특별자치시 누리로 28 (한솔동 974)',
+  '세종/충청',
+  'unsold',
+  '모집중',
+  '2025-11-14',
+  '2.96억~5.09억',
+  '26호',
+  26,
+  2.96,
+  5.09,
+  '["공가매각", "청약통장불요", "무주택요건無"]',
+  '59㎡/84㎡ 26호 일반매각. 1년 이상 세종시 거주자만 신청 가능.',
+  datetime('now'),
+  datetime('now')
+);
+
+-- 4. 엘리프세종6-3 M4 신혼희망타운
+INSERT INTO properties (
+  title, location, full_address, region, type, status, deadline,
+  price, households, household_count, sale_price_min, sale_price_max,
+  tags, description, created_at, updated_at
+) VALUES (
+  '엘리프세종 6-3 M4 신혼희망타운',
+  '세종특별자치시',
+  '세종특별자치시 엘리프세종6-3생활권 M4블록',
+  '세종/충청',
+  'johab',
+  '모집중',
+  '2025-11-20',
+  '추후공지',
+  '추가모집',
+  0,
+  0,
+  0,
+  '["신혼희망타운", "추가모집", "무주택"]',
+  '신혼희망타운 추가 입주자 모집. 공고일: 2025.11.07',
+  datetime('now'),
+  datetime('now')
+);
+
+-- 5. 익산 제3일반산단 행복주택
+INSERT INTO properties (
+  title, location, full_address, region, type, status, deadline,
+  price, households, household_count, sale_price_min, sale_price_max,
+  tags, description, created_at, updated_at
+) VALUES (
+  '익산 제3일반산단 행복주택',
+  '전북특별자치도 익산시',
+  '전북특별자치도 익산시 낭산면 삼기북길 178',
+  '전북',
+  'johab',
+  '모집중',
+  '2025-11-12',
+  '보증금 1,314만원~',
+  '200호',
+  200,
+  0.013,
+  0.044,
+  '["행복주택", "임대", "소득요건완화"]',
+  '25㎡~44㎡ 총 200호. 임대보증금 1,314만원~4,348만원. 월세 7만~24만원대.',
+  datetime('now'),
+  datetime('now')
+);
+
+-- 6. 김제지평선 행복주택
+INSERT INTO properties (
+  title, location, full_address, region, type, status, deadline,
+  price, households, household_count, sale_price_min, sale_price_max,
+  tags, description, created_at, updated_at
+) VALUES (
+  '김제지평선 행복주택',
+  '전북특별자치도 김제시',
+  '전북특별자치도 김제시 지평선산단2길 319',
+  '전북',
+  'johab',
+  '모집중',
+  '2025-11-12',
+  '보증금 1,527만원~',
+  '120호',
+  120,
+  0.015,
+  0.040,
+  '["행복주택", "임대", "소득요건완화"]',
+  '26㎡~51㎡ 총 120호. 임대보증금 1,527만원~4,000만원. 월세 8만~21만원대.',
+  datetime('now'),
+  datetime('now')
+);
+
+-- 7. 평택 고덕 A-6블록 행복주택
+INSERT INTO properties (
+  title, location, full_address, region, type, status, deadline,
+  price, households, household_count, sale_price_min, sale_price_max,
+  tags, description, created_at, updated_at
+) VALUES (
+  '평택 고덕 A-6블록 행복주택',
+  '경기도 평택시',
+  '경기도 평택시 고덕국제대로 232 (고덕동)',
+  '경기',
+  'next',
+  '모집중',
+  '2025-11-19',
+  '보증금 1,692만원~',
+  '400호',
+  400,
+  0.017,
+  0.041,
+  '["행복주택", "예비입주자", "선계약후검증"]',
+  '16㎡~36㎡ 평택고덕LH2단지. 임대보증금 1,692만원~4,086만원. 소득요건 완화.',
+  datetime('now'),
+  datetime('now')
+);
+
+-- 8. 평택 소사벌 A-6블록 행복주택
+INSERT INTO properties (
+  title, location, full_address, region, type, status, deadline,
+  price, households, household_count, sale_price_min, sale_price_max,
+  tags, description, created_at, updated_at
+) VALUES (
+  '평택 소사벌 A-6블록 행복주택',
+  '경기도 평택시',
+  '경기도 평택시 죽백4로 60 (죽백동 815)',
+  '경기',
+  'next',
+  '모집중',
+  '2025-11-19',
+  '보증금 1,692만원~',
+  '428호',
+  428,
+  0.017,
+  0.041,
+  '["행복주택", "예비입주자", "선계약후검증"]',
+  '16㎡~36㎡ 428호. 임대보증금 1,692만원~4,086만원. 소득요건 완화.',
+  datetime('now'),
+  datetime('now')
+);
+
+-- 9. 남양주 가운2 국민임대
+INSERT INTO properties (
+  title, location, full_address, region, type, status, deadline,
+  price, households, household_count, sale_price_min, sale_price_max,
+  tags, description, created_at, updated_at
+) VALUES (
+  '남양주 가운2 국민임대',
+  '경기도 남양주시',
+  '경기도 남양주시 가운로길 28 (다산동)',
+  '경기',
+  'next',
+  '모집중',
+  '2025-11-20',
+  '보증금 1,862만원~',
+  '예비 80명',
+  80,
+  0.019,
+  0.037,
+  '["국민임대", "예비입주자", "무주택"]',
+  '36㎡~46㎡ 예비입주자 80명 모집. 임대보증금 1,862만원~3,697만원. 월세 21만~30만원대.',
+  datetime('now'),
+  datetime('now')
+);
