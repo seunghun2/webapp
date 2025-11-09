@@ -173,48 +173,49 @@ app.post('/api/crawl/lh', async (c) => {
     const lhUrl = 'https://apply.lh.or.kr/lhapply/apply/wt/wrtanc/selectWrtancList.do?mi=1027'
     
     // Fetch HTML from LH
-    const response = await fetch(lhUrl)
+    const response = await fetch(lhUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0'
+      }
+    })
     const html = await response.text()
     
-    // 간단한 HTML 파싱 (정규식 사용)
-    const tableRegex = /<tr[^>]*>(.*?)<\/tr>/gs
-    const rows = [...html.matchAll(tableRegex)]
+    // HTML 파싱: <tbody> 내의 <tr> 태그 추출
+    const tbodyMatch = html.match(/<tbody>(.*?)<\/tbody>/s)
+    if (!tbodyMatch) {
+      return c.json({
+        success: false,
+        error: 'Failed to find table data',
+        message: 'No tbody found in HTML'
+      }, 500)
+    }
+    
+    const tbody = tbodyMatch[1]
+    const rowRegex = /<tr>\s*<td>(\d+)<\/td>\s*<td[^>]*>(.*?)<\/td>\s*<td[^>]*>.*?<span>(.*?)<\/span>.*?<\/td>\s*<td[^>]*>(.*?)<\/td>.*?<td>(\d{4}\.\d{2}\.\d{2})<\/td>\s*<td>(\d{4}\.\d{2}\.\d{2})<\/td>\s*<td[^>]*>(.*?)<\/td>/gs
+    
+    const rows = [...tbody.matchAll(rowRegex)]
     
     let newCount = 0
     let updateCount = 0
     
-    for (const row of rows) {
-      const rowHtml = row[1]
+    for (const match of rows) {
+      const [, number, announcementType, titleRaw, region, announcementDate, deadline, status] = match
       
-      // 공고명 추출
-      const titleMatch = rowHtml.match(/class="tal"[^>]*>(.*?)<\/td>/s)
-      if (!titleMatch) continue
+      // 공고명 정리 (HTML 태그 제거)
+      const titleText = titleRaw.replace(/<[^>]+>/g, '').trim()
+      if (!titleText) continue
       
-      const titleText = titleMatch[1].replace(/<[^>]+>/g, '').trim()
-      if (!titleText || titleText === '공고명') continue
+      // 유형 정리
+      const cleanType = announcementType.trim()
       
-      // 지역 추출
-      const regionMatch = rowHtml.match(/class="ta-c"[^>]*>([^<]+)<\/td>/s)
-      const region = regionMatch ? regionMatch[1].trim() : ''
+      // 지역 정리
+      const cleanRegion = region.trim()
       
-      // 게시일/마감일 추출  
-      const dateMatches = [...rowHtml.matchAll(/(\d{4}\.\d{2}\.\d{2})/g)]
-      const announcementDate = dateMatches[0] ? dateMatches[0][1] : ''
-      const deadline = dateMatches[1] ? dateMatches[1][1] : ''
+      // 상태 정리
+      const cleanStatus = status.trim()
       
-      // 상태 추출
-      const statusMatch = rowHtml.match(/공고중|접수중|마감/)
-      const status = statusMatch ? statusMatch[0] : '공고중'
-      
-      // 유형 추출
+      // 분양 타입 결정
       let propertyType = 'unsold' // 기본값
-      let announcementType = '분양주택'
-      
-      if (titleText.includes('신혼희망')) {
-        announcementType = '공공분양(신혼희망)'
-      } else if (titleText.includes('공공분양')) {
-        announcementType = '공공분양'
-      }
       
       // 지역명 정규화
       let normalizedRegion = ''
