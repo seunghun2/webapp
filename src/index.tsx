@@ -252,12 +252,12 @@ app.get('/', (c) => {
           
           .detail-row {
             display: flex;
-            padding: 12px 0;
+            padding: 10px 0;
             border-bottom: 1px solid #f0f0f0;
           }
           
           .detail-label {
-            width: 100px;
+            min-width: 80px;
             color: #666;
             font-size: 13px;
           }
@@ -268,6 +268,35 @@ app.get('/', (c) => {
             font-size: 14px;
             font-weight: 500;
           }
+          
+          .modal {
+            display: none;
+          }
+          
+          .modal.show {
+            display: flex;
+          }
+          
+          .investment-positive {
+            color: #dc2626;
+            font-weight: 700;
+          }
+          
+          .investment-negative {
+            color: #2563eb;
+            font-weight: 700;
+          }
+          
+          .profit-badge {
+            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+            color: white;
+            font-weight: 700;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 13px;
+            display: inline-block;
+            margin-left: 8px;
+          }
         </style>
     </head>
     <body class="bg-gray-50">
@@ -277,7 +306,7 @@ app.get('/', (c) => {
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
                         <h1 class="text-xl font-bold text-gray-900">줍줍분양</h1>
-                        <span class="text-xs text-gray-500 hidden sm:inline">오늘의 분양 정보</span>
+                        <span class="text-xs text-gray-500 hidden sm:inline">실전 투자 정보</span>
                     </div>
                     <div class="flex items-center gap-2">
                         <button class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-all">
@@ -429,7 +458,7 @@ app.get('/', (c) => {
                 <div class="grid md:grid-cols-3 gap-8">
                     <div>
                         <h4 class="text-white font-bold mb-4">줍줍분양</h4>
-                        <p class="text-sm">오늘의 분양 정보를 한눈에</p>
+                        <p class="text-sm">실전 투자 정보를 한눈에</p>
                     </div>
                     <div>
                         <h4 class="text-white font-bold mb-4">고객센터</h4>
@@ -448,10 +477,23 @@ app.get('/', (c) => {
             </div>
         </footer>
 
+        <!-- Detail Modal -->
+        <div id="detailModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto relative">
+                <button id="closeDetailModal" class="sticky top-4 right-4 float-right text-gray-400 hover:text-gray-600 text-2xl z-10 bg-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg">
+                    <i class="fas fa-times"></i>
+                </button>
+                
+                <div id="modalContent" class="p-8">
+                    <!-- Modal content will be loaded here -->
+                </div>
+            </div>
+        </div>
+
         <!-- Login Modal -->
-        <div id="loginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div id="loginModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-8 relative fade-in">
-                <button id="closeModal" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">
+                <button id="closeLoginModal" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">
                     <i class="fas fa-times"></i>
                 </button>
                 
@@ -490,6 +532,7 @@ app.get('/', (c) => {
         </div>
 
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/app.js"></script>
         <script>
           // Filter state
           const filters = {
@@ -498,6 +541,229 @@ app.get('/', (c) => {
             household: 'all',
             sort: 'latest'
           };
+
+          // Calculate D-Day
+          function calculateDDay(deadlineStr) {
+            const deadline = new Date(deadlineStr);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            deadline.setHours(0, 0, 0, 0);
+            
+            const diffTime = deadline - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays < 0) {
+              return { text: '마감', class: 'bg-gray-400', days: diffDays };
+            } else if (diffDays === 0) {
+              return { text: 'D-Day', class: 'bg-red-500', days: 0 };
+            } else if (diffDays <= 7) {
+              return { text: \`D-\${diffDays}\`, class: 'bg-red-500', days: diffDays };
+            } else if (diffDays <= 30) {
+              return { text: \`D-\${diffDays}\`, class: 'bg-orange-500', days: diffDays };
+            } else {
+              return { text: \`D-\${diffDays}\`, class: 'bg-blue-500', days: diffDays };
+            }
+          }
+
+          // Open map
+          function openMap(address, lat, lng) {
+            if (lat && lng && lat !== 0 && lng !== 0) {
+              window.open(\`https://map.kakao.com/link/map/\${encodeURIComponent(address)},\${lat},\${lng}\`, '_blank');
+            } else {
+              window.open(\`https://map.kakao.com/link/search/\${encodeURIComponent(address)}\`, '_blank');
+            }
+          }
+
+          // Format margin
+          function formatMargin(margin, rate) {
+            if (!margin || margin === 0) return null;
+            
+            const sign = margin > 0 ? '+' : '';
+            const color = margin > 0 ? 'investment-positive' : 'investment-negative';
+            
+            return {
+              text: \`\${sign}\${margin.toFixed(1)}억 (\${sign}\${rate.toFixed(1)}%)\`,
+              color: color
+            };
+          }
+
+          // Show detail modal
+          async function showDetail(id) {
+            try {
+              const response = await axios.get(\`/api/properties/detail/\${id}\`);
+              const property = response.data;
+              
+              const dday = calculateDDay(property.deadline);
+              const margin = formatMargin(property.expected_margin, property.margin_rate);
+              
+              const modalContent = document.getElementById('modalContent');
+              modalContent.innerHTML = \`
+                <div class="space-y-6">
+                  <!-- Header -->
+                  <div>
+                    <div class="flex items-start justify-between mb-2">
+                      <h2 class="text-2xl font-bold text-gray-900">\${property.title}</h2>
+                      \${property.badge ? \`
+                        <span class="badge-\${property.badge.toLowerCase()} text-white text-xs font-bold px-3 py-1 rounded-full">
+                          \${property.badge}
+                        </span>
+                      \` : ''}
+                    </div>
+                    
+                    <div class="flex items-center gap-2 text-gray-600 mb-2">
+                      <i class="fas fa-map-marker-alt text-primary"></i>
+                      <span class="text-sm">\${property.full_address || property.location}</span>
+                      <button onclick="openMap('\${property.full_address || property.location}', \${property.lat}, \${property.lng})" 
+                              class="text-primary text-sm font-medium hover:underline ml-2">
+                        <i class="fas fa-map-marked-alt mr-1"></i>지도에서 보기
+                      </button>
+                    </div>
+                    
+                    <div class="flex items-center gap-2">
+                      <span class="\${dday.class} text-white text-xs font-bold px-3 py-1 rounded-full">
+                        \${dday.text}
+                      </span>
+                      <span class="text-sm text-gray-600">\${property.deadline}까지</span>
+                    </div>
+                  </div>
+
+                  <!-- Investment Info -->
+                  \${margin ? \`
+                    <div class="bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200 rounded-xl p-6">
+                      <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                        <i class="fas fa-chart-line text-red-500 mr-2"></i>
+                        투자 분석
+                      </h3>
+                      <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                          <span class="text-sm text-gray-600">분양 당시</span>
+                          <span class="font-bold text-gray-900">\${property.original_price.toFixed(1)}억</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                          <span class="text-sm text-gray-600">최근 실거래가</span>
+                          <span class="font-bold text-gray-900">\${property.recent_trade_price.toFixed(1)}억</span>
+                        </div>
+                        <div class="border-t-2 border-red-200 pt-3 flex justify-between items-center">
+                          <span class="text-base font-bold text-gray-900">예상 마진</span>
+                          <div class="text-right">
+                            <div class="\${margin.color} text-xl">\${margin.text}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  \` : ''}
+
+                  <!-- Basic Info -->
+                  <div class="bg-gray-50 rounded-xl p-6">
+                    <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                      <i class="fas fa-building text-primary mr-2"></i>
+                      단지 정보
+                    </h3>
+                    <div class="space-y-3">
+                      \${property.area_type ? \`
+                        <div class="flex justify-between">
+                          <span class="text-sm text-gray-600">면적</span>
+                          <span class="text-sm font-medium text-gray-900">\${property.area_type}</span>
+                        </div>
+                      \` : ''}
+                      <div class="flex justify-between">
+                        <span class="text-sm text-gray-600">분양가</span>
+                        <span class="text-sm font-medium text-gray-900">\${property.price}</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="text-sm text-gray-600">모집세대</span>
+                        <span class="text-sm font-medium text-gray-900">\${property.households}</span>
+                      </div>
+                      \${property.move_in_date ? \`
+                        <div class="flex justify-between">
+                          <span class="text-sm text-gray-600">입주예정</span>
+                          <span class="text-sm font-medium text-gray-900">\${property.move_in_date}</span>
+                        </div>
+                      \` : ''}
+                      \${property.parking ? \`
+                        <div class="flex justify-between">
+                          <span class="text-sm text-gray-600">주차</span>
+                          <span class="text-sm font-medium text-gray-900">\${property.parking}</span>
+                        </div>
+                      \` : ''}
+                      \${property.heating ? \`
+                        <div class="flex justify-between">
+                          <span class="text-sm text-gray-600">난방</span>
+                          <span class="text-sm font-medium text-gray-900">\${property.heating}</span>
+                        </div>
+                      \` : ''}
+                      \${property.builder ? \`
+                        <div class="flex justify-between">
+                          <span class="text-sm text-gray-600">시공사</span>
+                          <span class="text-sm font-medium text-gray-900">\${property.builder}</span>
+                        </div>
+                      \` : ''}
+                    </div>
+                  </div>
+
+                  <!-- Infrastructure -->
+                  <div class="grid md:grid-cols-2 gap-4">
+                    \${property.transportation ? \`
+                      <div class="bg-blue-50 rounded-xl p-4">
+                        <h4 class="text-sm font-bold text-gray-900 mb-2 flex items-center">
+                          <i class="fas fa-subway text-primary mr-2"></i>교통
+                        </h4>
+                        <p class="text-xs text-gray-700 leading-relaxed">\${property.transportation}</p>
+                      </div>
+                    \` : ''}
+                    
+                    \${property.education ? \`
+                      <div class="bg-green-50 rounded-xl p-4">
+                        <h4 class="text-sm font-bold text-gray-900 mb-2 flex items-center">
+                          <i class="fas fa-school text-green-600 mr-2"></i>교육
+                        </h4>
+                        <p class="text-xs text-gray-700 leading-relaxed">\${property.education}</p>
+                      </div>
+                    \` : ''}
+                    
+                    \${property.shopping ? \`
+                      <div class="bg-purple-50 rounded-xl p-4">
+                        <h4 class="text-sm font-bold text-gray-900 mb-2 flex items-center">
+                          <i class="fas fa-shopping-cart text-purple-600 mr-2"></i>쇼핑
+                        </h4>
+                        <p class="text-xs text-gray-700 leading-relaxed">\${property.shopping}</p>
+                      </div>
+                    \` : ''}
+                    
+                    \${property.medical ? \`
+                      <div class="bg-red-50 rounded-xl p-4">
+                        <h4 class="text-sm font-bold text-gray-900 mb-2 flex items-center">
+                          <i class="fas fa-hospital text-red-600 mr-2"></i>병원
+                        </h4>
+                        <p class="text-xs text-gray-700 leading-relaxed">\${property.medical}</p>
+                      </div>
+                    \` : ''}
+                  </div>
+
+                  <!-- Official Documents -->
+                  <div class="flex gap-3">
+                    \${property.lh_notice_url ? \`
+                      <a href="\${property.lh_notice_url}" target="_blank" 
+                         class="flex-1 bg-primary text-white text-center py-3 rounded-xl font-bold hover:bg-primary-light transition-all">
+                        <i class="fas fa-external-link-alt mr-2"></i>LH 공고 보기
+                      </a>
+                    \` : ''}
+                    \${property.pdf_url ? \`
+                      <a href="\${property.pdf_url}" target="_blank" 
+                         class="flex-1 bg-gray-800 text-white text-center py-3 rounded-xl font-bold hover:bg-gray-700 transition-all">
+                        <i class="fas fa-file-pdf mr-2"></i>PDF 다운로드
+                      </a>
+                    \` : ''}
+                  </div>
+                </div>
+              \`;
+              
+              document.getElementById('detailModal').classList.add('show');
+            } catch (error) {
+              console.error('Failed to load detail:', error);
+              alert('상세 정보를 불러올 수 없습니다.');
+            }
+          }
 
           // Load statistics
           async function loadStats() {
@@ -562,19 +828,33 @@ app.get('/', (c) => {
                   </div>
                 \`;
               } else {
-                container.innerHTML = properties.map(property => \`
+                container.innerHTML = properties.map(property => {
+                  const dday = calculateDDay(property.deadline);
+                  const margin = formatMargin(property.expected_margin, property.margin_rate);
+                  
+                  return \`
                   <div class="toss-card bg-white rounded-2xl shadow-sm overflow-hidden fade-in">
                     <div class="p-6">
-                      <div class="flex items-start justify-between mb-4">
+                      <div class="flex items-start justify-between mb-3">
                         <div class="flex-1">
                           <h3 class="text-xl font-bold text-gray-900 mb-2">\${property.title}</h3>
-                          <div class="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                            <i class="fas fa-map-marker-alt text-primary"></i>
-                            <span>\${property.location}</span>
+                          <div class="flex items-center gap-3 mb-2">
+                            <div class="flex items-center gap-1 text-sm text-gray-600">
+                              <i class="fas fa-map-marker-alt text-gray-400"></i>
+                              <span>\${property.location}</span>
+                            </div>
+                            \${property.full_address ? \`
+                              <button onclick="openMap('\${property.full_address}', \${property.lat}, \${property.lng})" 
+                                      class="text-primary text-xs hover:underline">
+                                🗺️ 지도
+                              </button>
+                            \` : ''}
                           </div>
-                          <div class="flex items-center gap-2 text-sm text-gray-600">
-                            <i class="fas fa-calendar text-primary"></i>
-                            <span>\${property.deadline}까지</span>
+                          <div class="flex items-center gap-2">
+                            <span class="\${dday.class} text-white text-xs font-bold px-2 py-1 rounded">
+                              \${dday.text}
+                            </span>
+                            <span class="text-xs text-gray-600">\${property.deadline}</span>
                           </div>
                         </div>
                         \${property.badge ? \`
@@ -592,72 +872,45 @@ app.get('/', (c) => {
                         \`).join('')}
                       </div>
                       
-                      <!-- Detailed Info Section -->
-                      <div class="border-t border-gray-100 pt-4 mb-4">
-                        \${property.area_type ? \`
-                          <div class="detail-row">
-                            <div class="detail-label">면적</div>
-                            <div class="detail-value">\${property.area_type}</div>
+                      <!-- Investment Summary -->
+                      \${margin ? \`
+                        <div class="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-lg p-4 mb-4">
+                          <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-gray-600">분양가</span>
+                            <span class="text-sm font-bold text-gray-900">\${property.original_price.toFixed(1)}억</span>
                           </div>
-                        \` : ''}
-                        
-                        <div class="detail-row">
-                          <div class="detail-label">분양가</div>
-                          <div class="detail-value">\${property.price}</div>
+                          <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs text-gray-600">실거래가</span>
+                            <span class="text-sm font-bold text-gray-900">\${property.recent_trade_price.toFixed(1)}억</span>
+                          </div>
+                          <div class="border-t border-red-200 pt-2 flex justify-between items-center">
+                            <span class="text-xs font-bold text-gray-900">예상 마진</span>
+                            <span class="\${margin.color} text-base">\${margin.text}</span>
+                          </div>
                         </div>
-                        
-                        <div class="detail-row">
-                          <div class="detail-label">모집세대</div>
-                          <div class="detail-value">\${property.households}</div>
+                      \` : \`
+                        <div class="border-t border-gray-100 pt-4 mb-4">
+                          <div class="grid grid-cols-2 gap-3">
+                            <div>
+                              <div class="text-xs text-gray-600 mb-1">분양가</div>
+                              <div class="text-sm font-bold text-gray-900">\${property.price}</div>
+                            </div>
+                            <div>
+                              <div class="text-xs text-gray-600 mb-1">모집세대</div>
+                              <div class="text-sm font-bold text-gray-900">\${property.households}</div>
+                            </div>
+                          </div>
                         </div>
-                        
-                        \${property.move_in_date ? \`
-                          <div class="detail-row">
-                            <div class="detail-label">입주예정</div>
-                            <div class="detail-value">\${property.move_in_date}</div>
-                          </div>
-                        \` : ''}
-                        
-                        \${property.parking ? \`
-                          <div class="detail-row">
-                            <div class="detail-label">주차</div>
-                            <div class="detail-value">\${property.parking}</div>
-                          </div>
-                        \` : ''}
-                        
-                        \${property.heating ? \`
-                          <div class="detail-row">
-                            <div class="detail-label">난방</div>
-                            <div class="detail-value">\${property.heating}</div>
-                          </div>
-                        \` : ''}
-                        
-                        \${property.builder ? \`
-                          <div class="detail-row">
-                            <div class="detail-label">시공사</div>
-                            <div class="detail-value">\${property.builder}</div>
-                          </div>
-                        \` : ''}
-                        
-                        \${property.transportation ? \`
-                          <div class="detail-row border-0">
-                            <div class="detail-label">교통</div>
-                            <div class="detail-value text-xs leading-relaxed">\${property.transportation}</div>
-                          </div>
-                        \` : ''}
-                      </div>
+                      \`}
                       
-                      <div class="flex gap-2">
-                        <button class="flex-1 bg-primary text-white font-semibold py-3 rounded-lg hover:bg-primary-light transition-all text-sm">
-                          관심등록
-                        </button>
-                        <button class="bg-gray-100 text-gray-700 font-semibold px-4 py-3 rounded-lg hover:bg-gray-200 transition-all">
-                          <i class="fas fa-share-alt"></i>
-                        </button>
-                      </div>
+                      <button onclick="showDetail(\${property.id})" 
+                              class="w-full bg-primary text-white font-semibold py-3 rounded-lg hover:bg-primary-light transition-all text-sm">
+                        상세보기
+                      </button>
                     </div>
                   </div>
-                \`).join('');
+                \`;
+                }).join('');
               }
             } catch (error) {
               console.error('Failed to load properties:', error);
@@ -822,23 +1075,34 @@ app.get('/', (c) => {
             loadProperties();
           });
 
+          // Modal handlers
+          document.getElementById('closeDetailModal').addEventListener('click', () => {
+            document.getElementById('detailModal').classList.remove('show');
+          });
+
+          document.getElementById('detailModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('detailModal')) {
+              document.getElementById('detailModal').classList.remove('show');
+            }
+          });
+
           // Login modal handlers
           const loginModal = document.getElementById('loginModal');
           const loginBtn = document.getElementById('loginBtn');
-          const closeModal = document.getElementById('closeModal');
+          const closeLoginModal = document.getElementById('closeLoginModal');
           const signupBtn = document.getElementById('signupBtn');
 
           loginBtn.addEventListener('click', () => {
-            loginModal.classList.remove('hidden');
+            loginModal.classList.add('show');
           });
 
-          closeModal.addEventListener('click', () => {
-            loginModal.classList.add('hidden');
+          closeLoginModal.addEventListener('click', () => {
+            loginModal.classList.remove('show');
           });
 
           loginModal.addEventListener('click', (e) => {
             if (e.target === loginModal) {
-              loginModal.classList.add('hidden');
+              loginModal.classList.remove('show');
             }
           });
 
