@@ -62,7 +62,10 @@ app.get('/api/properties', async (c) => {
     let params: any[] = []
     
     // Type filter
-    if (type !== 'all' && type !== 'today') {
+    if (type === 'today') {
+      // 오늘청약: 오늘이 청약일인 항목만 표시
+      query += " AND date(deadline) = date('now')"
+    } else if (type !== 'all') {
       query += ' AND type = ?'
       params.push(type)
     }
@@ -1054,6 +1057,7 @@ app.get('/', (c) => {
           .dropdown-content {
             display: none;
             z-index: 9999;
+            position: absolute;
           }
           
           .dropdown-content.show {
@@ -1062,7 +1066,11 @@ app.get('/', (c) => {
           
           .filter-dropdown {
             position: relative;
-            z-index: 100;
+            z-index: 1000;
+          }
+          
+          .filter-dropdown.open {
+            z-index: 10000;
           }
           
           @keyframes fadeIn {
@@ -1885,13 +1893,23 @@ app.get('/', (c) => {
               const properties = response.data;
               
               if (properties.length === 0) {
-                container.innerHTML = \`
-                  <div class="col-span-2 text-center py-12">
-                    <div class="text-6xl mb-4">🏠</div>
-                    <h3 class="text-xl font-bold text-gray-900 mb-2">분양 정보가 없습니다</h3>
-                    <p class="text-gray-600">필터를 조정해보세요!</p>
-                  </div>
-                \`;
+                // 조합원 탭일 경우 다른 메시지 표시
+                if (filters.type === 'next') {
+                  container.innerHTML = \`
+                    <div class="col-span-2 text-center py-12">
+                      <div class="text-6xl mb-4">👥</div>
+                      <h3 class="text-xl font-bold text-gray-900 mb-2">등록되어 있는 조합원이 없습니다</h3>
+                    </div>
+                  \`;
+                } else {
+                  container.innerHTML = \`
+                    <div class="col-span-2 text-center py-12">
+                      <div class="text-6xl mb-4">🏠</div>
+                      <h3 class="text-xl font-bold text-gray-900 mb-2">분양 정보가 없습니다</h3>
+                      <p class="text-gray-600">필터를 조정해보세요!</p>
+                    </div>
+                  \`;
+                }
               } else {
                 container.innerHTML = properties.map(property => {
                   const dday = calculateDDay(property.deadline);
@@ -1941,21 +1959,53 @@ app.get('/', (c) => {
                             <div class="font-bold text-gray-900">\${property.deadline}</div>
                           </div>
                           <div>
-                            <div class="text-xs text-gray-500 mb-1">📐 타입</div>
-                            <div class="font-bold text-gray-900">\${property.area_type || '-'}</div>
+                            <div class="text-xs text-gray-500 mb-1">🏠 분양세대</div>
+                            <div class="font-bold text-gray-900">\${property.household_count ? property.household_count + '세대' : property.households}</div>
                           </div>
                           <div>
-                            <div class="text-xs text-gray-500 mb-1">🏠 줍줍 물량</div>
-                            <div class="font-bold text-gray-900">\${property.households}</div>
+                            <div class="text-xs text-gray-500 mb-1">📐 분양면적</div>
+                            <div class="font-bold text-gray-900">\${property.supply_area || property.area_type || '-'}</div>
+                          </div>
+                          <div>
+                            <div class="text-xs text-gray-500 mb-1">📏 전용면적</div>
+                            <div class="font-bold text-gray-900">\${property.exclusive_area || '-'}</div>
+                          </div>
+                          <div>
+                            <div class="text-xs text-gray-500 mb-1">💰 분양가격</div>
+                            <div class="font-bold text-gray-900 text-xs">\${
+                              property.sale_price_min && property.sale_price_max 
+                                ? property.sale_price_min.toFixed(1) + '억~' + property.sale_price_max.toFixed(1) + '억'
+                                : property.price
+                            }</div>
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">🏗️ 시공사</div>
                             <div class="font-bold text-gray-900 text-xs">\${property.builder || '-'}</div>
                           </div>
+                          \${property.special_supply_date ? \`
+                          <div>
+                            <div class="text-xs text-gray-500 mb-1">⭐ 특별청약</div>
+                            <div class="font-bold text-primary text-xs">\${property.special_supply_date}</div>
+                          </div>
+                          \` : ''}
+                          \${property.subscription_start || property.subscription_end ? \`
+                          <div>
+                            <div class="text-xs text-gray-500 mb-1">📝 무순위청약</div>
+                            <div class="font-bold text-primary text-xs">\${property.subscription_start}\${property.subscription_end && property.subscription_end !== property.subscription_start ? '~' + property.subscription_end : ''}</div>
+                          </div>
+                          \` : ''}
                         </div>
                         \${property.description ? \`
                           <div class="mt-3 pt-3 border-t border-gray-200">
                             <div class="text-xs text-gray-600">\${property.description}</div>
+                          </div>
+                        \` : ''}
+                        \${property.contact_number ? \`
+                          <div class="mt-3 pt-3 border-t border-gray-200">
+                            <div class="flex items-center justify-between">
+                              <span class="text-xs text-gray-500">📞 상담문의</span>
+                              <a href="tel:\${property.contact_number}" class="text-sm font-bold text-primary hover:underline">\${property.contact_number}</a>
+                            </div>
                           </div>
                         \` : ''}
                       </div>
@@ -2078,21 +2128,12 @@ app.get('/', (c) => {
                       <div class="flex gap-2">
                         <!-- 상세 정보 버튼 (모든 타입 공통) -->
                         <button onclick="showDetail(\${property.id})" 
-                                class="flex-1 bg-white border-2 border-primary text-primary font-medium py-2 rounded-lg hover:bg-primary transition-all text-xs group">
+                                class="w-full bg-white border-2 border-primary text-primary font-medium py-2.5 rounded-lg hover:bg-primary transition-all text-sm group">
                           <span class="group-hover:text-white">
                             <i class="fas fa-info-circle mr-1"></i>
                             상세 정보
                           </span>
                         </button>
-                        
-                        <!-- 주변 아파트 버튼 (줍줍분양 제외) -->
-                        \${property.type !== 'unsold' ? \`
-                          <button onclick="showNearbyApartments(\${property.id})" 
-                                  class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg hover:bg-blue-600 transition-all text-xs">
-                            <i class="fas fa-building mr-1"></i>
-                            주변 아파트
-                          </button>
-                        \` : ''}
                       </div>
                     </div>
                   </div>
@@ -2233,13 +2274,23 @@ app.get('/', (c) => {
             btn.addEventListener('click', (e) => {
               e.stopPropagation();
               const dropdown = btn.nextElementSibling;
+              const parent = btn.closest('.filter-dropdown');
               
-              // Close other dropdowns
+              // Close other dropdowns and remove open class
               document.querySelectorAll('.dropdown-content').forEach(d => {
-                if (d !== dropdown) d.classList.remove('show');
+                if (d !== dropdown) {
+                  d.classList.remove('show');
+                  d.closest('.filter-dropdown')?.classList.remove('open');
+                }
               });
               
-              dropdown.classList.toggle('show');
+              // Toggle current dropdown
+              const isOpen = dropdown.classList.toggle('show');
+              if (isOpen) {
+                parent.classList.add('open');
+              } else {
+                parent.classList.remove('open');
+              }
             });
           });
 
@@ -2252,8 +2303,10 @@ app.get('/', (c) => {
               
               filters[filterType] = value;
               
-              // Close dropdown
-              option.closest('.dropdown-content').classList.remove('show');
+              // Close dropdown and remove open class
+              const dropdown = option.closest('.dropdown-content');
+              dropdown.classList.remove('show');
+              dropdown.closest('.filter-dropdown')?.classList.remove('open');
               
               updateActiveFilters();
               updateFilterButtonTexts();
@@ -2265,6 +2318,7 @@ app.get('/', (c) => {
           document.addEventListener('click', () => {
             document.querySelectorAll('.dropdown-content').forEach(d => {
               d.classList.remove('show');
+              d.closest('.filter-dropdown')?.classList.remove('open');
             });
           });
 
