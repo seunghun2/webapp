@@ -1,0 +1,44 @@
+name: LH 청약센터 자동 크롤링
+
+on:
+  # 매일 한국시간 오전 9시 (UTC 0시)에 실행
+  schedule:
+    - cron: '0 0 * * *'
+  
+  # 수동 실행도 가능하도록
+  workflow_dispatch:
+
+jobs:
+  crawl-lh:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Call LH Crawling API
+        run: |
+          echo "🚀 LH 청약센터 크롤링 시작..."
+          
+          RESPONSE=$(curl -s -X POST https://project-359401ac.pages.dev/api/crawl/lh \
+            -H "Content-Type: application/json")
+          
+          echo "📊 크롤링 결과:"
+          echo "$RESPONSE" | jq '.'
+          
+          # 성공 여부 확인
+          SUCCESS=$(echo "$RESPONSE" | jq -r '.success')
+          
+          if [ "$SUCCESS" = "true" ]; then
+            NEW_COUNT=$(echo "$RESPONSE" | jq -r '.newCount')
+            UPDATE_COUNT=$(echo "$RESPONSE" | jq -r '.updateCount')
+            echo "✅ 크롤링 성공: 신규 ${NEW_COUNT}건, 업데이트 ${UPDATE_COUNT}건"
+          else
+            echo "❌ 크롤링 실패"
+            exit 1
+          fi
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "⚠️ LH 크롤링 실패! GitHub Actions 로그를 확인하세요."
