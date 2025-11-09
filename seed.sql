@@ -9,7 +9,8 @@ DELETE FROM sqlite_sequence WHERE name='properties';
 INSERT INTO properties (
   title, location, full_address, region, type, status, deadline,
   price, households, household_count, sale_price_min, sale_price_max,
-  tags, description, created_at, updated_at
+  tags, description, builder, move_in_date, area_type, pdf_url, 
+  original_price, recent_trade_price, created_at, updated_at
 ) VALUES (
   '세종시 첫마을 4단지',
   '세종특별자치시',
@@ -25,6 +26,12 @@ INSERT INTO properties (
   3.49,
   '["공개매각", "청약통장 불필요", "무주택요건無"]',
   '59㎡ 20호 일반매각. 1년 이상 세종시 거주자만 신청 가능. 순번추첨 후 동호지정.',
+  'GS건설',
+  '2013년 12월',
+  '59㎡',
+  'https://www.lh.or.kr/ptl/comm/getBbsArticleDetail.do',
+  3.2,
+  3.8,
   datetime('now'),
   datetime('now')
 );
@@ -33,7 +40,8 @@ INSERT INTO properties (
 INSERT INTO properties (
   title, location, full_address, region, type, status, deadline,
   price, households, household_count, sale_price_min, sale_price_max,
-  tags, description, created_at, updated_at
+  tags, description, builder, move_in_date, area_type, pdf_url,
+  original_price, recent_trade_price, created_at, updated_at
 ) VALUES (
   '세종시 첫마을 5단지',
   '세종특별자치시',
@@ -49,6 +57,12 @@ INSERT INTO properties (
   5.09,
   '["공개매각", "청약통장 불필요", "무주택요건無"]',
   '59㎡/84㎡ 22호 일반매각. 1년 이상 세종시 거주자만 신청 가능.',
+  '대우건설',
+  '2014년 03월',
+  '59㎡, 84㎡',
+  'https://www.lh.or.kr/ptl/comm/getBbsArticleDetail.do',
+  4.5,
+  5.2,
   datetime('now'),
   datetime('now')
 );
@@ -57,7 +71,8 @@ INSERT INTO properties (
 INSERT INTO properties (
   title, location, full_address, region, type, status, deadline,
   price, households, household_count, sale_price_min, sale_price_max,
-  tags, description, created_at, updated_at
+  tags, description, builder, move_in_date, area_type, pdf_url,
+  original_price, recent_trade_price, created_at, updated_at
 ) VALUES (
   '세종시 첫마을 6단지',
   '세종특별자치시',
@@ -73,6 +88,12 @@ INSERT INTO properties (
   5.09,
   '["공개매각", "청약통장 불필요", "무주택요건無"]',
   '59㎡/84㎡ 26호 일반매각. 1년 이상 세종시 거주자만 신청 가능.',
+  '현대건설',
+  '2014년 05월',
+  '59㎡, 84㎡',
+  'https://www.lh.or.kr/ptl/comm/getBbsArticleDetail.do',
+  4.8,
+  5.5,
   datetime('now'),
   datetime('now')
 );
@@ -153,7 +174,7 @@ INSERT INTO properties (
 INSERT INTO properties (
   title, location, full_address, region, type, status, deadline,
   price, households, household_count, sale_price_min, sale_price_max,
-  tags, description, created_at, updated_at
+  tags, description, builder, move_in_date, area_type, pdf_url, created_at, updated_at
 ) VALUES (
   '평택 고덕 A-6블록 행복주택',
   '경기도 평택시',
@@ -169,6 +190,10 @@ INSERT INTO properties (
   0.041,
   '["행복주택", "예비입주자", "선계약후검증"]',
   '16㎡~36㎡ 평택고덕LH2단지. 임대보증금 1,692만원~4,086만원. 소득요건 완화.',
+  'LH',
+  '2025년 12월 예정',
+  '16㎡~36㎡',
+  'https://www.lh.or.kr/ptl/comm/getBbsArticleDetail.do',
   datetime('now'),
   datetime('now')
 );
@@ -177,7 +202,7 @@ INSERT INTO properties (
 INSERT INTO properties (
   title, location, full_address, region, type, status, deadline,
   price, households, household_count, sale_price_min, sale_price_max,
-  tags, description, created_at, updated_at
+  tags, description, builder, move_in_date, area_type, pdf_url, created_at, updated_at
 ) VALUES (
   '평택 소사벌 A-6블록 행복주택',
   '경기도 평택시',
@@ -193,6 +218,10 @@ INSERT INTO properties (
   0.041,
   '["행복주택", "예비입주자", "선계약후검증"]',
   '16㎡~36㎡ 428호. 임대보증금 1,692만원~4,086만원. 소득요건 완화.',
+  'LH',
+  '2025년 12월 예정',
+  '16㎡~36㎡',
+  'https://www.lh.or.kr/ptl/comm/getBbsArticleDetail.do',
   datetime('now'),
   datetime('now')
 );
@@ -201,7 +230,7 @@ INSERT INTO properties (
 INSERT INTO properties (
   title, location, full_address, region, type, status, deadline,
   price, households, household_count, sale_price_min, sale_price_max,
-  tags, description, created_at, updated_at
+  tags, description, builder, area_type, pdf_url, created_at, updated_at
 ) VALUES (
   '남양주 가운2 국민임대',
   '경기도 남양주시',
@@ -217,6 +246,9 @@ INSERT INTO properties (
   0.037,
   '["국민임대", "예비입주자", "무주택"]',
   '36㎡~46㎡ 예비입주자 80명 모집. 임대보증금 1,862만원~3,697만원. 월세 21만~30만원대.',
+  'LH',
+  '36㎡, 46㎡',
+  'https://www.lh.or.kr/ptl/comm/getBbsArticleDetail.do',
   datetime('now'),
   datetime('now')
 );
