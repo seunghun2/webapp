@@ -10,7 +10,8 @@ INSERT INTO properties (
   title, location, full_address, region, type, status, deadline,
   price, households, household_count, sale_price_min, sale_price_max,
   tags, description, builder, move_in_date, area_type, pdf_url, 
-  original_price, recent_trade_price, created_at, updated_at
+  original_price, recent_trade_price, sale_price_date, recent_trade_date,
+  created_at, updated_at
 ) VALUES (
   '세종시 첫마을 4단지',
   '세종특별자치시',
@@ -32,6 +33,8 @@ INSERT INTO properties (
   'https://www.lh.or.kr/ptl/comm/getBbsArticleDetail.do',
   3.2,
   3.8,
+  '2013.12',
+  '2024.10',
   datetime('now'),
   datetime('now')
 );
@@ -41,7 +44,8 @@ INSERT INTO properties (
   title, location, full_address, region, type, status, deadline,
   price, households, household_count, sale_price_min, sale_price_max,
   tags, description, builder, move_in_date, area_type, pdf_url,
-  original_price, recent_trade_price, created_at, updated_at
+  original_price, recent_trade_price, sale_price_date, recent_trade_date,
+  created_at, updated_at
 ) VALUES (
   '세종시 첫마을 5단지',
   '세종특별자치시',
@@ -63,6 +67,8 @@ INSERT INTO properties (
   'https://www.lh.or.kr/ptl/comm/getBbsArticleDetail.do',
   4.5,
   5.2,
+  '2014.03',
+  '2024.09',
   datetime('now'),
   datetime('now')
 );
@@ -72,7 +78,8 @@ INSERT INTO properties (
   title, location, full_address, region, type, status, deadline,
   price, households, household_count, sale_price_min, sale_price_max,
   tags, description, builder, move_in_date, area_type, pdf_url,
-  original_price, recent_trade_price, created_at, updated_at
+  original_price, recent_trade_price, sale_price_date, recent_trade_date,
+  created_at, updated_at
 ) VALUES (
   '세종시 첫마을 6단지',
   '세종특별자치시',
@@ -94,6 +101,8 @@ INSERT INTO properties (
   'https://www.lh.or.kr/ptl/comm/getBbsArticleDetail.do',
   4.8,
   5.5,
+  '2014.05',
+  '2024.10',
   datetime('now'),
   datetime('now')
 );

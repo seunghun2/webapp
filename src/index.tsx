@@ -1768,6 +1768,51 @@ app.get('/', (c) => {
                         \` : ''}
                       </div>
                       
+                      <!-- 💰 가격 정보 (메인) -->
+                      <div class="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-400 rounded-xl p-4 mb-4">
+                        <div class="space-y-3">
+                          <!-- 분양가 -->
+                          \${property.sale_price_min > 0 || property.sale_price_max > 0 ? \`
+                            <div class="flex justify-between items-center">
+                              <div class="flex flex-col">
+                                <span class="text-xs text-gray-600 font-semibold">💵 분양가</span>
+                                \${property.sale_price_date ? \`
+                                  <span class="text-xs text-gray-500 mt-0.5">\${property.sale_price_date}</span>
+                                \` : ''}
+                              </div>
+                              <div class="text-right">
+                                <div class="text-xl font-bold text-red-600">
+                                  \${property.sale_price_min > 0 && property.sale_price_max > 0 
+                                    ? \`\${property.sale_price_min.toFixed(2)}억\`
+                                    : property.sale_price_min > 0 
+                                      ? \`\${property.sale_price_min.toFixed(2)}억\`
+                                      : \`\${property.sale_price_max.toFixed(2)}억\`
+                                  }
+                                </div>
+                                \${property.sale_price_min > 0 && property.sale_price_max > 0 && property.sale_price_min !== property.sale_price_max ? \`
+                                  <div class="text-xs text-gray-500">~ \${property.sale_price_max.toFixed(2)}억</div>
+                                \` : ''}
+                              </div>
+                            </div>
+                          \` : ''}
+                          
+                          <!-- 실거래가 -->
+                          \${property.recent_trade_price > 0 ? \`
+                            <div class="flex justify-between items-center border-t border-red-200 pt-3">
+                              <div class="flex flex-col">
+                                <span class="text-xs text-gray-600 font-semibold">📈 최근 실거래가</span>
+                                \${property.recent_trade_date ? \`
+                                  <span class="text-xs text-gray-500 mt-0.5">\${property.recent_trade_date}</span>
+                                \` : ''}
+                              </div>
+                              <div class="text-xl font-bold text-green-600">
+                                \${property.recent_trade_price.toFixed(1)}억
+                              </div>
+                            </div>
+                          \` : ''}
+                        </div>
+                      </div>
+                      
                       <!-- Key Info Grid -->
                       <div class="bg-gray-50 rounded-lg p-4 mb-3">
                         <div class="grid grid-cols-2 gap-3 text-sm">
