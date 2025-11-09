@@ -1054,19 +1054,25 @@ app.get('/', (c) => {
             color: white !important;
           }
           
+          /* 필터 섹션 전체 z-index */
+          .filters-section {
+            position: relative !important;
+            z-index: 9999 !important;
+          }
+          
           .dropdown-content {
             display: none;
             z-index: 99999 !important;
-            position: absolute;
+            position: absolute !important;
           }
           
           .dropdown-content.show {
-            display: block;
+            display: block !important;
           }
           
           .filter-dropdown {
-            position: relative;
-            z-index: 1000;
+            position: relative !important;
+            z-index: 10000 !important;
           }
           
           .filter-dropdown.open {
@@ -1074,6 +1080,11 @@ app.get('/', (c) => {
           }
           
           /* 카드 컨테이너 z-index 제한 */
+          #propertiesContainer {
+            position: relative;
+            z-index: 1;
+          }
+          
           .toss-card {
             position: relative;
             z-index: 1;
@@ -1179,7 +1190,7 @@ app.get('/', (c) => {
         <!-- Main Content -->
         <main class="max-w-6xl mx-auto px-4 pb-12">
             <!-- Filters Section -->
-            <div class="bg-white rounded-xl shadow-sm p-4 mb-6 fade-in" style="position: relative; z-index: 100;">
+            <div class="filters-section bg-white rounded-xl shadow-sm p-4 mb-6 fade-in">
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="text-sm font-semibold text-gray-700 mr-2">필터</span>
                     
