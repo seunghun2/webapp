@@ -143,6 +143,316 @@ app.get('/api/properties/detail/:id', async (c) => {
   }
 })
 
+// Terms of Service page
+app.get('/terms', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>이용약관 - 똑똑한한채</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+          @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+          * { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+        </style>
+    </head>
+    <body class="bg-gray-50">
+        <header class="bg-white sticky top-0 z-50 shadow-sm border-b border-gray-200">
+            <div class="max-w-4xl mx-auto px-4 py-3">
+                <a href="/" class="text-xl font-bold text-gray-900">똑똑한한채</a>
+            </div>
+        </header>
+        
+        <main class="max-w-4xl mx-auto px-4 py-12">
+            <h1 class="text-3xl font-bold text-gray-900 mb-8">이용약관</h1>
+            
+            <div class="bg-white rounded-xl shadow-sm p-8 space-y-8">
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제1조 (목적)</h2>
+                    <p class="text-gray-700 leading-relaxed">
+                        본 약관은 똑똑한한채(이하 "회사")가 제공하는 부동산 분양 정보 서비스(이하 "서비스")의 이용과 관련하여 
+                        회사와 이용자 간의 권리, 의무 및 책임사항, 기타 필요한 사항을 규정함을 목적으로 합니다.
+                    </p>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제2조 (정의)</h2>
+                    <p class="text-gray-700 leading-relaxed mb-2">본 약관에서 사용하는 용어의 정의는 다음과 같습니다:</p>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700">
+                        <li>"서비스"란 회사가 제공하는 부동산 분양 정보 제공 플랫폼을 의미합니다.</li>
+                        <li>"이용자"란 본 약관에 따라 회사가 제공하는 서비스를 이용하는 회원 및 비회원을 말합니다.</li>
+                        <li>"회원"이란 회사와 서비스 이용계약을 체결하고 회원 아이디를 부여받은 자를 말합니다.</li>
+                        <li>"비회원"이란 회원으로 가입하지 않고 회사가 제공하는 서비스를 이용하는 자를 말합니다.</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제3조 (약관의 효력 및 변경)</h2>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                        <li>본 약관은 서비스를 이용하고자 하는 모든 이용자에 대하여 그 효력을 발생합니다.</li>
+                        <li>회사는 필요한 경우 관련 법령을 위배하지 않는 범위 내에서 본 약관을 변경할 수 있습니다.</li>
+                        <li>약관이 변경되는 경우 회사는 변경사항을 시행일자 7일 전부터 서비스 내 공지사항을 통해 공지합니다.</li>
+                    </ol>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제4조 (서비스의 제공)</h2>
+                    <p class="text-gray-700 leading-relaxed mb-2">회사가 제공하는 서비스는 다음과 같습니다:</p>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700">
+                        <li>부동산 분양 정보 제공 서비스</li>
+                        <li>줍줍분양, 청약, 조합원 모집 등 관련 정보 제공</li>
+                        <li>분양 일정 및 투자 정보 제공</li>
+                        <li>관심 물건 등록 및 알림 서비스</li>
+                        <li>기타 회사가 추가 개발하거나 제휴계약 등을 통해 이용자에게 제공하는 일체의 서비스</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제5조 (서비스 이용시간)</h2>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                        <li>서비스의 이용은 연중무휴 1일 24시간을 원칙으로 합니다.</li>
+                        <li>회사는 컴퓨터 등 정보통신설비의 보수점검, 교체 및 고장, 통신두절 또는 운영상 상당한 이유가 있는 경우 서비스의 제공을 일시적으로 중단할 수 있습니다.</li>
+                    </ol>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제6조 (이용자의 의무)</h2>
+                    <p class="text-gray-700 leading-relaxed mb-2">이용자는 다음 행위를 하여서는 안 됩니다:</p>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700">
+                        <li>신청 또는 변경 시 허위내용의 등록</li>
+                        <li>타인의 정보 도용</li>
+                        <li>회사가 게시한 정보의 변경</li>
+                        <li>회사가 정한 정보 이외의 정보(컴퓨터 프로그램 등) 등의 송신 또는 게시</li>
+                        <li>회사와 기타 제3자의 저작권 등 지적재산권에 대한 침해</li>
+                        <li>회사 및 기타 제3자의 명예를 손상시키거나 업무를 방해하는 행위</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제7조 (저작권의 귀속 및 이용제한)</h2>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                        <li>회사가 작성한 저작물에 대한 저작권 기타 지적재산권은 회사에 귀속합니다.</li>
+                        <li>이용자는 서비스를 이용함으로써 얻은 정보 중 회사에게 지적재산권이 귀속된 정보를 회사의 사전 승낙 없이 복제, 송신, 출판, 배포, 방송 기타 방법에 의하여 영리목적으로 이용하거나 제3자에게 이용하게 하여서는 안됩니다.</li>
+                    </ol>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제8조 (면책조항)</h2>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                        <li>회사는 천재지변 또는 이에 준하는 불가항력으로 인하여 서비스를 제공할 수 없는 경우에는 서비스 제공에 관한 책임이 면제됩니다.</li>
+                        <li>회사는 이용자의 귀책사유로 인한 서비스 이용의 장애에 대하여 책임을 지지 않습니다.</li>
+                        <li>회사는 이용자가 서비스를 이용하여 기대하는 수익을 상실한 것에 대하여 책임을 지지 않으며, 그 밖에 서비스를 통하여 얻은 자료로 인한 손해에 관하여 책임을 지지 않습니다.</li>
+                        <li>회사는 제공된 분양 정보의 정확성, 신뢰성에 대해서는 보증하지 않으며, 이용자는 자신의 책임 하에 정보를 확인하고 이용해야 합니다.</li>
+                    </ol>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제9조 (분쟁해결)</h2>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                        <li>회사와 이용자는 서비스와 관련하여 발생한 분쟁을 원만하게 해결하기 위하여 필요한 모든 노력을 하여야 합니다.</li>
+                        <li>본 약관에 명시되지 않은 사항은 전기통신사업법 등 관계법령과 상관습에 따릅니다.</li>
+                    </ol>
+                </section>
+
+                <section class="text-right text-sm text-gray-500 mt-12">
+                    <p>시행일: 2025년 1월 1일</p>
+                </section>
+            </div>
+            
+            <div class="mt-8 text-center">
+                <a href="/" class="inline-block bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-all">
+                    메인으로 돌아가기
+                </a>
+            </div>
+        </main>
+    </body>
+    </html>
+  `)
+})
+
+// Privacy Policy page
+app.get('/privacy', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>개인정보처리방침 - 똑똑한한채</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+          @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+          * { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+        </style>
+    </head>
+    <body class="bg-gray-50">
+        <header class="bg-white sticky top-0 z-50 shadow-sm border-b border-gray-200">
+            <div class="max-w-4xl mx-auto px-4 py-3">
+                <a href="/" class="text-xl font-bold text-gray-900">똑똑한한채</a>
+            </div>
+        </header>
+        
+        <main class="max-w-4xl mx-auto px-4 py-12">
+            <h1 class="text-3xl font-bold text-gray-900 mb-8">개인정보처리방침</h1>
+            
+            <div class="bg-white rounded-xl shadow-sm p-8 space-y-8">
+                <section>
+                    <p class="text-gray-700 leading-relaxed mb-4">
+                        똑똑한한채(이하 "회사")는 「개인정보 보호법」 제30조에 따라 정보주체의 개인정보를 보호하고 이와 관련한 고충을 신속하고 원활하게 처리할 수 있도록 하기 위하여 다음과 같이 개인정보 처리방침을 수립·공개합니다.
+                    </p>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제1조 (개인정보의 처리 목적)</h2>
+                    <p class="text-gray-700 leading-relaxed mb-2">회사는 다음의 목적을 위하여 개인정보를 처리합니다. 처리하고 있는 개인정보는 다음의 목적 이외의 용도로는 이용되지 않으며, 이용 목적이 변경되는 경우에는 「개인정보 보호법」 제18조에 따라 별도의 동의를 받는 등 필요한 조치를 이행할 예정입니다.</p>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700">
+                        <li>회원 가입 및 관리: 회원 가입의사 확인, 회원제 서비스 제공에 따른 본인 식별·인증</li>
+                        <li>서비스 제공: 분양 정보 제공, 관심 물건 알림, 조합원 문의 상담</li>
+                        <li>마케팅 및 광고: 신규 서비스 개발 및 맞춤 서비스 제공, 이벤트 정보 및 참여기회 제공</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제2조 (처리하는 개인정보의 항목)</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <h3 class="font-bold text-gray-900 mb-2">1. 회원가입 시</h3>
+                            <ul class="list-disc list-inside space-y-1 text-gray-700 ml-4">
+                                <li>필수항목: 이름, 이메일, 연락처(휴대전화번호)</li>
+                                <li>선택항목: 관심 지역, 선호 평형대</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-gray-900 mb-2">2. 조합원 문의 시</h3>
+                            <ul class="list-disc list-inside space-y-1 text-gray-700 ml-4">
+                                <li>필수항목: 이름, 연락처, 관심 지역</li>
+                                <li>선택항목: 이메일, 문의 내용</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-gray-900 mb-2">3. 서비스 이용 과정에서 자동 수집되는 정보</h3>
+                            <ul class="list-disc list-inside space-y-1 text-gray-700 ml-4">
+                                <li>IP주소, 쿠키, 방문 일시, 서비스 이용 기록</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제3조 (개인정보의 처리 및 보유기간)</h2>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                        <li>회사는 법령에 따른 개인정보 보유·이용기간 또는 정보주체로부터 개인정보를 수집 시에 동의받은 개인정보 보유·이용기간 내에서 개인정보를 처리·보유합니다.</li>
+                        <li>각각의 개인정보 처리 및 보유 기간은 다음과 같습니다:
+                            <ul class="list-disc list-inside ml-6 mt-2 space-y-1">
+                                <li>회원정보: 회원 탈퇴 시까지</li>
+                                <li>조합원 문의: 상담 완료 후 3개월</li>
+                                <li>서비스 이용기록: 3개월</li>
+                            </ul>
+                        </li>
+                    </ol>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제4조 (개인정보의 제3자 제공)</h2>
+                    <p class="text-gray-700 leading-relaxed">
+                        회사는 정보주체의 개인정보를 제1조(개인정보의 처리 목적)에서 명시한 범위 내에서만 처리하며, 정보주체의 동의, 법률의 특별한 규정 등 「개인정보 보호법」 제17조 및 제18조에 해당하는 경우에만 개인정보를 제3자에게 제공합니다.
+                    </p>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제5조 (개인정보처리의 위탁)</h2>
+                    <p class="text-gray-700 leading-relaxed mb-2">
+                        회사는 원활한 개인정보 업무처리를 위하여 다음과 같이 개인정보 처리업무를 위탁하고 있습니다:
+                    </p>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-300">
+                                    <th class="text-left py-2">수탁업체</th>
+                                    <th class="text-left py-2">위탁업무 내용</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-gray-200">
+                                    <td class="py-2">Cloudflare</td>
+                                    <td class="py-2">서버 호스팅 및 데이터 저장</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제6조 (정보주체의 권리·의무 및 행사방법)</h2>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                        <li>정보주체는 회사에 대해 언제든지 개인정보 열람·정정·삭제·처리정지 요구 등의 권리를 행사할 수 있습니다.</li>
+                        <li>권리 행사는 회사에 대해 「개인정보 보호법」 시행령 제41조제1항에 따라 서면, 전자우편 등을 통하여 하실 수 있으며 회사는 이에 대해 지체 없이 조치하겠습니다.</li>
+                        <li>정보주체가 개인정보의 오류 등에 대한 정정 또는 삭제를 요구한 경우에는 회사는 정정 또는 삭제를 완료할 때까지 당해 개인정보를 이용하거나 제공하지 않습니다.</li>
+                    </ol>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제7조 (개인정보의 파기)</h2>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                        <li>회사는 개인정보 보유기간의 경과, 처리목적 달성 등 개인정보가 불필요하게 되었을 때에는 지체없이 해당 개인정보를 파기합니다.</li>
+                        <li>파기의 절차 및 방법은 다음과 같습니다:
+                            <ul class="list-disc list-inside ml-6 mt-2 space-y-1">
+                                <li>파기절차: 불필요한 개인정보는 개인정보 보호책임자의 승인절차를 거쳐 파기합니다.</li>
+                                <li>파기방법: 전자적 파일 형태의 정보는 기록을 재생할 수 없는 기술적 방법을 사용합니다.</li>
+                            </ul>
+                        </li>
+                    </ol>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제8조 (개인정보의 안전성 확보조치)</h2>
+                    <p class="text-gray-700 leading-relaxed mb-2">회사는 개인정보의 안전성 확보를 위해 다음과 같은 조치를 취하고 있습니다:</p>
+                    <ul class="list-disc list-inside space-y-2 text-gray-700">
+                        <li>관리적 조치: 내부관리계획 수립·시행, 정기적 직원 교육</li>
+                        <li>기술적 조치: 개인정보처리시스템 등의 접근권한 관리, 접근통제시스템 설치, 개인정보의 암호화</li>
+                        <li>물리적 조치: 전산실, 자료보관실 등의 접근통제</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제9조 (개인정보 보호책임자)</h2>
+                    <p class="text-gray-700 leading-relaxed mb-4">
+                        회사는 개인정보 처리에 관한 업무를 총괄해서 책임지고, 개인정보 처리와 관련한 정보주체의 불만처리 및 피해구제 등을 위하여 아래와 같이 개인정보 보호책임자를 지정하고 있습니다.
+                    </p>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <p class="font-bold text-gray-900">개인정보 보호책임자</p>
+                        <ul class="mt-2 space-y-1 text-gray-700">
+                            <li>이메일: privacy@smarthome.com</li>
+                            <li>전화번호: 0505-321-8000</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">제10조 (개인정보 처리방침의 변경)</h2>
+                    <p class="text-gray-700 leading-relaxed">
+                        이 개인정보처리방침은 시행일로부터 적용되며, 법령 및 방침에 따른 변경내용의 추가, 삭제 및 정정이 있는 경우에는 변경사항의 시행 7일 전부터 공지사항을 통하여 고지할 것입니다.
+                    </p>
+                </section>
+
+                <section class="text-right text-sm text-gray-500 mt-12">
+                    <p>시행일: 2025년 1월 1일</p>
+                </section>
+            </div>
+            
+            <div class="mt-8 text-center">
+                <a href="/" class="inline-block bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-all">
+                    메인으로 돌아가기
+                </a>
+            </div>
+        </main>
+    </body>
+    </html>
+  `)
+})
+
 // Main page
 app.get('/', (c) => {
   return c.html(`
@@ -312,8 +622,8 @@ app.get('/', (c) => {
             <div class="max-w-6xl mx-auto px-4 py-3">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
-                        <h1 class="text-xl font-bold text-gray-900">줍줍분양</h1>
-                        <span class="text-xs text-gray-500 hidden sm:inline">실전 투자 정보</span>
+                        <h1 class="text-xl font-bold text-gray-900">똑똑한한채</h1>
+                        <span class="text-xs text-gray-500 hidden sm:inline">스마트 부동산 분양 정보</span>
                     </div>
                     <div class="flex items-center gap-2">
                         <button class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-all">
@@ -464,7 +774,7 @@ app.get('/', (c) => {
             <div class="max-w-6xl mx-auto px-4">
                 <div class="grid md:grid-cols-3 gap-8">
                     <div>
-                        <h4 class="text-white font-bold mb-4">줍줍분양</h4>
+                        <h4 class="text-white font-bold mb-4">똑똑한한채</h4>
                         <p class="text-sm">실전 투자 정보를 한눈에</p>
                     </div>
                     <div>
@@ -479,7 +789,11 @@ app.get('/', (c) => {
                     </div>
                 </div>
                 <div class="border-t border-gray-800 mt-8 pt-8 text-center text-sm">
-                    <p>© 2025 줍줍분양. All rights reserved.</p>
+                    <div class="flex justify-center gap-6 mb-4">
+                        <a href="/terms" class="hover:text-white transition-colors">이용약관</a>
+                        <a href="/privacy" class="hover:text-white transition-colors">개인정보처리방침</a>
+                    </div>
+                    <p>© 2025 똑똑한한채. All rights reserved.</p>
                 </div>
             </div>
         </footer>
@@ -505,7 +819,7 @@ app.get('/', (c) => {
                 </button>
                 
                 <h2 class="text-2xl font-bold text-gray-900 mb-2">로그인</h2>
-                <p class="text-gray-600 text-sm mb-8">줍줍분양에 오신 것을 환영합니다</p>
+                <p class="text-gray-600 text-sm mb-8">똑똑한한채에 오신 것을 환영합니다</p>
                 
                 <div class="space-y-3">
                     <!-- Kakao Login -->
