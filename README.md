@@ -4,7 +4,9 @@
 
 ## 🌐 공개 URL
 
+- **프로덕션**: https://hanchae365.com (커스텀 도메인)
 - **샌드박스**: https://3000-iwhqnkbi44emm3qlpcntd-583b4d74.sandbox.novita.ai
+- **GitHub**: https://github.com/seunghun2/webapp
 
 ## ✨ 주요 기능
 
@@ -230,6 +232,9 @@ curl -X POST https://your-domain/api/auto-update-all-prices
 
 ## 📝 최근 업데이트
 
+- 2025-11-09: **Cloudflare Pages 프로덕션 배포 완료** ✅
+- 2025-11-09: **커스텀 도메인 연결** (hanchae365.com) ✅
+- 2025-11-09: **실시간 개발 워크플로우 구축** ✅
 - 2025-11-09: 날짜 및 상승률 계산 기능 추가
 - 2025-11-09: 주변 아파트 정보 관리 기능 추가
 - 2025-11-09: 국토교통부 실거래가 자동 수집 기능 추가
@@ -244,8 +249,33 @@ curl -X POST https://your-domain/api/auto-update-all-prices
 3. ✅ 국토교통부 API 연동
 4. ✅ GitHub Actions로 자동 업데이트 설정
 5. ✅ KB시세 수동 입력 제거 (완전 자동화)
-6. 🔄 Cloudflare Pages 프로덕션 배포
-7. 🔄 국토교통부 API 키 발급 및 설정
+6. ✅ Cloudflare Pages 프로덕션 배포
+7. ✅ 커스텀 도메인 연결 (hanchae365.com)
+8. 🔄 국토교통부 API 키 발급 및 설정
+9. 🔄 자동 업데이트 GitHub Actions 테스트
+
+## 🚀 실시간 개발 워크플로우
+
+### Quick Commands (샌드박스 개발)
+
+```bash
+# 빌드 + 재시작 + 테스트
+npm run restart
+
+# 빌드 + 재시작 (빠른 개발)
+npm run quick
+
+# 전체 배포 (커밋 + 푸시 + 프로덕션)
+./dev-deploy.sh "커밋 메시지"
+```
+
+### 개발 프로세스
+
+1. **코드 수정**: `/home/user/webapp/src/index.tsx` 또는 다른 파일
+2. **로컬 테스트**: `npm run quick` (3-5초 내 재시작)
+3. **샌드박스 확인**: 즉시 변경사항 확인 가능
+4. **프로덕션 배포**: `./dev-deploy.sh "변경 내용"`
+5. **2분 후 라이브**: https://hanchae365.com 에서 확인
 
 ## 💡 팁
 
@@ -253,3 +283,4 @@ curl -X POST https://your-domain/api/auto-update-all-prices
 - `.gitignore`에 `.dev.vars`가 포함되어 있는지 확인하세요
 - 실거래가는 최근 6개월 데이터를 조회합니다
 - 자동 업데이트는 매일 한 번씩 실행하는 것을 권장합니다
+- `npm run quick`으로 빠른 로컬 개발, 확정되면 `./dev-deploy.sh`로 프로덕션 배포
