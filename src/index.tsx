@@ -121,10 +121,6 @@ app.get('/', (c) => {
             font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
           }
           
-          .toss-gradient {
-            background: linear-gradient(135deg, #3182F6 0%, #1B64DA 100%);
-          }
-          
           .toss-card {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           }
@@ -140,20 +136,20 @@ app.get('/', (c) => {
           }
           
           .stat-card:hover {
-            transform: scale(1.05);
+            transform: scale(1.02);
           }
           
           .stat-card.active {
-            background: linear-gradient(135deg, #3182F6 0%, #1B64DA 100%);
+            background: #191F28;
             color: white;
           }
           
           .badge-new {
-            background: linear-gradient(135deg, #FF6B6B 0%, #FF5252 100%);
+            background: #FF6B6B;
           }
           
           .badge-hot {
-            background: linear-gradient(135deg, #FFA500 0%, #FF8C00 100%);
+            background: #FF8C00;
           }
           
           @keyframes fadeIn {
@@ -175,22 +171,30 @@ app.get('/', (c) => {
             opacity: 0.5;
             pointer-events: none;
           }
+          
+          .social-btn {
+            transition: all 0.2s ease;
+          }
+          
+          .social-btn:hover {
+            transform: translateY(-2px);
+          }
         </style>
     </head>
     <body class="bg-gray-50">
         <!-- Header -->
-        <header class="toss-gradient text-white sticky top-0 z-50 shadow-lg">
-            <div class="max-w-6xl mx-auto px-4 py-6">
+        <header class="bg-white sticky top-0 z-50 shadow-sm border-b border-gray-200">
+            <div class="max-w-6xl mx-auto px-4 py-3">
                 <div class="flex items-center justify-between">
-                    <div>
-                        <h1 class="text-3xl font-bold mb-1">줍줍분양</h1>
-                        <p class="text-blue-100 text-sm">오늘의 분양 정보를 한눈에</p>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-xl font-bold text-gray-900">줍줍분양</h1>
+                        <span class="text-xs text-gray-500 hidden sm:inline">오늘의 분양 정보</span>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <button class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl transition-all">
+                    <div class="flex items-center gap-2">
+                        <button class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-all">
                             <i class="fas fa-bell"></i>
                         </button>
-                        <button class="bg-white text-blue-600 px-6 py-2 rounded-xl font-bold hover:bg-blue-50 transition-all">
+                        <button id="loginBtn" class="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-all text-sm">
                             로그인
                         </button>
                     </div>
@@ -199,42 +203,28 @@ app.get('/', (c) => {
         </header>
 
         <!-- Stats Cards -->
-        <section class="max-w-6xl mx-auto px-4 -mt-8 mb-8">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="statsContainer">
+        <section class="max-w-6xl mx-auto px-4 py-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="statsContainer">
                 <!-- Stats will be loaded here -->
             </div>
         </section>
 
         <!-- Main Content -->
         <main class="max-w-6xl mx-auto px-4 pb-12">
-            <!-- Notice Banner -->
-            <div class="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-xl mb-8 fade-in">
-                <div class="flex items-start gap-3">
-                    <i class="fas fa-info-circle text-blue-500 text-xl mt-1"></i>
-                    <div>
-                        <h3 class="font-bold text-gray-900 mb-2">공지사항</h3>
-                        <ul class="text-sm text-gray-700 space-y-1">
-                            <li>• 줍줍분양에 게시된 분양공고 내용을 외부에 등록 할 경우 반드시 출처에 "줍줍분양"를 표시하셔야 합니다.</li>
-                            <li>• 분양공고 상세문의는 각 공고처(LH공사, SH공사)로 연락하세요.</li>
-                            <li>• LH주택공사 고객센터: <strong>1600-1004</strong></li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
 
             <!-- Filter Tabs -->
-            <div class="bg-white rounded-2xl shadow-sm p-2 mb-8 fade-in">
-                <div class="flex gap-2 overflow-x-auto">
-                    <button class="tab-btn flex-1 min-w-[100px] px-4 py-3 rounded-xl font-bold transition-all bg-blue-600 text-white" data-type="unsold">
+            <div class="bg-white rounded-xl shadow-sm p-1.5 mb-6 fade-in">
+                <div class="flex gap-1.5 overflow-x-auto">
+                    <button class="tab-btn flex-1 min-w-[100px] px-4 py-2.5 rounded-lg font-semibold transition-all bg-gray-900 text-white text-sm" data-type="unsold">
                         줍줍분양
                     </button>
-                    <button class="tab-btn flex-1 min-w-[100px] px-4 py-3 rounded-xl font-bold transition-all hover:bg-gray-100" data-type="today">
+                    <button class="tab-btn flex-1 min-w-[100px] px-4 py-2.5 rounded-lg font-semibold transition-all hover:bg-gray-100 text-gray-700 text-sm" data-type="today">
                         오늘청약
                     </button>
-                    <button class="tab-btn flex-1 min-w-[100px] px-4 py-3 rounded-xl font-bold transition-all hover:bg-gray-100" data-type="johab">
+                    <button class="tab-btn flex-1 min-w-[100px] px-4 py-2.5 rounded-lg font-semibold transition-all hover:bg-gray-100 text-gray-700 text-sm" data-type="johab">
                         모집중
                     </button>
-                    <button class="tab-btn flex-1 min-w-[100px] px-4 py-3 rounded-xl font-bold transition-all hover:bg-gray-100" data-type="next">
+                    <button class="tab-btn flex-1 min-w-[100px] px-4 py-2.5 rounded-lg font-semibold transition-all hover:bg-gray-100 text-gray-700 text-sm" data-type="next">
                         분양예정
                     </button>
                 </div>
@@ -267,8 +257,25 @@ app.get('/', (c) => {
             </div>
         </section>
 
+        <!-- Notice Section -->
+        <section class="max-w-6xl mx-auto px-4 pb-12">
+            <div class="bg-gray-100 border-l-4 border-gray-400 p-6 rounded-xl">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-info-circle text-gray-500 text-lg mt-1"></i>
+                    <div>
+                        <h3 class="font-bold text-gray-900 mb-3 text-sm">공지사항</h3>
+                        <ul class="text-xs text-gray-600 space-y-2">
+                            <li>• 줍줍분양에 게시된 분양공고 내용을 외부에 등록 할 경우 반드시 출처에 "줍줍분양"를 표시하셔야 합니다.</li>
+                            <li>• 분양공고 상세문의는 각 공고처(LH공사, SH공사)로 연락하세요.</li>
+                            <li>• LH주택공사 고객센터: <strong>1600-1004</strong></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Footer -->
-        <footer class="bg-gray-900 text-gray-400 py-12 mt-12">
+        <footer class="bg-gray-900 text-gray-400 py-12">
             <div class="max-w-6xl mx-auto px-4">
                 <div class="grid md:grid-cols-3 gap-8">
                     <div>
@@ -292,6 +299,47 @@ app.get('/', (c) => {
             </div>
         </footer>
 
+        <!-- Login Modal -->
+        <div id="loginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full p-8 relative fade-in">
+                <button id="closeModal" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">
+                    <i class="fas fa-times"></i>
+                </button>
+                
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">로그인</h2>
+                <p class="text-gray-600 text-sm mb-8">줍줍분양에 오신 것을 환영합니다</p>
+                
+                <div class="space-y-3">
+                    <!-- Kakao Login -->
+                    <button class="social-btn w-full bg-[#FEE500] text-[#000000] py-4 rounded-xl font-bold flex items-center justify-center gap-3 hover:bg-[#FDD835] transition-all">
+                        <i class="fab fa-kickstarter text-xl"></i>
+                        카카오로 시작하기
+                    </button>
+                    
+                    <!-- Naver Login -->
+                    <button class="social-btn w-full bg-[#03C75A] text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 hover:bg-[#02b351] transition-all">
+                        <span class="font-bold text-xl">N</span>
+                        네이버로 시작하기
+                    </button>
+                    
+                    <!-- Email Login -->
+                    <button class="social-btn w-full bg-gray-900 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 hover:bg-gray-800 transition-all">
+                        <i class="fas fa-envelope text-lg"></i>
+                        이메일로 시작하기
+                    </button>
+                </div>
+                
+                <div class="mt-8 text-center">
+                    <p class="text-sm text-gray-600">
+                        계정이 없으신가요?
+                        <button id="signupBtn" class="text-gray-900 font-bold hover:underline ml-1">
+                            회원가입
+                        </button>
+                    </p>
+                </div>
+            </div>
+        </div>
+
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script>
           let currentType = 'unsold';
@@ -304,21 +352,21 @@ app.get('/', (c) => {
               
               const statsContainer = document.getElementById('statsContainer');
               statsContainer.innerHTML = \`
-                <div class="stat-card bg-white rounded-2xl shadow-lg p-6 active" data-type="unsold">
-                  <div class="text-sm text-gray-600 mb-2 font-medium">줍줍분양</div>
-                  <div class="text-4xl font-bold text-blue-600">\${stats.unsold}</div>
+                <div class="stat-card bg-white rounded-xl shadow-sm p-5 active" data-type="unsold">
+                  <div class="text-xs text-gray-500 mb-2 font-medium">줍줍분양</div>
+                  <div class="text-3xl font-bold">\${stats.unsold}</div>
                 </div>
-                <div class="stat-card bg-white rounded-2xl shadow-lg p-6" data-type="today">
-                  <div class="text-sm text-gray-600 mb-2 font-medium">오늘청약</div>
-                  <div class="text-4xl font-bold text-gray-900">\${stats.today}</div>
+                <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="today">
+                  <div class="text-xs text-gray-500 mb-2 font-medium">오늘청약</div>
+                  <div class="text-3xl font-bold text-gray-900">\${stats.today}</div>
                 </div>
-                <div class="stat-card bg-white rounded-2xl shadow-lg p-6" data-type="johab">
-                  <div class="text-sm text-gray-600 mb-2 font-medium">모집중</div>
-                  <div class="text-4xl font-bold text-gray-900">\${stats.johab}</div>
+                <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="johab">
+                  <div class="text-xs text-gray-500 mb-2 font-medium">모집중</div>
+                  <div class="text-3xl font-bold text-gray-900">\${stats.johab}</div>
                 </div>
-                <div class="stat-card bg-white rounded-2xl shadow-lg p-6" data-type="next">
-                  <div class="text-sm text-gray-600 mb-2 font-medium">분양예정</div>
-                  <div class="text-4xl font-bold text-gray-900">\${stats.next}</div>
+                <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="next">
+                  <div class="text-xs text-gray-500 mb-2 font-medium">분양예정</div>
+                  <div class="text-3xl font-bold text-gray-900">\${stats.next}</div>
                 </div>
               \`;
               
@@ -361,11 +409,11 @@ app.get('/', (c) => {
                         <div class="flex-1">
                           <h3 class="text-xl font-bold text-gray-900 mb-2">\${property.title}</h3>
                           <div class="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                            <i class="fas fa-map-marker-alt text-blue-500"></i>
+                            <i class="fas fa-map-marker-alt text-gray-400"></i>
                             <span>\${property.location}</span>
                           </div>
                           <div class="flex items-center gap-2 text-sm text-gray-600">
-                            <i class="fas fa-calendar text-blue-500"></i>
+                            <i class="fas fa-calendar text-gray-400"></i>
                             <span>\${property.deadline}까지</span>
                           </div>
                         </div>
@@ -378,7 +426,7 @@ app.get('/', (c) => {
                       
                       <div class="flex flex-wrap gap-2 mb-4">
                         \${property.tags.map(tag => \`
-                          <span class="bg-blue-50 text-blue-600 text-xs font-medium px-3 py-1 rounded-full">
+                          <span class="bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1 rounded-full">
                             \${tag}
                           </span>
                         \`).join('')}
@@ -398,10 +446,10 @@ app.get('/', (c) => {
                       </div>
                       
                       <div class="flex gap-2">
-                        <button class="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-all">
+                        <button class="flex-1 bg-gray-900 text-white font-semibold py-3 rounded-lg hover:bg-gray-800 transition-all text-sm">
                           관심등록
                         </button>
-                        <button class="bg-gray-100 text-gray-700 font-bold px-4 py-3 rounded-xl hover:bg-gray-200 transition-all">
+                        <button class="bg-gray-100 text-gray-700 font-semibold px-4 py-3 rounded-lg hover:bg-gray-200 transition-all">
                           <i class="fas fa-share-alt"></i>
                         </button>
                       </div>
@@ -430,11 +478,11 @@ app.get('/', (c) => {
             // Update tab buttons
             document.querySelectorAll('.tab-btn').forEach(btn => {
               if (btn.dataset.type === type) {
-                btn.classList.add('bg-blue-600', 'text-white');
-                btn.classList.remove('hover:bg-gray-100');
+                btn.classList.add('bg-gray-900', 'text-white');
+                btn.classList.remove('hover:bg-gray-100', 'text-gray-700');
               } else {
-                btn.classList.remove('bg-blue-600', 'text-white');
-                btn.classList.add('hover:bg-gray-100');
+                btn.classList.remove('bg-gray-900', 'text-white');
+                btn.classList.add('hover:bg-gray-100', 'text-gray-700');
               }
             });
             
@@ -455,6 +503,44 @@ app.get('/', (c) => {
           document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
               switchTab(btn.dataset.type);
+            });
+          });
+
+          // Login modal handlers
+          const loginModal = document.getElementById('loginModal');
+          const loginBtn = document.getElementById('loginBtn');
+          const closeModal = document.getElementById('closeModal');
+          const signupBtn = document.getElementById('signupBtn');
+
+          loginBtn.addEventListener('click', () => {
+            loginModal.classList.remove('hidden');
+          });
+
+          closeModal.addEventListener('click', () => {
+            loginModal.classList.add('hidden');
+          });
+
+          loginModal.addEventListener('click', (e) => {
+            if (e.target === loginModal) {
+              loginModal.classList.add('hidden');
+            }
+          });
+
+          signupBtn.addEventListener('click', () => {
+            alert('회원가입 기능은 준비 중입니다!');
+          });
+
+          // Social login buttons
+          document.querySelectorAll('.social-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const text = btn.textContent.trim();
+              if (text.includes('카카오')) {
+                alert('카카오 로그인 기능은 준비 중입니다!');
+              } else if (text.includes('네이버')) {
+                alert('네이버 로그인 기능은 준비 중입니다!');
+              } else if (text.includes('이메일')) {
+                alert('이메일 로그인 기능은 준비 중입니다!');
+              }
             });
           });
 
