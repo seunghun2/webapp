@@ -2339,19 +2339,29 @@ app.get('/', (c) => {
                 dropdown.classList.remove('show');
                 dropdown.style.display = 'none';
                 parent.classList.remove('open');
-                console.log('Dropdown is now: closed');
+                console.log('Dropdown closed');
               } else {
-                // Get button position
+                // Get button position relative to viewport
                 const rect = btn.getBoundingClientRect();
+                const parentRect = parent.getBoundingClientRect();
                 
                 dropdown.classList.add('show');
                 dropdown.style.display = 'block';
                 dropdown.style.position = 'fixed';
-                dropdown.style.top = (rect.bottom + 8) + 'px';
-                dropdown.style.left = rect.left + 'px';
+                dropdown.style.top = (rect.bottom + 4) + 'px'; // 버튼 바로 아래 4px 간격
+                dropdown.style.left = rect.left + 'px'; // 버튼 왼쪽과 정렬
                 dropdown.style.zIndex = '999999';
+                dropdown.style.minWidth = rect.width + 'px'; // 버튼과 같은 너비
                 parent.classList.add('open');
-                console.log('Dropdown is now: open');
+                console.log('Dropdown opened:', {
+                  btnRect: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width },
+                  parentRect: { top: parentRect.top, left: parentRect.left },
+                  dropdownStyle: {
+                    top: dropdown.style.top,
+                    left: dropdown.style.left,
+                    minWidth: dropdown.style.minWidth
+                  }
+                });
               }
             }, true); // Use capture phase
           });
