@@ -1180,24 +1180,54 @@ app.get('/', (c) => {
             color: white !important;
           }
           
-          /* 🎨 필터 스타일 */
-          .filter-item select {
+          /* 호갱노노 스타일 필터 칩 */
+          .filter-chip {
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%233182F6'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            padding: 8px 32px 8px 16px;
+            background-color: #f5f5f5;
+            border: 2px solid transparent;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23666'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 0.75rem center;
-            background-size: 1.25rem;
-            padding-right: 2.5rem;
+            background-position: right 10px center;
+            background-size: 16px;
           }
           
-          .filter-item select:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(49, 130, 246, 0.1);
+          .filter-chip:hover {
+            background-color: #ebebeb;
           }
           
-          .filter-item select:focus {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 16px rgba(49, 130, 246, 0.2);
+          .filter-chip:focus,
+          .filter-chip.active {
+            outline: none;
+            border-color: #5856D6;
+            background-color: white;
+            color: #5856D6;
+          }
+          
+          .filter-chip-reset {
+            width: 40px;
+            height: 40px;
+            background-color: #f5f5f5;
+            border: 2px solid transparent;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #666;
+          }
+          
+          .filter-chip-reset:hover {
+            background-color: #ebebeb;
+            color: #333;
           }
           
           @keyframes fadeIn {
@@ -1300,84 +1330,60 @@ app.get('/', (c) => {
         <!-- Main Content -->
         <main class="max-w-6xl mx-auto px-4 pb-12">
             
-            <!-- 🎨 모던한 필터 섹션 -->
-            <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
-                <!-- 필터 제목 -->
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        <i class="fas fa-filter text-primary"></i>
-                        필터
-                    </h3>
-                    <button id="btnResetFilters" class="px-3 py-1.5 bg-gray-50 hover:bg-gray-100 rounded-lg text-xs font-medium text-gray-600 transition-all flex items-center gap-1.5">
-                        <i class="fas fa-redo text-xs"></i>
-                        초기화
-                    </button>
-                </div>
-                
-                <!-- 필터 그리드 -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <!-- 호갱노노 스타일 필터 -->
+            <div class="bg-white px-4 py-3 mb-4 overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
+                <div class="flex gap-2 items-center min-w-max">
                     <!-- 지역 필터 -->
-                    <div class="filter-item">
-                        <label class="block text-xs font-semibold text-gray-600 mb-2">
-                            <i class="fas fa-map-marker-alt text-primary mr-1"></i>
-                            지역
-                        </label>
-                        <select id="filterRegion" class="w-full px-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:border-primary focus:bg-white transition-all cursor-pointer hover:border-gray-300">
-                            <option value="all">전체 지역</option>
-                            <option value="서울">서울</option>
-                            <option value="경기">경기</option>
-                            <option value="인천">인천</option>
-                            <option value="대전">대전</option>
-                            <option value="세종">세종</option>
-                            <option value="대구">대구</option>
-                            <option value="부산">부산</option>
-                            <option value="울산">울산</option>
-                            <option value="광주">광주</option>
-                        </select>
-                    </div>
+                    <select id="filterRegion" class="filter-chip">
+                        <option value="all">지역</option>
+                        <option value="서울">서울</option>
+                        <option value="경기">경기</option>
+                        <option value="인천">인천</option>
+                        <option value="대전">대전</option>
+                        <option value="세종">세종</option>
+                        <option value="대구">대구</option>
+                        <option value="부산">부산</option>
+                        <option value="울산">울산</option>
+                        <option value="광주">광주</option>
+                    </select>
                     
-                    <!-- 세대수 필터 -->
-                    <div class="filter-item">
-                        <label class="block text-xs font-semibold text-gray-600 mb-2">
-                            <i class="fas fa-home text-primary mr-1"></i>
-                            세대수
-                        </label>
-                        <select id="filterHousehold" class="w-full px-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:border-primary focus:bg-white transition-all cursor-pointer hover:border-gray-300">
-                            <option value="all">전체 세대수</option>
-                            <option value="0-50">50세대 이하</option>
-                            <option value="50-300">50-300세대</option>
-                            <option value="300-1000">300-1000세대</option>
-                            <option value="1000-+">1000세대 이상</option>
-                        </select>
-                    </div>
+                    <!-- 유형 필터 (매매=줍줍분양) -->
+                    <select id="filterType" class="filter-chip">
+                        <option value="all">매매</option>
+                        <option value="unsold">줍줍분양</option>
+                        <option value="johab">모집중</option>
+                        <option value="next">조합원</option>
+                    </select>
                     
                     <!-- 평형 필터 -->
-                    <div class="filter-item">
-                        <label class="block text-xs font-semibold text-gray-600 mb-2">
-                            <i class="fas fa-ruler-combined text-primary mr-1"></i>
-                            평형
-                        </label>
-                        <select id="filterArea" class="w-full px-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:border-primary focus:bg-white transition-all cursor-pointer hover:border-gray-300">
-                            <option value="all">전체 평형</option>
-                            <option value="small">소형 (59㎡↓)</option>
-                            <option value="medium">중형 (60-84㎡)</option>
-                            <option value="large">대형 (85㎡↑)</option>
-                        </select>
-                    </div>
+                    <select id="filterArea" class="filter-chip">
+                        <option value="all">평형</option>
+                        <option value="small">소형</option>
+                        <option value="medium">중형</option>
+                        <option value="large">대형</option>
+                    </select>
                     
-                    <!-- 정렬 -->
-                    <div class="filter-item">
-                        <label class="block text-xs font-semibold text-gray-600 mb-2">
-                            <i class="fas fa-sort text-primary mr-1"></i>
-                            정렬
-                        </label>
-                        <select id="filterSort" class="w-full px-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:border-primary focus:bg-white transition-all cursor-pointer hover:border-gray-300">
-                            <option value="deadline">⏰ 마감임박순</option>
-                            <option value="latest">🆕 최신순</option>
-                            <option value="price-low">💰 낮은가격순</option>
-                            <option value="price-high">💎 높은가격순</option>
-                        </select>
-                    </div>
+                    <!-- 가격(세대수) 필터 -->
+                    <select id="filterHousehold" class="filter-chip">
+                        <option value="all">세대수</option>
+                        <option value="0-50">50↓</option>
+                        <option value="50-300">50-300</option>
+                        <option value="300-1000">300-1000</option>
+                        <option value="1000-+">1000↑</option>
+                    </select>
+                    
+                    <!-- 더보기 (정렬) -->
+                    <select id="filterSort" class="filter-chip">
+                        <option value="deadline">마감순</option>
+                        <option value="latest">최신순</option>
+                        <option value="price-low">낮은가격</option>
+                        <option value="price-high">높은가격</option>
+                    </select>
+                    
+                    <!-- 초기화 버튼 -->
+                    <button id="btnResetFilters" class="filter-chip-reset">
+                        <i class="fas fa-redo text-xs"></i>
+                    </button>
                 </div>
             </div>
 
@@ -2559,46 +2565,84 @@ app.get('/', (c) => {
             });
           });
 
-          // 🆕 새로운 필터 이벤트 핸들러
+          // 호갱노노 스타일 필터 핸들러
           function setupNewFilters() {
             const filterRegion = document.getElementById('filterRegion');
+            const filterType = document.getElementById('filterType');
             const filterHousehold = document.getElementById('filterHousehold');
             const filterArea = document.getElementById('filterArea');
             const filterSort = document.getElementById('filterSort');
             const btnReset = document.getElementById('btnResetFilters');
             
-            // 필터 변경 시 자동으로 데이터 다시 로드
+            // 필터 변경 시 active 클래스 토글
+            function updateActiveClass(select) {
+              if (select.value !== select.options[0].value) {
+                select.classList.add('active');
+              } else {
+                select.classList.remove('active');
+              }
+            }
+            
+            // 지역 필터
             filterRegion.addEventListener('change', () => {
               filters.region = filterRegion.value;
+              updateActiveClass(filterRegion);
               loadProperties();
             });
             
+            // 유형 필터
+            filterType.addEventListener('change', () => {
+              filters.type = filterType.value;
+              updateActiveClass(filterType);
+              loadProperties();
+              
+              // Update stat card active state
+              document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+              const targetCard = document.querySelector(\`.stat-card[data-type="\${filterType.value}"]\`);
+              if (targetCard) targetCard.classList.add('active');
+            });
+            
+            // 세대수 필터
             filterHousehold.addEventListener('change', () => {
               filters.household = filterHousehold.value;
+              updateActiveClass(filterHousehold);
               loadProperties();
             });
             
+            // 평형 필터
             filterArea.addEventListener('change', () => {
               filters.area = filterArea.value;
+              updateActiveClass(filterArea);
               loadProperties();
             });
             
+            // 정렬 필터
             filterSort.addEventListener('change', () => {
               filters.sort = filterSort.value;
+              updateActiveClass(filterSort);
               loadProperties();
             });
             
             // 초기화 버튼
             btnReset.addEventListener('click', () => {
               filters.region = 'all';
+              filters.type = 'all';
               filters.household = 'all';
               filters.area = 'all';
               filters.sort = 'deadline';
               
               filterRegion.value = 'all';
+              filterType.value = 'all';
               filterHousehold.value = 'all';
               filterArea.value = 'all';
               filterSort.value = 'deadline';
+              
+              // Remove all active classes
+              filterRegion.classList.remove('active');
+              filterType.classList.remove('active');
+              filterHousehold.classList.remove('active');
+              filterArea.classList.remove('active');
+              filterSort.classList.remove('active');
               
               loadProperties();
             });
