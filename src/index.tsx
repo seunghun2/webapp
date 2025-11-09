@@ -2291,11 +2291,18 @@ app.get('/', (c) => {
           }
 
           // Dropdown handlers
-          document.querySelectorAll('.filter-btn').forEach(btn => {
+          const filterButtons = document.querySelectorAll('.filter-btn');
+          console.log('Found filter buttons:', filterButtons.length);
+          
+          filterButtons.forEach(btn => {
             btn.addEventListener('click', (e) => {
+              console.log('Filter button clicked');
               e.stopPropagation();
               const dropdown = btn.nextElementSibling;
               const parent = btn.closest('.filter-dropdown');
+              
+              console.log('Dropdown element:', dropdown);
+              console.log('Parent element:', parent);
               
               // Close other dropdowns and remove open class
               document.querySelectorAll('.dropdown-content').forEach(d => {
@@ -2307,6 +2314,8 @@ app.get('/', (c) => {
               
               // Toggle current dropdown
               const isOpen = dropdown.classList.toggle('show');
+              console.log('Dropdown is now:', isOpen ? 'open' : 'closed');
+              
               if (isOpen) {
                 parent.classList.add('open');
               } else {
