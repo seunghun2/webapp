@@ -1,0 +1,78 @@
+            <!-- Filters Section -->
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-6 fade-in">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-sm font-semibold text-gray-700 mr-2">필터</span>
+                    
+                    <!-- Region Filter -->
+                    <div class="relative filter-dropdown">
+                        <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="region">
+                            지역 <i class="fas fa-chevron-down ml-2 text-xs"></i>
+                        </button>
+                        <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 min-w-[200px] z-10">
+                            <div class="p-2">
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="all">전체</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="서울">서울</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="경기">경기</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="인천">인천</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Type Filter -->
+                    <div class="relative filter-dropdown">
+                        <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="type">
+                            분양타입 <i class="fas fa-chevron-down ml-2 text-xs"></i>
+                        </button>
+                        <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 min-w-[180px] z-10">
+                            <div class="p-2">
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="all">전체</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="unsold">줍줍분양</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="today">오늘청약</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="johab">모집중</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="next">분양예정</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Household Filter -->
+                    <div class="relative filter-dropdown">
+                        <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="household">
+                            세대수 <i class="fas fa-chevron-down ml-2 text-xs"></i>
+                        </button>
+                        <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 min-w-[180px] z-10">
+                            <div class="p-2">
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="household" data-value="all">전체</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="household" data-value="0-50">50세대 이하</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="household" data-value="50-300">50-300세대</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="household" data-value="300-1000">300-1000세대</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="household" data-value="1000+">1000세대 이상</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Sort Filter -->
+                    <div class="relative filter-dropdown">
+                        <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="sort">
+                            최신순 <i class="fas fa-chevron-down ml-2 text-xs"></i>
+                        </button>
+                        <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 min-w-[150px] z-10">
+                            <div class="p-2">
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="sort" data-value="latest">최신순</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="sort" data-value="deadline">마감임박순</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="sort" data-value="price-low">낮은가격순</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="sort" data-value="price-high">높은가격순</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Reset Button -->
+                    <button id="resetFilters" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 ml-auto">
+                        <i class="fas fa-redo text-xs mr-1"></i> 초기화
+                    </button>
+                </div>
+                
+                <!-- Active Filters Display -->
+                <div id="activeFilters" class="mt-3 flex gap-2 flex-wrap hidden">
+                    <!-- Active filter chips will appear here -->
+                </div>
+            </div>
