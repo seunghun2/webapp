@@ -1191,11 +1191,9 @@ app.get('/', (c) => {
         <main class="max-w-6xl mx-auto px-4 pb-12">
             <!-- Filters Section -->
             <div class="filters-section bg-white rounded-xl shadow-sm p-4 mb-6 fade-in">
-                <div class="flex items-center gap-2 flex-wrap">
-                    <span class="text-sm font-semibold text-gray-700 mr-2">필터</span>
-                    
+                <div class="flex items-center gap-2 overflow-x-auto" style="white-space: nowrap; -webkit-overflow-scrolling: touch;">
                     <!-- Region Filter -->
-                    <div class="relative filter-dropdown">
+                    <div class="relative filter-dropdown flex-shrink-0">
                         <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="region">
                             <span class="filter-text">지역</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
                         </button>
@@ -1224,7 +1222,7 @@ app.get('/', (c) => {
                     </div>
                     
                     <!-- Type Filter -->
-                    <div class="relative filter-dropdown">
+                    <div class="relative filter-dropdown flex-shrink-0">
                         <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="type">
                             <span class="filter-text">분양타입</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
                         </button>
@@ -1250,7 +1248,7 @@ app.get('/', (c) => {
                     </div>
                     
                     <!-- Household Filter -->
-                    <div class="relative filter-dropdown">
+                    <div class="relative filter-dropdown flex-shrink-0">
                         <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="household">
                             <span class="filter-text">세대수</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
                         </button>
@@ -1266,7 +1264,7 @@ app.get('/', (c) => {
                     </div>
                     
                     <!-- Area Type Filter (평형) -->
-                    <div class="relative filter-dropdown">
+                    <div class="relative filter-dropdown flex-shrink-0">
                         <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="area">
                             <span class="filter-text">평형</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
                         </button>
@@ -1281,7 +1279,7 @@ app.get('/', (c) => {
                     </div>
                     
                     <!-- Sort Filter -->
-                    <div class="relative filter-dropdown">
+                    <div class="relative filter-dropdown flex-shrink-0">
                         <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="sort">
                             <span class="filter-text">마감임박순</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
                         </button>
@@ -1868,9 +1866,9 @@ app.get('/', (c) => {
                   <div class="text-xs text-gray-500 mb-2 font-medium">오늘청약</div>
                   <div class="text-3xl font-bold text-gray-900">0</div>
                 </div>
-                <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="johab">
-                  <div class="text-xs text-gray-500 mb-2 font-medium">모집중</div>
-                  <div class="text-3xl font-bold text-gray-900">\${stats.johab + stats.next}</div>
+                <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="all">
+                  <div class="text-xs text-gray-500 mb-2 font-medium">전체분양</div>
+                  <div class="text-3xl font-bold text-gray-900">\${stats.unsold + stats.johab + stats.next}</div>
                 </div>
                 <div class="stat-card bg-white rounded-xl shadow-sm p-5 cursor-pointer" onclick="openJohapInquiry()">
                   <div class="text-xs text-gray-500 mb-2 font-medium">조합원</div>
@@ -2178,7 +2176,7 @@ app.get('/', (c) => {
             
             if (filters.region !== 'all') activeFilters.push({ type: 'region', value: filters.region });
             if (filters.type !== 'all') {
-              const typeNames = { unsold: '줍줍분양', today: '오늘청약', johab: '모집중', next: '조합원' };
+              const typeNames = { unsold: '줍줍분양', today: '오늘청약', all: '전체분양', johab: '모집중', next: '조합원' };
               activeFilters.push({ type: 'type', value: typeNames[filters.type] });
             }
             if (filters.household !== 'all') {
@@ -2246,7 +2244,7 @@ app.get('/', (c) => {
                 text.textContent = filters.region;
                 btn.classList.add('active');
               } else if (filterType === 'type' && filters.type !== 'all') {
-                const typeNames = { unsold: '줍줍분양', today: '오늘청약', johab: '모집중', next: '조합원' };
+                const typeNames = { unsold: '줍줍분양', today: '오늘청약', all: '전체분양', johab: '모집중', next: '조합원' };
                 text.textContent = typeNames[filters.type];
                 btn.classList.add('active');
               } else if (filterType === 'household' && filters.household !== 'all') {
