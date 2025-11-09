@@ -2,7 +2,12 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 
-const app = new Hono()
+// Define types for Cloudflare bindings
+type Bindings = {
+  DB: D1Database;
+}
+
+const app = new Hono<{ Bindings: Bindings }>()
 
 // Enable CORS
 app.use('/api/*', cors())
@@ -10,88 +15,92 @@ app.use('/api/*', cors())
 // Serve static files
 app.use('/static/*', serveStatic({ root: './public' }))
 
-// Mock data for properties
-const mockProperties = [
-  {
-    id: 1,
-    type: 'unsold',
-    title: '시흥센트럴 푸르지오',
-    location: '경기 시흥시',
-    status: '무순위 접수중',
-    deadline: '2025-01-18',
-    price: '3억 2천만원~',
-    households: '25세대',
-    tags: ['무순위', 'LH'],
-    badge: 'NEW'
-  },
-  {
-    id: 2,
-    type: 'unsold',
-    title: '인천 검단신도시 A7블록',
-    location: '인천 서구',
-    status: '무순위 접수중',
-    deadline: '2025-01-20',
-    price: '2억 8천만원~',
-    households: '12세대',
-    tags: ['무순위', 'LH'],
-    badge: ''
-  },
-  {
-    id: 3,
-    type: 'johab',
-    title: '하남 교산신도시',
-    location: '경기 하남시',
-    status: '1순위 청약중',
-    deadline: '2025-01-15',
-    price: '5억 1천만원~',
-    households: '856세대',
-    tags: ['1순위', '특별공급'],
-    badge: 'HOT'
-  },
-  {
-    id: 4,
-    type: 'next',
-    title: '김포 한강신도시',
-    location: '경기 김포시',
-    status: '청약 예정',
-    deadline: '2025-02-01',
-    price: '4억 5천만원~',
-    households: '1,234세대',
-    tags: ['분양예정', 'SH'],
-    badge: ''
-  },
-  {
-    id: 5,
-    type: 'unsold',
-    title: '광명 하안뉴타운',
-    location: '경기 광명시',
-    status: '무순위 접수중',
-    deadline: '2025-01-22',
-    price: '3억 9천만원~',
-    households: '8세대',
-    tags: ['무순위', '즉시입주'],
-    badge: ''
-  }
-]
-
 // API endpoint for property statistics
-app.get('/api/stats', (c) => {
-  const stats = {
-    unsold: mockProperties.filter(p => p.type === 'unsold').length,
-    today: 0,
-    johab: mockProperties.filter(p => p.type === 'johab').length,
-    next: mockProperties.filter(p => p.type === 'next').length
+app.get('/api/stats', async (c) => {
+  try {
+    const { DB } = c.env
+    
+    // Get count by type
+    const result = await DB.prepare(`
+      SELECT 
+        type,
+        COUNT(*) as count
+      FROM properties
+      GROUP BY type
+    `).all()
+    
+    // Transform to expected format
+    const stats = {
+      unsold: 0,
+      today: 0,
+      johab: 0,
+      next: 0
+    }
+    
+    result.results.forEach((row: any) => {
+      stats[row.type as keyof typeof stats] = row.count
+    })
+    
+    return c.json(stats)
+  } catch (error) {
+    console.error('Error fetching stats:', error)
+    return c.json({ error: 'Failed to fetch statistics' }, 500)
   }
-  return c.json(stats)
 })
 
 // API endpoint for properties by type
-app.get('/api/properties/:type', (c) => {
-  const type = c.req.param('type')
-  const filtered = type === 'all' 
-    ? mockProperties 
-    : mockProperties.filter(p => p.type === type)
-  return c.json(filtered)
+app.get('/api/properties/:type', async (c) => {
+  try {
+    const { DB } = c.env
+    const type = c.req.param('type')
+    
+    let query = 'SELECT * FROM properties ORDER BY created_at DESC'
+    let stmt = DB.prepare(query)
+    
+    if (type !== 'all' && type !== 'today') {
+      query = 'SELECT * FROM properties WHERE type = ? ORDER BY created_at DESC'
+      stmt = DB.prepare(query).bind(type)
+    }
+    
+    const result = await stmt.all()
+    
+    // Parse tags JSON string to array
+    const properties = result.results.map((prop: any) => ({
+      ...prop,
+      tags: JSON.parse(prop.tags)
+    }))
+    
+    return c.json(properties)
+  } catch (error) {
+    console.error('Error fetching properties:', error)
+    return c.json({ error: 'Failed to fetch properties' }, 500)
+  }
+})
+
+// API endpoint to get single property
+app.get('/api/properties/detail/:id', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    
+    const result = await DB.prepare(
+      'SELECT * FROM properties WHERE id = ?'
+    ).bind(id).first()
+    
+    if (!result) {
+      return c.json({ error: 'Property not found' }, 404)
+    }
+    
+    const property = {
+      ...result,
+      tags: JSON.parse(result.tags as string)
+    }
+    
+    return c.json(property)
+  } catch (error) {
+    console.error('Error fetching property:', error)
+    return c.json({ error: 'Failed to fetch property' }, 500)
+  }
 })
 
 // Main page
