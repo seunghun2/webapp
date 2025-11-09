@@ -1056,7 +1056,7 @@ app.get('/', (c) => {
           
           .dropdown-content {
             display: none;
-            z-index: 9999;
+            z-index: 99999 !important;
             position: absolute;
           }
           
@@ -1070,7 +1070,13 @@ app.get('/', (c) => {
           }
           
           .filter-dropdown.open {
-            z-index: 10000;
+            z-index: 100000 !important;
+          }
+          
+          /* 카드 컨테이너 z-index 제한 */
+          .toss-card {
+            position: relative;
+            z-index: 1;
           }
           
           @keyframes fadeIn {
@@ -1173,7 +1179,7 @@ app.get('/', (c) => {
         <!-- Main Content -->
         <main class="max-w-6xl mx-auto px-4 pb-12">
             <!-- Filters Section -->
-            <div class="bg-white rounded-xl shadow-sm p-4 mb-6 fade-in">
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-6 fade-in" style="position: relative; z-index: 100;">
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="text-sm font-semibold text-gray-700 mr-2">필터</span>
                     
