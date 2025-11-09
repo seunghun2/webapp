@@ -1029,11 +1029,25 @@ app.get('/', (c) => {
                             <span class="filter-text">지역</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
                         </button>
                         <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[200px] z-10">
-                            <div class="p-2">
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="all">전체</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="서울">서울</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="경기">경기</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="인천">인천</button>
+                            <div class="p-2 max-h-80 overflow-y-auto">
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="all">전국</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="서울">서울특별시</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="부산">부산광역시</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="대구">대구광역시</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="인천">인천광역시</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="광주">광주광역시</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="대전">대전광역시</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="울산">울산광역시</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="세종">세종특별자치시</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="경기">경기도</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="강원">강원특별자치도</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="충북">충청북도</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="충남">충청남도</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="전북">전북특별자치도</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="전라">전라남도</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="경북">경상북도</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="경상">경상남도</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="제주">제주특별자치도</button>
                             </div>
                         </div>
                     </div>
@@ -1044,12 +1058,22 @@ app.get('/', (c) => {
                             <span class="filter-text">분양타입</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
                         </button>
                         <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[180px] z-10">
-                            <div class="p-2">
+                            <div class="p-2 max-h-80 overflow-y-auto">
                                 <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="all">전체</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="unsold">줍줍분양</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="today">오늘청약</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="johab">모집중</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="next">조합원</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="통합공공임대">통합공공임대</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="통합공공임대(신혼희망)">통합공공임대(신혼희망)</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="국민임대">국민임대</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="공공임대">공공임대</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="영구임대">영구임대</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="행복주택">행복주택</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="행복주택(신혼희망)">행복주택(신혼희망)</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="장기전세">장기전세</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="신축대세매입임대">신축대세매입임대</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="가정어린이집">가정어린이집</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="매입임대">매입임대</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="전세임대">전세임대</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="집주인임대">집주인임대</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="6년 공공임대주택">6년 공공임대주택</button>
                             </div>
                         </div>
                     </div>
@@ -1783,31 +1807,35 @@ app.get('/', (c) => {
                           \` : ''}
                         </div>
                         <div class="space-y-2">
-                          <!-- 분양가 정보 -->
-                          <div class="flex justify-between items-start text-sm">
-                            <div class="flex flex-col">
-                              <span class="text-gray-600">기존 분양가</span>
-                              \${property.sale_price_date ? \`
-                                <span class="text-xs text-gray-400">\${property.sale_price_date}</span>
-                              \` : ''}
+                          <!-- 분양가 정보 (데이터가 있을 때만 표시) -->
+                          \${property.original_price > 0 ? \`
+                            <div class="flex justify-between items-start text-sm">
+                              <div class="flex flex-col">
+                                <span class="text-gray-600">기존 분양가</span>
+                                \${property.sale_price_date ? \`
+                                  <span class="text-xs text-gray-400">\${property.sale_price_date}</span>
+                                \` : ''}
+                              </div>
+                              <span class="font-bold text-gray-900">
+                                \${property.original_price.toFixed(1)}억
+                              </span>
                             </div>
-                            <span class="font-bold text-gray-900">
-                              \${property.original_price > 0 ? property.original_price.toFixed(1) + '억' : '<span class="text-gray-400">미설정</span>'}
-                            </span>
-                          </div>
+                          \` : ''}
                           
-                          <!-- 실거래가 정보 -->
-                          <div class="flex justify-between items-start text-sm">
-                            <div class="flex flex-col">
-                              <span class="text-gray-600">최근 실거래가</span>
-                              \${property.recent_trade_date ? \`
-                                <span class="text-xs text-gray-400">\${property.recent_trade_date}</span>
-                              \` : ''}
+                          <!-- 실거래가 정보 (데이터가 있을 때만 표시) -->
+                          \${property.recent_trade_price > 0 ? \`
+                            <div class="flex justify-between items-start text-sm">
+                              <div class="flex flex-col">
+                                <span class="text-gray-600">최근 실거래가</span>
+                                \${property.recent_trade_date ? \`
+                                  <span class="text-xs text-gray-400">\${property.recent_trade_date}</span>
+                                \` : ''}
+                              </div>
+                              <span class="font-bold text-gray-900">
+                                \${property.recent_trade_price.toFixed(1)}억
+                              </span>
                             </div>
-                            <span class="font-bold text-gray-900">
-                              \${property.recent_trade_price > 0 ? property.recent_trade_price.toFixed(1) + '억' : '<span class="text-gray-400">미설정</span>'}
-                            </span>
-                          </div>
+                          \` : ''}
                           
                           <!-- 가격 변동 정보 -->
                           \${margin ? \`
