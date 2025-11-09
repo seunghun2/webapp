@@ -55,7 +55,8 @@ app.get('/api/properties', async (c) => {
     const household = c.req.query('household') || 'all'
     const sort = c.req.query('sort') || 'latest'
     
-    let query = 'SELECT * FROM properties WHERE 1=1'
+    // Exclude expired properties (deadline < today)
+    let query = "SELECT * FROM properties WHERE deadline >= date('now')"
     let params: any[] = []
     
     // Type filter
@@ -224,10 +225,16 @@ app.get('/', (c) => {
           
           .dropdown-content {
             display: none;
+            z-index: 1000;
           }
           
           .dropdown-content.show {
             display: block;
+          }
+          
+          .filter-dropdown {
+            position: relative;
+            z-index: 100;
           }
           
           @keyframes fadeIn {
@@ -360,7 +367,7 @@ app.get('/', (c) => {
                                 <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="unsold">줍줍분양</button>
                                 <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="today">오늘청약</button>
                                 <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="johab">모집중</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="next">분양예정</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="next">조합원</button>
                             </div>
                         </div>
                     </div>
@@ -528,6 +535,96 @@ app.get('/', (c) => {
                         </button>
                     </p>
                 </div>
+            </div>
+        </div>
+
+        <!-- 조합원 등록 문의 Modal -->
+        <div id="johapInquiryModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-lg w-full p-8 relative fade-in">
+                <button id="closeJohapModal" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">
+                    <i class="fas fa-times"></i>
+                </button>
+                
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">조합원 등록 문의</h2>
+                    <p class="text-gray-600 text-sm">정보를 입력해주시면 담당자가 빠르게 연락드리겠습니다</p>
+                </div>
+                
+                <form id="johapInquiryForm" class="space-y-4">
+                    <!-- 이름 -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            이름 <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" id="johapName" required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                               placeholder="이름을 입력하세요">
+                    </div>
+                    
+                    <!-- 연락처 -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            연락처 <span class="text-red-500">*</span>
+                        </label>
+                        <input type="tel" id="johapPhone" required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                               placeholder="010-1234-5678">
+                    </div>
+                    
+                    <!-- 이메일 -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            이메일
+                        </label>
+                        <input type="email" id="johapEmail"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                               placeholder="example@email.com">
+                    </div>
+                    
+                    <!-- 관심 지역 -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            관심 지역 <span class="text-red-500">*</span>
+                        </label>
+                        <select id="johapRegion" required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
+                            <option value="">선택해주세요</option>
+                            <option value="서울">서울</option>
+                            <option value="경기">경기</option>
+                            <option value="인천">인천</option>
+                            <option value="기타">기타</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 문의 내용 -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            문의 내용
+                        </label>
+                        <textarea id="johapMessage" rows="4"
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all resize-none"
+                                  placeholder="문의하실 내용을 자유롭게 입력해주세요"></textarea>
+                    </div>
+                    
+                    <!-- 개인정보 수집 동의 -->
+                    <div class="flex items-start gap-2 bg-gray-50 p-4 rounded-lg">
+                        <input type="checkbox" id="johapAgree" required
+                               class="mt-1 w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary">
+                        <label for="johapAgree" class="text-xs text-gray-600">
+                            (필수) 개인정보 수집 및 이용에 동의합니다.<br>
+                            수집 항목: 이름, 연락처, 이메일, 관심 지역<br>
+                            이용 목적: 조합원 등록 문의 상담<br>
+                            보유 기간: 상담 완료 후 3개월
+                        </label>
+                    </div>
+                    
+                    <!-- 제출 버튼 -->
+                    <button type="submit"
+                            class="w-full bg-primary text-white py-4 rounded-xl font-bold hover:bg-primary-light transition-all text-base">
+                        <i class="fas fa-paper-plane mr-2"></i>
+                        문의하기
+                    </button>
+                </form>
             </div>
         </div>
 
@@ -786,7 +883,7 @@ app.get('/', (c) => {
                   <div class="text-3xl font-bold text-gray-900">\${stats.johab}</div>
                 </div>
                 <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="next">
-                  <div class="text-xs text-gray-500 mb-2 font-medium">분양예정</div>
+                  <div class="text-xs text-gray-500 mb-2 font-medium">조합원</div>
                   <div class="text-3xl font-bold text-gray-900">\${stats.next}</div>
                 </div>
               \`;
@@ -833,80 +930,119 @@ app.get('/', (c) => {
                   const margin = formatMargin(property.expected_margin, property.margin_rate);
                   
                   return \`
-                  <div class="toss-card bg-white rounded-2xl shadow-sm overflow-hidden fade-in">
-                    <div class="p-6">
+                  <div class="toss-card bg-white rounded-xl shadow-sm overflow-hidden fade-in">
+                    <div class="p-5">
+                      <!-- Header -->
                       <div class="flex items-start justify-between mb-3">
                         <div class="flex-1">
-                          <h3 class="text-xl font-bold text-gray-900 mb-2">\${property.title}</h3>
-                          <div class="flex items-center gap-3 mb-2">
-                            <div class="flex items-center gap-1 text-sm text-gray-600">
-                              <i class="fas fa-map-marker-alt text-gray-400"></i>
-                              <span>\${property.location}</span>
-                            </div>
-                            \${property.full_address ? \`
-                              <button onclick="openMap('\${property.full_address}', \${property.lat}, \${property.lng})" 
-                                      class="text-primary text-xs hover:underline">
-                                🗺️ 지도
-                              </button>
+                          <div class="flex items-center gap-2 mb-2">
+                            <h3 class="text-lg font-bold text-gray-900">\${property.title}</h3>
+                            \${property.badge ? \`
+                              <span class="badge-\${property.badge.toLowerCase()} text-white text-xs font-bold px-2 py-0.5 rounded">
+                                \${property.badge}
+                              </span>
                             \` : ''}
                           </div>
-                          <div class="flex items-center gap-2">
-                            <span class="\${dday.class} text-white text-xs font-bold px-2 py-1 rounded">
-                              \${dday.text}
-                            </span>
-                            <span class="text-xs text-gray-600">\${property.deadline}</span>
-                          </div>
                         </div>
-                        \${property.badge ? \`
-                          <span class="badge-\${property.badge.toLowerCase()} text-white text-xs font-bold px-3 py-1 rounded-full">
-                            \${property.badge}
+                        <div class="flex items-center gap-2">
+                          <span class="\${dday.class} text-white text-xs font-bold px-2 py-1 rounded">
+                            \${dday.text}
                           </span>
+                        </div>
+                      </div>
+                      
+                      <!-- Location -->
+                      <div class="mb-3">
+                        <div class="flex items-center gap-2 text-sm text-gray-700 mb-1">
+                          <i class="fas fa-map-marker-alt text-primary text-xs"></i>
+                          <span class="font-medium">\${property.full_address || property.location}</span>
+                        </div>
+                        \${property.full_address ? \`
+                          <button onclick="openMap('\${property.full_address}', \${property.lat}, \${property.lng})" 
+                                  class="text-primary text-xs hover:underline ml-5 flex items-center gap-1">
+                            🗺️ 지도에서 보기
+                          </button>
                         \` : ''}
                       </div>
                       
-                      <div class="flex flex-wrap gap-2 mb-4">
+                      <!-- Key Info Grid -->
+                      <div class="bg-gray-50 rounded-lg p-4 mb-3">
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <div class="text-xs text-gray-500 mb-1">📅 줍줍일</div>
+                            <div class="font-bold text-gray-900">\${property.deadline}</div>
+                          </div>
+                          <div>
+                            <div class="text-xs text-gray-500 mb-1">📐 타입</div>
+                            <div class="font-bold text-gray-900">\${property.area_type || '-'}</div>
+                          </div>
+                          <div>
+                            <div class="text-xs text-gray-500 mb-1">🏠 줍줍 물량</div>
+                            <div class="font-bold text-gray-900">\${property.households}</div>
+                          </div>
+                          <div>
+                            <div class="text-xs text-gray-500 mb-1">🏗️ 시공사</div>
+                            <div class="font-bold text-gray-900 text-xs">\${property.builder || '-'}</div>
+                          </div>
+                        </div>
+                        \${property.description ? \`
+                          <div class="mt-3 pt-3 border-t border-gray-200">
+                            <div class="text-xs text-gray-600">\${property.description}</div>
+                          </div>
+                        \` : ''}
+                      </div>
+                      
+                      <!-- Investment Info -->
+                      \${margin ? \`
+                        <div class="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-300 rounded-lg p-4 mb-3">
+                          <div class="text-xs font-bold text-gray-700 mb-2">💰 투자 정보</div>
+                          <div class="space-y-1.5">
+                            <div class="flex justify-between items-center text-sm">
+                              <span class="text-gray-600">기존 분양가</span>
+                              <span class="font-bold text-gray-900">\${property.original_price.toFixed(1)}억</span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm">
+                              <span class="text-gray-600">최근 실거래가</span>
+                              <span class="font-bold text-gray-900">\${property.recent_trade_price.toFixed(1)}억</span>
+                            </div>
+                            <div class="border-t-2 border-red-300 pt-2 flex justify-between items-center">
+                              <span class="text-sm font-bold text-gray-900">예상 마진</span>
+                              <span class="\${margin.color} text-lg font-bold">\${margin.text}</span>
+                            </div>
+                          </div>
+                        </div>
+                      \` : ''}
+                      
+                      <!-- Tags -->
+                      <div class="flex flex-wrap gap-1.5 mb-3">
                         \${property.tags.map(tag => \`
-                          <span class="bg-primary-lighter text-primary text-xs font-medium px-3 py-1 rounded-full">
+                          <span class="bg-primary-lighter text-primary text-xs font-medium px-2 py-1 rounded">
                             \${tag}
                           </span>
                         \`).join('')}
                       </div>
                       
-                      <!-- Investment Summary -->
-                      \${margin ? \`
-                        <div class="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-lg p-4 mb-4">
-                          <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs text-gray-600">분양가</span>
-                            <span class="text-sm font-bold text-gray-900">\${property.original_price.toFixed(1)}억</span>
-                          </div>
-                          <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs text-gray-600">실거래가</span>
-                            <span class="text-sm font-bold text-gray-900">\${property.recent_trade_price.toFixed(1)}억</span>
-                          </div>
-                          <div class="border-t border-red-200 pt-2 flex justify-between items-center">
-                            <span class="text-xs font-bold text-gray-900">예상 마진</span>
-                            <span class="\${margin.color} text-base">\${margin.text}</span>
-                          </div>
-                        </div>
-                      \` : \`
-                        <div class="border-t border-gray-100 pt-4 mb-4">
-                          <div class="grid grid-cols-2 gap-3">
-                            <div>
-                              <div class="text-xs text-gray-600 mb-1">분양가</div>
-                              <div class="text-sm font-bold text-gray-900">\${property.price}</div>
-                            </div>
-                            <div>
-                              <div class="text-xs text-gray-600 mb-1">모집세대</div>
-                              <div class="text-sm font-bold text-gray-900">\${property.households}</div>
-                            </div>
-                          </div>
-                        </div>
-                      \`}
-                      
-                      <button onclick="showDetail(\${property.id})" 
-                              class="w-full bg-primary text-white font-semibold py-3 rounded-lg hover:bg-primary-light transition-all text-sm">
-                        상세보기
-                      </button>
+                      <!-- Action Buttons -->
+                      <div class="flex gap-2">
+                        \${property.type === 'next' ? \`
+                          <!-- 조합원 등록 문의 버튼 (조합원 타입만) -->
+                          <button onclick="showJohapInquiry()" 
+                                  class="flex-1 bg-primary text-white font-bold py-2.5 rounded-lg hover:bg-primary-light transition-all text-sm">
+                            <i class="fas fa-user-plus mr-1"></i>
+                            등록 문의
+                          </button>
+                          <button onclick="showDetail(\${property.id})" 
+                                  class="flex-1 bg-white border-2 border-primary text-primary font-medium py-2 rounded-lg hover:bg-primary hover:text-white transition-all text-xs">
+                            상세 정보
+                          </button>
+                        \` : \`
+                          <!-- 기본 상세 정보 버튼 -->
+                          <button onclick="showDetail(\${property.id})" 
+                                  class="w-full bg-white border-2 border-primary text-primary font-medium py-2 rounded-lg hover:bg-primary hover:text-white transition-all text-xs">
+                            상세 정보 보기
+                          </button>
+                        \`}
+                      </div>
                     </div>
                   </div>
                 \`;
@@ -933,7 +1069,7 @@ app.get('/', (c) => {
             
             if (filters.region !== 'all') activeFilters.push({ type: 'region', value: filters.region });
             if (filters.type !== 'all') {
-              const typeNames = { unsold: '줍줍분양', today: '오늘청약', johab: '모집중', next: '분양예정' };
+              const typeNames = { unsold: '줍줍분양', today: '오늘청약', johab: '모집중', next: '조합원' };
               activeFilters.push({ type: 'type', value: typeNames[filters.type] });
             }
             if (filters.household !== 'all') {
@@ -992,7 +1128,7 @@ app.get('/', (c) => {
                 text.textContent = filters.region;
                 btn.classList.add('active');
               } else if (filterType === 'type' && filters.type !== 'all') {
-                const typeNames = { unsold: '줍줍분양', today: '오늘청약', johab: '모집중', next: '분양예정' };
+                const typeNames = { unsold: '줍줍분양', today: '오늘청약', johab: '모집중', next: '조합원' };
                 text.textContent = typeNames[filters.type];
                 btn.classList.add('active');
               } else if (filterType === 'household' && filters.household !== 'all') {
@@ -1104,6 +1240,53 @@ app.get('/', (c) => {
             if (e.target === loginModal) {
               loginModal.classList.remove('show');
             }
+          });
+
+          // 조합원 문의 modal handlers
+          const johapModal = document.getElementById('johapInquiryModal');
+          const closeJohapModal = document.getElementById('closeJohapModal');
+          const johapForm = document.getElementById('johapInquiryForm');
+
+          // 조합원 문의 팝업 열기 함수
+          window.showJohapInquiry = function() {
+            johapModal.classList.add('show');
+          };
+
+          // 닫기 버튼
+          closeJohapModal.addEventListener('click', () => {
+            johapModal.classList.remove('show');
+          });
+
+          // 배경 클릭 시 닫기
+          johapModal.addEventListener('click', (e) => {
+            if (e.target === johapModal) {
+              johapModal.classList.remove('show');
+            }
+          });
+
+          // 폼 제출 처리
+          johapForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+              name: document.getElementById('johapName').value,
+              phone: document.getElementById('johapPhone').value,
+              email: document.getElementById('johapEmail').value,
+              region: document.getElementById('johapRegion').value,
+              message: document.getElementById('johapMessage').value,
+              agreed: document.getElementById('johapAgree').checked,
+              timestamp: new Date().toISOString()
+            };
+            
+            // TODO: 실제 서버로 전송 (현재는 콘솔 출력)
+            console.log('조합원 등록 문의:', formData);
+            
+            // 성공 메시지
+            alert('문의가 접수되었습니다!\n담당자가 빠른 시일 내에 연락드리겠습니다.');
+            
+            // 폼 초기화 및 모달 닫기
+            johapForm.reset();
+            johapModal.classList.remove('show');
           });
 
           signupBtn.addEventListener('click', () => {
