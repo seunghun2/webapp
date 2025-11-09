@@ -15,13 +15,11 @@ jobs:
         run: |
           echo "🏠 실거래가 자동 업데이트 시작..."
           
-          # ⚠️ 중요: Cloudflare Pages 배포 후 실제 URL로 변경하세요!
-          # 예시: https://your-project.pages.dev/api/auto-update-all-prices
-          #
-          # 현재는 테스트용 URL (샌드박스)
+          # 프로덕션 URL (hanchae365.com)
+          # Custom domain 연결 완료 후 사용
           RESPONSE=$(curl -s -X POST \
             -H "Content-Type: application/json" \
-            https://3000-iwhqnkbi44emm3qlpcntd-583b4d74.sandbox.novita.ai/api/auto-update-all-prices \
+            https://hanchae365.com/api/auto-update-all-prices \
             -w "\n%{http_code}")
           
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
