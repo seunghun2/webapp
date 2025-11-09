@@ -1229,20 +1229,10 @@ app.get('/', (c) => {
                         <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[180px] z-10">
                             <div class="p-2 max-h-80 overflow-y-auto">
                                 <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="all">전체</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="통합공공임대">통합공공임대</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="통합공공임대(신혼희망)">통합공공임대(신혼희망)</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="국민임대">국민임대</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="공공임대">공공임대</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="영구임대">영구임대</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="행복주택">행복주택</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="행복주택(신혼희망)">행복주택(신혼희망)</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="장기전세">장기전세</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="신축대세매입임대">신축대세매입임대</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="가정어린이집">가정어린이집</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="매입임대">매입임대</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="전세임대">전세임대</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="집주인임대">집주인임대</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="6년 공공임대주택">6년 공공임대주택</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="unsold">줍줍분양</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="today">오늘청약</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="johab">모집중</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="next">조합원</button>
                             </div>
                         </div>
                     </div>
@@ -1978,12 +1968,28 @@ app.get('/', (c) => {
                             <div class="font-bold text-gray-900">\${property.household_count ? property.household_count + '세대' : property.households}</div>
                           </div>
                           <div>
-                            <div class="text-xs text-gray-500 mb-1">📐 분양면적</div>
-                            <div class="font-bold text-gray-900">\${property.supply_area || property.area_type || '-'}</div>
-                          </div>
-                          <div>
                             <div class="text-xs text-gray-500 mb-1">📏 전용면적</div>
                             <div class="font-bold text-gray-900">\${property.exclusive_area || '-'}</div>
+                          </div>
+                          <div>
+                            <div class="text-xs text-gray-500 mb-1">📐 공급면적</div>
+                            <div class="font-bold text-gray-900">\${
+                              (() => {
+                                // supply_area에 범위(~)가 포함되어 있으면 잘못된 데이터이므로 전용면적 기반 계산
+                                if (property.supply_area && property.supply_area.includes('~')) {
+                                  if (property.exclusive_area) {
+                                    const exclusiveNum = parseFloat(property.exclusive_area);
+                                    if (!isNaN(exclusiveNum)) {
+                                      const supplyNum = (exclusiveNum * 1.33).toFixed(2);
+                                      return supplyNum + '㎡';
+                                    }
+                                  }
+                                  return '-';
+                                }
+                                // 정상 데이터는 그대로 표시
+                                return property.supply_area || '-';
+                              })()
+                            }</div>
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">💰 분양가격</div>
