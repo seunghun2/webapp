@@ -20,7 +20,6 @@ app.get('/api/stats', async (c) => {
   try {
     const { DB } = c.env
     
-    // Get count by type
     const result = await DB.prepare(`
       SELECT 
         type,
@@ -29,7 +28,6 @@ app.get('/api/stats', async (c) => {
       GROUP BY type
     `).all()
     
-    // Transform to expected format
     const stats = {
       unsold: 0,
       today: 0,
@@ -48,23 +46,64 @@ app.get('/api/stats', async (c) => {
   }
 })
 
-// API endpoint for properties by type
-app.get('/api/properties/:type', async (c) => {
+// API endpoint for properties with filters
+app.get('/api/properties', async (c) => {
   try {
     const { DB } = c.env
-    const type = c.req.param('type')
+    const type = c.req.query('type') || 'all'
+    const region = c.req.query('region') || 'all'
+    const household = c.req.query('household') || 'all'
+    const sort = c.req.query('sort') || 'latest'
     
-    let query = 'SELECT * FROM properties ORDER BY created_at DESC'
-    let stmt = DB.prepare(query)
+    let query = 'SELECT * FROM properties WHERE 1=1'
+    let params: any[] = []
     
+    // Type filter
     if (type !== 'all' && type !== 'today') {
-      query = 'SELECT * FROM properties WHERE type = ? ORDER BY created_at DESC'
-      stmt = DB.prepare(query).bind(type)
+      query += ' AND type = ?'
+      params.push(type)
+    }
+    
+    // Region filter
+    if (region !== 'all') {
+      query += ' AND region = ?'
+      params.push(region)
+    }
+    
+    // Household filter
+    if (household !== 'all') {
+      const [min, max] = household.split('-')
+      if (max === '+') {
+        query += ' AND household_count >= ?'
+        params.push(parseInt(min))
+      } else {
+        query += ' AND household_count >= ? AND household_count < ?'
+        params.push(parseInt(min), parseInt(max))
+      }
+    }
+    
+    // Sorting
+    switch (sort) {
+      case 'deadline':
+        query += ' ORDER BY deadline ASC'
+        break
+      case 'price-low':
+        query += ' ORDER BY sale_price_min ASC'
+        break
+      case 'price-high':
+        query += ' ORDER BY sale_price_max DESC'
+        break
+      default:
+        query += ' ORDER BY created_at DESC'
+    }
+    
+    let stmt = DB.prepare(query)
+    if (params.length > 0) {
+      stmt = stmt.bind(...params)
     }
     
     const result = await stmt.all()
     
-    // Parse tags JSON string to array
     const properties = result.results.map((prop: any) => ({
       ...prop,
       tags: JSON.parse(prop.tags)
@@ -111,7 +150,7 @@ app.get('/', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>줍줍분양 - 토스 스타일</title>
+        <title>줍줍분양</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <style>
@@ -120,6 +159,21 @@ app.get('/', (c) => {
           * {
             font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
           }
+          
+          /* Toss Blue Color System */
+          :root {
+            --primary: #3182F6;
+            --primary-light: #5599FF;
+            --primary-lighter: #EBF4FF;
+            --blue-gray: #4E5968;
+            --light-gray: #F2F4F6;
+          }
+          
+          .bg-primary { background-color: var(--primary); }
+          .bg-primary-light { background-color: var(--primary-light); }
+          .bg-primary-lighter { background-color: var(--primary-lighter); }
+          .text-primary { color: var(--primary); }
+          .border-primary { border-color: var(--primary); }
           
           .toss-card {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -140,7 +194,7 @@ app.get('/', (c) => {
           }
           
           .stat-card.active {
-            background: #191F28;
+            background: var(--primary);
             color: white;
           }
           
@@ -150,6 +204,30 @@ app.get('/', (c) => {
           
           .badge-hot {
             background: #FF8C00;
+          }
+          
+          .filter-btn {
+            transition: all 0.2s ease;
+            border: 1px solid #E5E8EB;
+          }
+          
+          .filter-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+          }
+          
+          .filter-btn.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+          }
+          
+          .dropdown-content {
+            display: none;
+          }
+          
+          .dropdown-content.show {
+            display: block;
           }
           
           @keyframes fadeIn {
@@ -172,54 +250,23 @@ app.get('/', (c) => {
             pointer-events: none;
           }
           
-          .social-btn {
-            transition: all 0.2s ease;
+          .detail-row {
+            display: flex;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
           }
           
-          .social-btn:hover {
-            transform: translateY(-2px);
+          .detail-label {
+            width: 100px;
+            color: #666;
+            font-size: 13px;
           }
           
-          /* Toss Blue Color System */
-          .color-primary { color: #3182F6; }
-          .bg-primary { background-color: #3182F6; }
-          .color-primary-light { color: #5599FF; }
-          .bg-primary-light { background-color: #5599FF; }
-          .color-primary-lighter { color: #EBF4FF; }
-          .bg-primary-lighter { background-color: #EBF4FF; }
-          .border-primary { border-color: #3182F6; }
-          
-          /* Secondary Colors */
-          .color-blue-gray { color: #4E5968; }
-          .bg-blue-gray { background-color: #4E5968; }
-          .color-light-gray { color: #F2F4F6; }
-          .bg-light-gray { background-color: #F2F4F6; }
-          
-          /* Filter styles */
-          .filter-btn {
-            transition: all 0.2s ease;
-            border: 1px solid #E5E8EB;
-          }
-          
-          .filter-btn:hover {
-            border-color: #3182F6;
-            color: #3182F6;
-          }
-          
-          .filter-btn.active {
-            background-color: #3182F6;
-            color: white;
-            border-color: #3182F6;
-          }
-          
-          .dropdown-content {
-            display: none;
-            max-height: 300px;
-            overflow-y: auto;
-          }
-          
-          .dropdown-content.show {
-            display: block;
+          .detail-value {
+            flex: 1;
+            color: #191F28;
+            font-size: 14px;
+            font-weight: 500;
           }
         </style>
     </head>
@@ -253,22 +300,82 @@ app.get('/', (c) => {
 
         <!-- Main Content -->
         <main class="max-w-6xl mx-auto px-4 pb-12">
-
-            <!-- Filter Tabs -->
-            <div class="bg-white rounded-xl shadow-sm p-1.5 mb-6 fade-in">
-                <div class="flex gap-1.5 overflow-x-auto">
-                    <button class="tab-btn flex-1 min-w-[100px] px-4 py-2.5 rounded-lg font-semibold transition-all bg-gray-900 text-white text-sm" data-type="unsold">
-                        줍줍분양
+            <!-- Filters Section -->
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-6 fade-in">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-sm font-semibold text-gray-700 mr-2">필터</span>
+                    
+                    <!-- Region Filter -->
+                    <div class="relative filter-dropdown">
+                        <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="region">
+                            <span class="filter-text">지역</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
+                        </button>
+                        <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[200px] z-10">
+                            <div class="p-2">
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="all">전체</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="서울">서울</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="경기">경기</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="인천">인천</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Type Filter -->
+                    <div class="relative filter-dropdown">
+                        <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="type">
+                            <span class="filter-text">분양타입</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
+                        </button>
+                        <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[180px] z-10">
+                            <div class="p-2">
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="all">전체</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="unsold">줍줍분양</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="today">오늘청약</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="johab">모집중</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="next">분양예정</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Household Filter -->
+                    <div class="relative filter-dropdown">
+                        <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="household">
+                            <span class="filter-text">세대수</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
+                        </button>
+                        <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[180px] z-10">
+                            <div class="p-2">
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="household" data-value="all">전체</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="household" data-value="0-50">50세대 이하</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="household" data-value="50-300">50-300세대</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="household" data-value="300-1000">300-1000세대</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="household" data-value="1000-+">1000세대 이상</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Sort Filter -->
+                    <div class="relative filter-dropdown">
+                        <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="sort">
+                            <span class="filter-text">최신순</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
+                        </button>
+                        <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[150px] z-10">
+                            <div class="p-2">
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="sort" data-value="latest">최신순</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="sort" data-value="deadline">마감임박순</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="sort" data-value="price-low">낮은가격순</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="sort" data-value="price-high">높은가격순</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Reset Button -->
+                    <button id="resetFilters" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 ml-auto">
+                        <i class="fas fa-redo text-xs mr-1"></i> 초기화
                     </button>
-                    <button class="tab-btn flex-1 min-w-[100px] px-4 py-2.5 rounded-lg font-semibold transition-all hover:bg-gray-100 text-gray-700 text-sm" data-type="today">
-                        오늘청약
-                    </button>
-                    <button class="tab-btn flex-1 min-w-[100px] px-4 py-2.5 rounded-lg font-semibold transition-all hover:bg-gray-100 text-gray-700 text-sm" data-type="johab">
-                        모집중
-                    </button>
-                    <button class="tab-btn flex-1 min-w-[100px] px-4 py-2.5 rounded-lg font-semibold transition-all hover:bg-gray-100 text-gray-700 text-sm" data-type="next">
-                        분양예정
-                    </button>
+                </div>
+                
+                <!-- Active Filters Display -->
+                <div id="activeFilters" class="mt-3 flex gap-2 flex-wrap hidden">
+                    <!-- Active filter chips will appear here -->
                 </div>
             </div>
 
@@ -279,7 +386,7 @@ app.get('/', (c) => {
 
             <!-- Loading State -->
             <div id="loadingState" class="hidden text-center py-12">
-                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
                 <p class="text-gray-600 mt-4">로딩 중...</p>
             </div>
         </main>
@@ -384,7 +491,13 @@ app.get('/', (c) => {
 
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script>
-          let currentType = 'unsold';
+          // Filter state
+          const filters = {
+            region: 'all',
+            type: 'all',
+            household: 'all',
+            sort: 'latest'
+          };
 
           // Load statistics
           async function loadStats() {
@@ -416,7 +529,13 @@ app.get('/', (c) => {
               document.querySelectorAll('.stat-card').forEach(card => {
                 card.addEventListener('click', () => {
                   const type = card.dataset.type;
-                  switchTab(type);
+                  filters.type = type;
+                  updateActiveFilters();
+                  loadProperties();
+                  
+                  // Update active state
+                  document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+                  card.classList.add('active');
                 });
               });
             } catch (error) {
@@ -425,14 +544,13 @@ app.get('/', (c) => {
           }
 
           // Load properties
-          async function loadProperties(type) {
+          async function loadProperties() {
             const container = document.getElementById('propertiesContainer');
-            const loadingState = document.getElementById('loadingState');
-            
             container.classList.add('loading');
             
             try {
-              const response = await axios.get(\`/api/properties/\${type}\`);
+              const params = new URLSearchParams(filters);
+              const response = await axios.get(\`/api/properties?\${params}\`);
               const properties = response.data;
               
               if (properties.length === 0) {
@@ -440,22 +558,22 @@ app.get('/', (c) => {
                   <div class="col-span-2 text-center py-12">
                     <div class="text-6xl mb-4">🏠</div>
                     <h3 class="text-xl font-bold text-gray-900 mb-2">분양 정보가 없습니다</h3>
-                    <p class="text-gray-600">새로운 분양 정보가 업데이트되면 알려드릴게요!</p>
+                    <p class="text-gray-600">필터를 조정해보세요!</p>
                   </div>
                 \`;
               } else {
                 container.innerHTML = properties.map(property => \`
-                  <div class="toss-card bg-white rounded-2xl shadow-lg overflow-hidden fade-in">
+                  <div class="toss-card bg-white rounded-2xl shadow-sm overflow-hidden fade-in">
                     <div class="p-6">
                       <div class="flex items-start justify-between mb-4">
                         <div class="flex-1">
                           <h3 class="text-xl font-bold text-gray-900 mb-2">\${property.title}</h3>
                           <div class="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                            <i class="fas fa-map-marker-alt text-gray-400"></i>
+                            <i class="fas fa-map-marker-alt text-primary"></i>
                             <span>\${property.location}</span>
                           </div>
                           <div class="flex items-center gap-2 text-sm text-gray-600">
-                            <i class="fas fa-calendar text-gray-400"></i>
+                            <i class="fas fa-calendar text-primary"></i>
                             <span>\${property.deadline}까지</span>
                           </div>
                         </div>
@@ -468,27 +586,69 @@ app.get('/', (c) => {
                       
                       <div class="flex flex-wrap gap-2 mb-4">
                         \${property.tags.map(tag => \`
-                          <span class="bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1 rounded-full">
+                          <span class="bg-primary-lighter text-primary text-xs font-medium px-3 py-1 rounded-full">
                             \${tag}
                           </span>
                         \`).join('')}
                       </div>
                       
-                      <div class="border-t border-gray-200 pt-4 mb-4">
-                        <div class="grid grid-cols-2 gap-4">
-                          <div>
-                            <div class="text-xs text-gray-600 mb-1">분양가</div>
-                            <div class="font-bold text-gray-900">\${property.price}</div>
+                      <!-- Detailed Info Section -->
+                      <div class="border-t border-gray-100 pt-4 mb-4">
+                        \${property.area_type ? \`
+                          <div class="detail-row">
+                            <div class="detail-label">면적</div>
+                            <div class="detail-value">\${property.area_type}</div>
                           </div>
-                          <div>
-                            <div class="text-xs text-gray-600 mb-1">모집세대</div>
-                            <div class="font-bold text-gray-900">\${property.households}</div>
-                          </div>
+                        \` : ''}
+                        
+                        <div class="detail-row">
+                          <div class="detail-label">분양가</div>
+                          <div class="detail-value">\${property.price}</div>
                         </div>
+                        
+                        <div class="detail-row">
+                          <div class="detail-label">모집세대</div>
+                          <div class="detail-value">\${property.households}</div>
+                        </div>
+                        
+                        \${property.move_in_date ? \`
+                          <div class="detail-row">
+                            <div class="detail-label">입주예정</div>
+                            <div class="detail-value">\${property.move_in_date}</div>
+                          </div>
+                        \` : ''}
+                        
+                        \${property.parking ? \`
+                          <div class="detail-row">
+                            <div class="detail-label">주차</div>
+                            <div class="detail-value">\${property.parking}</div>
+                          </div>
+                        \` : ''}
+                        
+                        \${property.heating ? \`
+                          <div class="detail-row">
+                            <div class="detail-label">난방</div>
+                            <div class="detail-value">\${property.heating}</div>
+                          </div>
+                        \` : ''}
+                        
+                        \${property.builder ? \`
+                          <div class="detail-row">
+                            <div class="detail-label">시공사</div>
+                            <div class="detail-value">\${property.builder}</div>
+                          </div>
+                        \` : ''}
+                        
+                        \${property.transportation ? \`
+                          <div class="detail-row border-0">
+                            <div class="detail-label">교통</div>
+                            <div class="detail-value text-xs leading-relaxed">\${property.transportation}</div>
+                          </div>
+                        \` : ''}
                       </div>
                       
                       <div class="flex gap-2">
-                        <button class="flex-1 bg-gray-900 text-white font-semibold py-3 rounded-lg hover:bg-gray-800 transition-all text-sm">
+                        <button class="flex-1 bg-primary text-white font-semibold py-3 rounded-lg hover:bg-primary-light transition-all text-sm">
                           관심등록
                         </button>
                         <button class="bg-gray-100 text-gray-700 font-semibold px-4 py-3 rounded-lg hover:bg-gray-200 transition-all">
@@ -513,39 +673,153 @@ app.get('/', (c) => {
             }
           }
 
-          // Switch tab
-          function switchTab(type) {
-            currentType = type;
+          // Update active filters display
+          function updateActiveFilters() {
+            const activeFiltersContainer = document.getElementById('activeFilters');
+            const activeFilters = [];
             
-            // Update tab buttons
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-              if (btn.dataset.type === type) {
-                btn.classList.add('bg-gray-900', 'text-white');
-                btn.classList.remove('hover:bg-gray-100', 'text-gray-700');
-              } else {
-                btn.classList.remove('bg-gray-900', 'text-white');
-                btn.classList.add('hover:bg-gray-100', 'text-gray-700');
-              }
-            });
+            if (filters.region !== 'all') activeFilters.push({ type: 'region', value: filters.region });
+            if (filters.type !== 'all') {
+              const typeNames = { unsold: '줍줍분양', today: '오늘청약', johab: '모집중', next: '분양예정' };
+              activeFilters.push({ type: 'type', value: typeNames[filters.type] });
+            }
+            if (filters.household !== 'all') {
+              const householdNames = {
+                '0-50': '50세대 이하',
+                '50-300': '50-300세대',
+                '300-1000': '300-1000세대',
+                '1000-+': '1000세대 이상'
+              };
+              activeFilters.push({ type: 'household', value: householdNames[filters.household] });
+            }
+            if (filters.sort !== 'latest') {
+              const sortNames = {
+                deadline: '마감임박순',
+                'price-low': '낮은가격순',
+                'price-high': '높은가격순'
+              };
+              activeFilters.push({ type: 'sort', value: sortNames[filters.sort] });
+            }
             
-            // Update stat cards
-            document.querySelectorAll('.stat-card').forEach(card => {
-              if (card.dataset.type === type) {
-                card.classList.add('active');
-              } else {
-                card.classList.remove('active');
-              }
-            });
-            
-            // Load properties
-            loadProperties(type);
+            if (activeFilters.length > 0) {
+              activeFiltersContainer.classList.remove('hidden');
+              activeFiltersContainer.innerHTML = activeFilters.map(filter => \`
+                <span class="bg-primary text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-2">
+                  \${filter.value}
+                  <button class="hover:bg-primary-light rounded-full" onclick="removeFilter('\${filter.type}')">
+                    <i class="fas fa-times text-xs"></i>
+                  </button>
+                </span>
+              \`).join('');
+            } else {
+              activeFiltersContainer.classList.add('hidden');
+            }
           }
 
-          // Add tab click handlers
-          document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-              switchTab(btn.dataset.type);
+          // Remove filter
+          window.removeFilter = function(type) {
+            if (type === 'region') filters.region = 'all';
+            if (type === 'type') filters.type = 'all';
+            if (type === 'household') filters.household = 'all';
+            if (type === 'sort') filters.sort = 'latest';
+            
+            updateActiveFilters();
+            updateFilterButtonTexts();
+            loadProperties();
+          };
+
+          // Update filter button texts
+          function updateFilterButtonTexts() {
+            const filterBtns = document.querySelectorAll('.filter-btn');
+            filterBtns.forEach(btn => {
+              const filterType = btn.dataset.filter;
+              const text = btn.querySelector('.filter-text');
+              
+              if (filterType === 'region' && filters.region !== 'all') {
+                text.textContent = filters.region;
+                btn.classList.add('active');
+              } else if (filterType === 'type' && filters.type !== 'all') {
+                const typeNames = { unsold: '줍줍분양', today: '오늘청약', johab: '모집중', next: '분양예정' };
+                text.textContent = typeNames[filters.type];
+                btn.classList.add('active');
+              } else if (filterType === 'household' && filters.household !== 'all') {
+                const householdNames = {
+                  '0-50': '50세대↓',
+                  '50-300': '50-300',
+                  '300-1000': '300-1000',
+                  '1000-+': '1000↑'
+                };
+                text.textContent = householdNames[filters.household];
+                btn.classList.add('active');
+              } else if (filterType === 'sort' && filters.sort !== 'latest') {
+                const sortNames = {
+                  deadline: '마감임박',
+                  'price-low': '낮은가격',
+                  'price-high': '높은가격'
+                };
+                text.textContent = sortNames[filters.sort];
+                btn.classList.add('active');
+              } else {
+                // Reset to default
+                if (filterType === 'region') text.textContent = '지역';
+                if (filterType === 'type') text.textContent = '분양타입';
+                if (filterType === 'household') text.textContent = '세대수';
+                if (filterType === 'sort') text.textContent = '최신순';
+                btn.classList.remove('active');
+              }
             });
+          }
+
+          // Dropdown handlers
+          document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const dropdown = btn.nextElementSibling;
+              
+              // Close other dropdowns
+              document.querySelectorAll('.dropdown-content').forEach(d => {
+                if (d !== dropdown) d.classList.remove('show');
+              });
+              
+              dropdown.classList.toggle('show');
+            });
+          });
+
+          // Filter option handlers
+          document.querySelectorAll('.filter-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const filterType = option.dataset.filterType;
+              const value = option.dataset.value;
+              
+              filters[filterType] = value;
+              
+              // Close dropdown
+              option.closest('.dropdown-content').classList.remove('show');
+              
+              updateActiveFilters();
+              updateFilterButtonTexts();
+              loadProperties();
+            });
+          });
+
+          // Close dropdowns when clicking outside
+          document.addEventListener('click', () => {
+            document.querySelectorAll('.dropdown-content').forEach(d => {
+              d.classList.remove('show');
+            });
+          });
+
+          // Reset filters
+          document.getElementById('resetFilters').addEventListener('click', () => {
+            filters.region = 'all';
+            filters.type = 'all';
+            filters.household = 'all';
+            filters.sort = 'latest';
+            
+            updateActiveFilters();
+            updateFilterButtonTexts();
+            loadProperties();
           });
 
           // Login modal handlers
@@ -588,7 +862,7 @@ app.get('/', (c) => {
 
           // Initialize
           loadStats();
-          loadProperties('unsold');
+          loadProperties();
         </script>
     </body>
     </html>
