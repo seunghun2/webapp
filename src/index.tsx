@@ -164,6 +164,147 @@ app.get('/api/properties/detail/:id', async (c) => {
   }
 })
 
+// LH 청약센터 크롤링 API
+app.post('/api/crawl/lh', async (c) => {
+  try {
+    const { DB } = c.env
+    
+    // LH 청약센터 URL
+    const lhUrl = 'https://apply.lh.or.kr/lhapply/apply/wt/wrtanc/selectWrtancList.do?mi=1027'
+    
+    // Fetch HTML from LH
+    const response = await fetch(lhUrl)
+    const html = await response.text()
+    
+    // 간단한 HTML 파싱 (정규식 사용)
+    const tableRegex = /<tr[^>]*>(.*?)<\/tr>/gs
+    const rows = [...html.matchAll(tableRegex)]
+    
+    let newCount = 0
+    let updateCount = 0
+    
+    for (const row of rows) {
+      const rowHtml = row[1]
+      
+      // 공고명 추출
+      const titleMatch = rowHtml.match(/class="tal"[^>]*>(.*?)<\/td>/s)
+      if (!titleMatch) continue
+      
+      const titleText = titleMatch[1].replace(/<[^>]+>/g, '').trim()
+      if (!titleText || titleText === '공고명') continue
+      
+      // 지역 추출
+      const regionMatch = rowHtml.match(/class="ta-c"[^>]*>([^<]+)<\/td>/s)
+      const region = regionMatch ? regionMatch[1].trim() : ''
+      
+      // 게시일/마감일 추출  
+      const dateMatches = [...rowHtml.matchAll(/(\d{4}\.\d{2}\.\d{2})/g)]
+      const announcementDate = dateMatches[0] ? dateMatches[0][1] : ''
+      const deadline = dateMatches[1] ? dateMatches[1][1] : ''
+      
+      // 상태 추출
+      const statusMatch = rowHtml.match(/공고중|접수중|마감/)
+      const status = statusMatch ? statusMatch[0] : '공고중'
+      
+      // 유형 추출
+      let propertyType = 'unsold' // 기본값
+      let announcementType = '분양주택'
+      
+      if (titleText.includes('신혼희망')) {
+        announcementType = '공공분양(신혼희망)'
+      } else if (titleText.includes('공공분양')) {
+        announcementType = '공공분양'
+      }
+      
+      // 지역명 정규화
+      let normalizedRegion = ''
+      if (region.includes('서울')) normalizedRegion = '서울'
+      else if (region.includes('부산')) normalizedRegion = '부산'
+      else if (region.includes('대구')) normalizedRegion = '대구'
+      else if (region.includes('인천')) normalizedRegion = '인천'
+      else if (region.includes('광주')) normalizedRegion = '광주'
+      else if (region.includes('대전')) normalizedRegion = '대전'
+      else if (region.includes('울산')) normalizedRegion = '울산'
+      else if (region.includes('세종')) normalizedRegion = '세종'
+      else if (region.includes('경기')) normalizedRegion = '경기'
+      else if (region.includes('강원')) normalizedRegion = '강원'
+      else if (region.includes('충북') || region.includes('충청북')) normalizedRegion = '충북'
+      else if (region.includes('충남') || region.includes('충청남')) normalizedRegion = '충남'
+      else if (region.includes('전북') || region.includes('전라북')) normalizedRegion = '전북'
+      else if (region.includes('전남') || region.includes('전라남')) normalizedRegion = '전라'
+      else if (region.includes('경북') || region.includes('경상북')) normalizedRegion = '경북'
+      else if (region.includes('경남') || region.includes('경상남')) normalizedRegion = '경상'
+      else if (region.includes('제주')) normalizedRegion = '제주'
+      
+      // LH 공고 ID 생성 (제목 기반)
+      const lhId = Buffer.from(titleText).toString('base64').substring(0, 32)
+      
+      // 기존 데이터 확인
+      const existing = await DB.prepare(
+        'SELECT id FROM properties WHERE lh_announcement_id = ? OR title = ?'
+      ).bind(lhId, titleText).first()
+      
+      const now = new Date().toISOString()
+      
+      if (existing) {
+        // 업데이트
+        await DB.prepare(`
+          UPDATE properties SET
+            announcement_status = ?,
+            deadline = ?,
+            last_crawled_at = ?,
+            updated_at = ?
+          WHERE lh_announcement_id = ? OR title = ?
+        `).bind(status, deadline, now, now, lhId, titleText).run()
+        updateCount++
+      } else {
+        // 새로 삽입
+        await DB.prepare(`
+          INSERT INTO properties (
+            type, title, location, status, deadline, price, households, tags,
+            region, announcement_type, announcement_status, announcement_date,
+            lh_announcement_id, source, last_crawled_at, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          propertyType,
+          titleText,
+          region,
+          status,
+          deadline,
+          '미정',
+          '미정',
+          JSON.stringify(['LH청약']),
+          normalizedRegion,
+          announcementType,
+          status,
+          announcementDate,
+          lhId,
+          'lh_auto',
+          now,
+          now,
+          now
+        ).run()
+        newCount++
+      }
+    }
+    
+    return c.json({
+      success: true,
+      message: `LH 크롤링 완료: 신규 ${newCount}건, 업데이트 ${updateCount}건`,
+      newCount,
+      updateCount,
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('LH crawling error:', error)
+    return c.json({ 
+      success: false,
+      error: 'Failed to crawl LH data',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    }, 500)
+  }
+})
+
 // API endpoint to update KB market price
 app.post('/api/properties/:id/update-price', async (c) => {
   try {
@@ -1057,7 +1198,7 @@ app.get('/', (c) => {
           /* 필터 섹션 전체 z-index */
           .filters-section {
             position: relative !important;
-            z-index: 9999 !important;
+            z-index: 999999 !important;
           }
           
           .dropdown-content {
@@ -1068,8 +1209,10 @@ app.get('/', (c) => {
             border-radius: 12px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.15);
             min-width: 180px;
+            max-height: 400px;
+            overflow-y: auto;
             padding: 8px;
-            z-index: 999999;
+            z-index: 999999 !important;
           }
           
           .dropdown-content.show {
@@ -1080,15 +1223,18 @@ app.get('/', (c) => {
             display: block;
             width: 100%;
             text-align: left;
-            padding: 10px 12px;
+            padding: 10px 16px;
             margin: 2px 0;
             background: white;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 15px;
+            font-weight: 500;
             color: #191F28;
             transition: all 0.2s;
+            position: relative;
+            z-index: 1;
           }
           
           .dropdown-content .filter-option:hover {
@@ -1108,12 +1254,23 @@ app.get('/', (c) => {
           /* 카드 컨테이너 z-index 제한 */
           #propertiesContainer {
             position: relative;
-            z-index: 1;
+            z-index: 1 !important;
           }
           
           .toss-card {
             position: relative;
-            z-index: 1;
+            z-index: 1 !important;
+          }
+          
+          .toss-card * {
+            position: relative;
+            z-index: auto;
+          }
+          
+          /* 메인 컨텐츠 영역 z-index 제한 */
+          main {
+            position: relative;
+            z-index: 1 !important;
           }
           
           @keyframes fadeIn {
@@ -2307,86 +2464,53 @@ app.get('/', (c) => {
           }
 
           // Dropdown handlers
-          const filterButtons = document.querySelectorAll('.filter-btn');
-          console.log('Found filter buttons:', filterButtons.length);
-          
-          filterButtons.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-              console.log('Filter button clicked');
-              e.preventDefault();
+          // Filter button click handlers
+          document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
               e.stopPropagation();
-              e.stopImmediatePropagation();
               
-              const dropdown = btn.nextElementSibling;
-              const parent = btn.closest('.filter-dropdown');
+              const dropdown = this.nextElementSibling;
+              const parent = this.closest('.filter-dropdown');
+              const isOpen = dropdown.classList.contains('show');
               
-              console.log('Dropdown element:', dropdown);
-              console.log('Parent element:', parent);
-              
-              // Close other dropdowns - use inline style
-              document.querySelectorAll('.dropdown-content').forEach(d => {
+              // Close all other dropdowns
+              document.querySelectorAll('.dropdown-content.show').forEach(d => {
                 if (d !== dropdown) {
                   d.classList.remove('show');
-                  d.style.display = 'none';
-                  d.closest('.filter-dropdown')?.classList.remove('open');
+                  d.closest('.filter-dropdown').classList.remove('open');
                 }
               });
               
-              // Toggle current dropdown with inline style
-              const isOpen = dropdown.classList.contains('show');
-              
+              // Toggle this dropdown
               if (isOpen) {
                 dropdown.classList.remove('show');
-                dropdown.style.display = 'none';
                 parent.classList.remove('open');
-                console.log('Dropdown closed');
               } else {
-                // Get button position relative to viewport
-                const rect = btn.getBoundingClientRect();
-                const parentRect = parent.getBoundingClientRect();
+                // Calculate position
+                const rect = this.getBoundingClientRect();
+                dropdown.style.top = rect.bottom + 4 + 'px';
+                dropdown.style.left = rect.left + 'px';
+                dropdown.style.minWidth = rect.width + 'px';
                 
                 dropdown.classList.add('show');
-                dropdown.style.display = 'block';
-                dropdown.style.position = 'fixed';
-                dropdown.style.top = (rect.bottom + 4) + 'px'; // 버튼 바로 아래 4px 간격
-                dropdown.style.left = rect.left + 'px'; // 버튼 왼쪽과 정렬
-                dropdown.style.zIndex = '999999';
-                dropdown.style.minWidth = rect.width + 'px'; // 버튼과 같은 너비
                 parent.classList.add('open');
-                console.log('Dropdown opened:', {
-                  btnRect: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width },
-                  parentRect: { top: parentRect.top, left: parentRect.left },
-                  dropdownStyle: {
-                    top: dropdown.style.top,
-                    left: dropdown.style.left,
-                    minWidth: dropdown.style.minWidth
-                  }
-                });
               }
-            }, true); // Use capture phase
-          });
-
-          // Prevent dropdown content clicks from closing
-          document.querySelectorAll('.dropdown-content').forEach(dropdown => {
-            dropdown.addEventListener('click', (e) => {
-              e.stopPropagation();
             });
           });
 
-          // Filter option handlers
+          // Filter option click handlers
           document.querySelectorAll('.filter-option').forEach(option => {
-            option.addEventListener('click', (e) => {
+            option.addEventListener('click', function(e) {
               e.stopPropagation();
-              const filterType = option.dataset.filterType;
-              const value = option.dataset.value;
               
+              const filterType = this.dataset.filterType;
+              const value = this.dataset.value;
               filters[filterType] = value;
               
-              // Close dropdown with inline style
-              const dropdown = option.closest('.dropdown-content');
+              // Close dropdown
+              const dropdown = this.closest('.dropdown-content');
               dropdown.classList.remove('show');
-              dropdown.style.display = 'none';
-              dropdown.closest('.filter-dropdown')?.classList.remove('open');
+              dropdown.closest('.filter-dropdown').classList.remove('open');
               
               updateActiveFilters();
               updateFilterButtonTexts();
@@ -2395,16 +2519,11 @@ app.get('/', (c) => {
           });
 
           // Close dropdowns when clicking outside
-          document.addEventListener('click', (e) => {
-            const target = e.target;
-            // Don't close if clicking on filter button or dropdown content
-            if (!target.closest('.filter-btn') && !target.closest('.dropdown-content')) {
-              document.querySelectorAll('.dropdown-content').forEach(d => {
-                d.classList.remove('show');
-                d.style.display = 'none';
-                d.closest('.filter-dropdown')?.classList.remove('open');
-              });
-            }
+          document.addEventListener('click', function() {
+            document.querySelectorAll('.dropdown-content.show').forEach(d => {
+              d.classList.remove('show');
+              d.closest('.filter-dropdown').classList.remove('open');
+            });
           });
 
           // Reset filters
