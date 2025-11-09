@@ -54,6 +54,7 @@ app.get('/api/properties', async (c) => {
     const type = c.req.query('type') || 'all'
     const region = c.req.query('region') || 'all'
     const household = c.req.query('household') || 'all'
+    const area = c.req.query('area') || 'all'
     const sort = c.req.query('sort') || 'latest'
     
     // Exclude expired properties (deadline < today)
@@ -81,6 +82,22 @@ app.get('/api/properties', async (c) => {
       } else {
         query += ' AND household_count >= ? AND household_count < ?'
         params.push(parseInt(min), parseInt(max))
+      }
+    }
+    
+    // Area filter (평형)
+    if (area !== 'all') {
+      // area_size는 숫자로 저장되어 있다고 가정 (단위: ㎡)
+      switch (area) {
+        case 'small': // 59㎡ 이하
+          query += ' AND area_size <= 59'
+          break
+        case 'medium': // 60-84㎡
+          query += ' AND area_size >= 60 AND area_size <= 84'
+          break
+        case 'large': // 85㎡ 이상
+          query += ' AND area_size >= 85'
+          break
       }
     }
     
@@ -479,6 +496,130 @@ app.post('/api/fetch-molit-price', async (c) => {
       error: '실거래가 조회 실패',
       message: error.message
     }, 500)
+  }
+})
+
+// API endpoint to auto-search nearby apartments with real prices
+app.post('/api/properties/:id/auto-nearby', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    const serviceKey = c.env.MOLIT_API_KEY
+    
+    if (!serviceKey) {
+      return c.json({ 
+        error: 'API 키가 설정되지 않았습니다',
+        message: '.dev.vars 파일에 MOLIT_API_KEY를 설정하세요.'
+      }, 400)
+    }
+    
+    // Get property info
+    const property = await DB.prepare('SELECT * FROM properties WHERE id = ?').bind(id).first()
+    
+    if (!property) {
+      return c.json({ error: 'Property not found' }, 404)
+    }
+    
+    const location = property.location || property.full_address || ''
+    
+    // Extract sigungu code
+    const sigunguCode = property.sigungu_code || extractSigunguCode(location)
+    
+    if (!sigunguCode) {
+      return c.json({ error: '지역 코드를 찾을 수 없습니다' }, 400)
+    }
+    
+    // Get recent 6 months data
+    const today = new Date()
+    const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 6, 1)
+    const yearMonth = sixMonthsAgo.getFullYear() + (sixMonthsAgo.getMonth() + 1).toString().padStart(2, '0')
+    
+    try {
+      // Call MOLIT API
+      const apiUrl = 'http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev?serviceKey=' + serviceKey + '&LAWD_CD=' + sigunguCode + '&DEAL_YMD=' + yearMonth
+      
+      const response = await fetch(apiUrl)
+      const xmlText = await response.text()
+      
+      // Parse XML and group by apartment
+      const apartmentMap = new Map()
+      const itemMatches = xmlText.matchAll(/<item>(.*?)<\/item>/gs)
+      
+      for (const match of itemMatches) {
+        const itemXml = match[1]
+        
+        const getTagValue = (tag: string) => {
+          const regex = new RegExp('<' + tag + '><!\[CDATA\[(.*?)\]\]><\/' + tag + '>', 's')
+          const match = itemXml.match(regex)
+          return match ? match[1].trim() : null
+        }
+        
+        const aptName = getTagValue('아파트')
+        const price = getTagValue('거래금액')
+        const year = getTagValue('년')
+        const month = getTagValue('월')
+        const day = getTagValue('일')
+        const dong = getTagValue('법정동')
+        
+        if (aptName && price) {
+          const priceInBillion = parseInt(price.replace(/,/g, '')) / 10000
+          const tradeDate = year + '-' + month.padStart(2, '0') + '-' + day.padStart(2, '0')
+          
+          // Group by apartment name
+          if (!apartmentMap.has(aptName)) {
+            apartmentMap.set(aptName, {
+              name: aptName,
+              recent_price: priceInBillion,
+              date: tradeDate,
+              distance: dong || ''
+            })
+          } else {
+            // Keep only the most recent trade
+            const existing = apartmentMap.get(aptName)
+            if (tradeDate > existing.date) {
+              existing.recent_price = priceInBillion
+              existing.date = tradeDate
+            }
+          }
+        }
+      }
+      
+      // Convert to array and get top 5
+      const nearbyApartments = Array.from(apartmentMap.values())
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 5)
+        .map(apt => ({
+          name: apt.name,
+          recent_price: apt.recent_price.toFixed(1),
+          date: apt.date,
+          distance: apt.distance
+        }))
+      
+      // Update property with nearby apartments
+      await DB.prepare(`
+        UPDATE properties 
+        SET nearby_apartments = ?,
+            updated_at = datetime('now')
+        WHERE id = ?
+      `).bind(JSON.stringify(nearbyApartments), id).run()
+      
+      return c.json({
+        success: true,
+        count: nearbyApartments.length,
+        data: nearbyApartments
+      })
+      
+    } catch (error) {
+      console.error('MOLIT API Error:', error)
+      return c.json({ 
+        error: '실거래가 조회 실패',
+        message: error.message
+      }, 500)
+    }
+    
+  } catch (error) {
+    console.error('Error auto-searching nearby apartments:', error)
+    return c.json({ error: 'Failed to auto-search nearby apartments' }, 500)
   }
 })
 
@@ -905,13 +1046,14 @@ app.get('/', (c) => {
             border-color: var(--primary);
           }
           
-          .stat-card.active .text-xs {
+          .stat-card.active .text-xs,
+          .stat-card.active .text-3xl {
             color: white !important;
           }
           
           .dropdown-content {
             display: none;
-            z-index: 1000;
+            z-index: 9999;
           }
           
           .dropdown-content.show {
@@ -1098,10 +1240,25 @@ app.get('/', (c) => {
                         </div>
                     </div>
                     
+                    <!-- Area Type Filter (평형) -->
+                    <div class="relative filter-dropdown">
+                        <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="area">
+                            <span class="filter-text">평형</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
+                        </button>
+                        <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[150px] z-10">
+                            <div class="p-2">
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="area" data-value="all">전체</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="area" data-value="small">소형 (59㎡ 이하)</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="area" data-value="medium">중형 (60-84㎡)</button>
+                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="area" data-value="large">대형 (85㎡ 이상)</button>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- Sort Filter -->
                     <div class="relative filter-dropdown">
                         <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="sort">
-                            <span class="filter-text">최신순</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
+                            <span class="filter-text">마감임박순</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
                         </button>
                         <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[150px] z-10">
                             <div class="p-2">
@@ -1443,7 +1600,8 @@ app.get('/', (c) => {
             region: 'all',
             type: 'all',
             household: 'all',
-            sort: 'latest'
+            area: 'all',
+            sort: 'deadline'
           };
 
           // Calculate D-Day
@@ -1683,33 +1841,33 @@ app.get('/', (c) => {
                 </div>
                 <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="today">
                   <div class="text-xs text-gray-500 mb-2 font-medium">오늘청약</div>
-                  <div class="text-3xl font-bold text-gray-900">\${stats.today}</div>
+                  <div class="text-3xl font-bold text-gray-900">0</div>
                 </div>
                 <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="johab">
                   <div class="text-xs text-gray-500 mb-2 font-medium">모집중</div>
-                  <div class="text-3xl font-bold text-gray-900">\${stats.johab}</div>
+                  <div class="text-3xl font-bold text-gray-900">\${stats.johab + stats.next}</div>
                 </div>
-                <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="next">
+                <div class="stat-card bg-white rounded-xl shadow-sm p-5 cursor-pointer" onclick="openJohapInquiry()">
                   <div class="text-xs text-gray-500 mb-2 font-medium">조합원</div>
                   <div class="text-3xl font-bold text-gray-900">0</div>
-                  <button onclick="openJohapInquiry()" class="mt-2 text-xs text-primary hover:text-primary-light font-semibold">
-                    제휴 문의
-                  </button>
                 </div>
               \`;
               
               // Add click handlers
               document.querySelectorAll('.stat-card').forEach(card => {
-                card.addEventListener('click', () => {
-                  const type = card.dataset.type;
-                  filters.type = type;
-                  updateActiveFilters();
-                  loadProperties();
-                  
-                  // Update active state
-                  document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
-                  card.classList.add('active');
-                });
+                const type = card.dataset.type;
+                // 조합원 카드는 onclick으로 처리되므로 제외
+                if (!card.hasAttribute('onclick')) {
+                  card.addEventListener('click', () => {
+                    filters.type = type;
+                    updateActiveFilters();
+                    loadProperties();
+                    
+                    // Update active state
+                    document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                  });
+                }
               });
             } catch (error) {
               console.error('Failed to load stats:', error);
@@ -1918,32 +2076,23 @@ app.get('/', (c) => {
                       
                       <!-- Action Buttons -->
                       <div class="flex gap-2">
-                        \${property.type === 'next' ? \`
-                          <!-- 조합원 등록 문의 버튼 (조합원 타입만) -->
-                          <button onclick="showJohapInquiry()" 
-                                  class="flex-1 bg-primary text-white font-bold py-2.5 rounded-lg hover:bg-primary-light transition-all text-sm">
-                            <i class="fas fa-user-plus mr-1"></i>
-                            등록 문의
-                          </button>
-                          <button onclick="showDetail(\${property.id})" 
-                                  class="flex-1 bg-white border-2 border-primary text-primary font-medium py-2 rounded-lg hover:bg-primary hover:text-white transition-all text-xs">
-                            상세 정보
-                          </button>
-                        \` : \`
-                          <!-- 기본 버튼 (상세 정보 + 주변 아파트) -->
-                          <button onclick="showDetail(\${property.id})" 
-                                  class="flex-1 bg-white border-2 border-primary text-primary font-medium py-2 rounded-lg hover:bg-primary hover:text-white transition-all text-xs">
+                        <!-- 상세 정보 버튼 (모든 타입 공통) -->
+                        <button onclick="showDetail(\${property.id})" 
+                                class="flex-1 bg-white border-2 border-primary text-primary font-medium py-2 rounded-lg hover:bg-primary transition-all text-xs group">
+                          <span class="group-hover:text-white">
                             <i class="fas fa-info-circle mr-1"></i>
                             상세 정보
+                          </span>
+                        </button>
+                        
+                        <!-- 주변 아파트 버튼 (줍줍분양 제외) -->
+                        \${property.type !== 'unsold' ? \`
+                          <button onclick="showNearbyApartments(\${property.id})" 
+                                  class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg hover:bg-blue-600 transition-all text-xs">
+                            <i class="fas fa-building mr-1"></i>
+                            주변 아파트
                           </button>
-                          \${property.type !== 'unsold' ? \`
-                            <button onclick="showNearbyApartments(\${property.id})" 
-                                    class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg hover:bg-blue-600 transition-all text-xs">
-                              <i class="fas fa-building mr-1"></i>
-                              주변 아파트
-                            </button>
-                          \` : ''}
-                        \`}
+                        \` : ''}
                       </div>
                     </div>
                   </div>
@@ -1983,9 +2132,17 @@ app.get('/', (c) => {
               };
               activeFilters.push({ type: 'household', value: householdNames[filters.household] });
             }
-            if (filters.sort !== 'latest') {
+            if (filters.area !== 'all') {
+              const areaNames = {
+                small: '소형 (59㎡↓)',
+                medium: '중형 (60-84㎡)',
+                large: '대형 (85㎡↑)'
+              };
+              activeFilters.push({ type: 'area', value: areaNames[filters.area] });
+            }
+            if (filters.sort !== 'deadline') {
               const sortNames = {
-                deadline: '마감임박순',
+                latest: '최신순',
                 'price-low': '낮은가격순',
                 'price-high': '높은가격순'
               };
@@ -2012,7 +2169,8 @@ app.get('/', (c) => {
             if (type === 'region') filters.region = 'all';
             if (type === 'type') filters.type = 'all';
             if (type === 'household') filters.household = 'all';
-            if (type === 'sort') filters.sort = 'latest';
+            if (type === 'area') filters.area = 'all';
+            if (type === 'sort') filters.sort = 'deadline';
             
             updateActiveFilters();
             updateFilterButtonTexts();
@@ -2042,9 +2200,17 @@ app.get('/', (c) => {
                 };
                 text.textContent = householdNames[filters.household];
                 btn.classList.add('active');
-              } else if (filterType === 'sort' && filters.sort !== 'latest') {
+              } else if (filterType === 'area' && filters.area !== 'all') {
+                const areaNames = {
+                  small: '소형',
+                  medium: '중형',
+                  large: '대형'
+                };
+                text.textContent = areaNames[filters.area];
+                btn.classList.add('active');
+              } else if (filterType === 'sort' && filters.sort !== 'deadline') {
                 const sortNames = {
-                  deadline: '마감임박',
+                  latest: '최신순',
                   'price-low': '낮은가격',
                   'price-high': '높은가격'
                 };
@@ -2055,7 +2221,8 @@ app.get('/', (c) => {
                 if (filterType === 'region') text.textContent = '지역';
                 if (filterType === 'type') text.textContent = '분양타입';
                 if (filterType === 'household') text.textContent = '세대수';
-                if (filterType === 'sort') text.textContent = '최신순';
+                if (filterType === 'area') text.textContent = '평형';
+                if (filterType === 'sort') text.textContent = '마감임박순';
                 btn.classList.remove('active');
               }
             });
@@ -2106,7 +2273,8 @@ app.get('/', (c) => {
             filters.region = 'all';
             filters.type = 'all';
             filters.household = 'all';
-            filters.sort = 'latest';
+            filters.area = 'all';
+            filters.sort = 'deadline';
             
             updateActiveFilters();
             updateFilterButtonTexts();
@@ -2201,17 +2369,65 @@ app.get('/', (c) => {
           // 주변 아파트 정보 팝업 열기 함수
           window.showNearbyApartments = async function(id) {
             try {
+              // 1. 먼저 물건 정보 가져오기
               const response = await axios.get(\`/api/properties/detail/\${id}\`);
               const property = response.data;
               
               document.getElementById('nearbyPropertyId').value = property.id;
               document.getElementById('nearbyPropertyTitle').textContent = property.title;
               
-              // 기존 주변 아파트 정보 로드
+              // 2. 기존 주변 아파트 정보 확인
               currentNearbyApartments = property.nearby_apartments ? JSON.parse(property.nearby_apartments) : [];
-              renderNearbyApartments();
               
-              nearbyModal.classList.add('show');
+              // 3. 주변 아파트가 없으면 자동 검색 수행
+              if (currentNearbyApartments.length === 0) {
+                // 로딩 표시
+                const list = document.getElementById('nearbyApartmentList');
+                list.innerHTML = \`
+                  <div class="text-center py-12">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p class="text-gray-600">주변 아파트 실거래가를 검색 중...</p>
+                  </div>
+                \`;
+                
+                // 모달 먼저 열기
+                nearbyModal.classList.add('show');
+                
+                try {
+                  // 자동 검색 API 호출
+                  const autoResponse = await axios.post(\`/api/properties/\${id}/auto-nearby\`);
+                  
+                  if (autoResponse.data.success && autoResponse.data.data) {
+                    currentNearbyApartments = autoResponse.data.data;
+                    renderNearbyApartments();
+                    
+                    // 성공 메시지
+                    if (currentNearbyApartments.length > 0) {
+                      // 임시 성공 메시지 표시 (2초 후 사라짐)
+                      const successMsg = document.createElement('div');
+                      successMsg.className = 'fixed top-20 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+                      successMsg.innerHTML = \`
+                        <i class="fas fa-check-circle mr-2"></i>
+                        \${currentNearbyApartments.length}개의 주변 아파트를 찾았습니다!
+                      \`;
+                      document.body.appendChild(successMsg);
+                      setTimeout(() => successMsg.remove(), 2000);
+                    }
+                  } else {
+                    throw new Error('자동 검색 실패');
+                  }
+                } catch (autoError) {
+                  console.error('자동 검색 실패:', autoError);
+                  // 실패해도 모달은 열어서 수동 등록 가능하도록
+                  currentNearbyApartments = [];
+                  renderNearbyApartments();
+                }
+              } else {
+                // 기존 데이터 있으면 바로 렌더링
+                renderNearbyApartments();
+                nearbyModal.classList.add('show');
+              }
+              
             } catch (error) {
               console.error('물건 정보 가져오기 실패:', error);
               alert('물건 정보를 불러오는데 실패했습니다.');
