@@ -958,7 +958,7 @@ app.get('/', (c) => {
                           <span class="font-medium">\${property.full_address || property.location}</span>
                         </div>
                         \${property.full_address ? \`
-                          <button onclick="openMap('\${property.full_address}', \${property.lat}, \${property.lng})" 
+                          <button onclick="openMap('\${property.full_address.replace(/'/g, "\\\\'")}', \${property.lat}, \${property.lng})" 
                                   class="text-primary text-xs hover:underline ml-5 flex items-center gap-1">
                             🗺️ 지도에서 보기
                           </button>
@@ -1282,7 +1282,7 @@ app.get('/', (c) => {
             console.log('조합원 등록 문의:', formData);
             
             // 성공 메시지
-            alert('문의가 접수되었습니다!\n담당자가 빠른 시일 내에 연락드리겠습니다.');
+            alert('문의가 접수되었습니다!\\n담당자가 빠른 시일 내에 연락드리겠습니다.');
             
             // 폼 초기화 및 모달 닫기
             johapForm.reset();
