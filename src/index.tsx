@@ -1279,7 +1279,55 @@ app.get('/', (c) => {
 
         <!-- Main Content -->
         <main class="max-w-6xl mx-auto px-4 pb-12">
-
+            
+            <!-- 🆕 간단한 필터 섹션 -->
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
+                <div class="flex gap-2 flex-wrap">
+                    <!-- 지역 필터 -->
+                    <select id="filterRegion" class="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary">
+                        <option value="all">전체 지역</option>
+                        <option value="서울">서울</option>
+                        <option value="경기">경기</option>
+                        <option value="인천">인천</option>
+                        <option value="대전">대전</option>
+                        <option value="세종">세종</option>
+                        <option value="대구">대구</option>
+                        <option value="부산">부산</option>
+                        <option value="울산">울산</option>
+                        <option value="광주">광주</option>
+                    </select>
+                    
+                    <!-- 세대수 필터 -->
+                    <select id="filterHousehold" class="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary">
+                        <option value="all">전체 세대수</option>
+                        <option value="0-50">50세대 이하</option>
+                        <option value="50-300">50-300세대</option>
+                        <option value="300-1000">300-1000세대</option>
+                        <option value="1000-+">1000세대 이상</option>
+                    </select>
+                    
+                    <!-- 평형 필터 -->
+                    <select id="filterArea" class="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary">
+                        <option value="all">전체 평형</option>
+                        <option value="small">소형 (59㎡↓)</option>
+                        <option value="medium">중형 (60-84㎡)</option>
+                        <option value="large">대형 (85㎡↑)</option>
+                    </select>
+                    
+                    <!-- 정렬 -->
+                    <select id="filterSort" class="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary">
+                        <option value="deadline">마감임박순</option>
+                        <option value="latest">최신순</option>
+                        <option value="price-low">낮은가격순</option>
+                        <option value="price-high">높은가격순</option>
+                    </select>
+                    
+                    <!-- 초기화 버튼 -->
+                    <button id="btnResetFilters" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors">
+                        <i class="fas fa-redo text-xs mr-1"></i> 초기화
+                    </button>
+                </div>
+            </div>
 
             <!-- Properties Grid -->
             <div id="propertiesContainer" class="grid md:grid-cols-2 gap-6">
@@ -2459,9 +2507,55 @@ app.get('/', (c) => {
             });
           });
 
+          // 🆕 새로운 필터 이벤트 핸들러
+          function setupNewFilters() {
+            const filterRegion = document.getElementById('filterRegion');
+            const filterHousehold = document.getElementById('filterHousehold');
+            const filterArea = document.getElementById('filterArea');
+            const filterSort = document.getElementById('filterSort');
+            const btnReset = document.getElementById('btnResetFilters');
+            
+            // 필터 변경 시 자동으로 데이터 다시 로드
+            filterRegion.addEventListener('change', () => {
+              filters.region = filterRegion.value;
+              loadProperties();
+            });
+            
+            filterHousehold.addEventListener('change', () => {
+              filters.household = filterHousehold.value;
+              loadProperties();
+            });
+            
+            filterArea.addEventListener('change', () => {
+              filters.area = filterArea.value;
+              loadProperties();
+            });
+            
+            filterSort.addEventListener('change', () => {
+              filters.sort = filterSort.value;
+              loadProperties();
+            });
+            
+            // 초기화 버튼
+            btnReset.addEventListener('click', () => {
+              filters.region = 'all';
+              filters.household = 'all';
+              filters.area = 'all';
+              filters.sort = 'deadline';
+              
+              filterRegion.value = 'all';
+              filterHousehold.value = 'all';
+              filterArea.value = 'all';
+              filterSort.value = 'deadline';
+              
+              loadProperties();
+            });
+          }
+
           // Initialize
           loadStats();
           loadProperties();
+          setupNewFilters();
         </script>
     </body>
     </html>
