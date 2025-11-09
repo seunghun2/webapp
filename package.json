@@ -16,7 +16,10 @@
     "db:seed": "wrangler d1 execute webapp-production --local --file=./seed.sql",
     "db:reset": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local && npm run db:seed",
     "db:console:local": "wrangler d1 execute webapp-production --local",
-    "db:console:prod": "wrangler d1 execute webapp-production"
+    "db:console:prod": "wrangler d1 execute webapp-production",
+    "restart": "npm run build && pm2 restart webapp && sleep 2 && npm run test",
+    "quick": "npm run build && pm2 restart webapp",
+    "live": "./dev-deploy.sh"
   },
   "dependencies": {
     "hono": "^4.10.4"
