@@ -1062,12 +1062,38 @@ app.get('/', (c) => {
           
           .dropdown-content {
             display: none;
-            z-index: 99999 !important;
-            position: absolute !important;
+            position: fixed;
+            background: white;
+            border: 1px solid #E5E8EB;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            min-width: 180px;
+            padding: 8px;
+            z-index: 999999;
           }
           
           .dropdown-content.show {
-            display: block !important;
+            display: block;
+          }
+          
+          .dropdown-content .filter-option {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 10px 12px;
+            margin: 2px 0;
+            background: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #191F28;
+            transition: all 0.2s;
+          }
+          
+          .dropdown-content .filter-option:hover {
+            background: #F0F9FF;
+            color: var(--primary);
           }
           
           .filter-dropdown {
@@ -1197,27 +1223,25 @@ app.get('/', (c) => {
                         <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="region">
                             <span class="filter-text">지역</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
                         </button>
-                        <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[200px] z-10">
-                            <div class="p-2 max-h-80 overflow-y-auto">
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="all">전국</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="서울">서울특별시</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="부산">부산광역시</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="대구">대구광역시</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="인천">인천광역시</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="광주">광주광역시</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="대전">대전광역시</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="울산">울산광역시</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="세종">세종특별자치시</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="경기">경기도</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="강원">강원특별자치도</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="충북">충청북도</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="충남">충청남도</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="전북">전북특별자치도</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="전라">전라남도</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="경북">경상북도</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="경상">경상남도</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="region" data-value="제주">제주특별자치도</button>
-                            </div>
+                        <div class="dropdown-content">
+                            <button class="filter-option" data-filter-type="region" data-value="all">전국</button>
+                            <button class="filter-option" data-filter-type="region" data-value="서울">서울특별시</button>
+                            <button class="filter-option" data-filter-type="region" data-value="부산">부산광역시</button>
+                            <button class="filter-option" data-filter-type="region" data-value="대구">대구광역시</button>
+                            <button class="filter-option" data-filter-type="region" data-value="인천">인천광역시</button>
+                            <button class="filter-option" data-filter-type="region" data-value="광주">광주광역시</button>
+                            <button class="filter-option" data-filter-type="region" data-value="대전">대전광역시</button>
+                            <button class="filter-option" data-filter-type="region" data-value="울산">울산광역시</button>
+                            <button class="filter-option" data-filter-type="region" data-value="세종">세종특별자치시</button>
+                            <button class="filter-option" data-filter-type="region" data-value="경기">경기도</button>
+                            <button class="filter-option" data-filter-type="region" data-value="강원">강원특별자치도</button>
+                            <button class="filter-option" data-filter-type="region" data-value="충북">충청북도</button>
+                            <button class="filter-option" data-filter-type="region" data-value="충남">충청남도</button>
+                            <button class="filter-option" data-filter-type="region" data-value="전북">전북특별자치도</button>
+                            <button class="filter-option" data-filter-type="region" data-value="전라">전라남도</button>
+                            <button class="filter-option" data-filter-type="region" data-value="경북">경상북도</button>
+                            <button class="filter-option" data-filter-type="region" data-value="경상">경상남도</button>
+                            <button class="filter-option" data-filter-type="region" data-value="제주">제주특별자치도</button>
                         </div>
                     </div>
                     
@@ -1226,14 +1250,12 @@ app.get('/', (c) => {
                         <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="type">
                             <span class="filter-text">분양타입</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
                         </button>
-                        <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[180px] z-10">
-                            <div class="p-2 max-h-80 overflow-y-auto">
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="all">전체</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="unsold">줍줍분양</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="today">오늘청약</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="johab">모집중</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="type" data-value="next">조합원</button>
-                            </div>
+                        <div class="dropdown-content">
+                            <button class="filter-option" data-filter-type="type" data-value="all">전체</button>
+                            <button class="filter-option" data-filter-type="type" data-value="unsold">줍줍분양</button>
+                            <button class="filter-option" data-filter-type="type" data-value="today">오늘청약</button>
+                            <button class="filter-option" data-filter-type="type" data-value="johab">모집중</button>
+                            <button class="filter-option" data-filter-type="type" data-value="next">조합원</button>
                         </div>
                     </div>
                     
@@ -1242,14 +1264,12 @@ app.get('/', (c) => {
                         <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="household">
                             <span class="filter-text">세대수</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
                         </button>
-                        <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[180px] z-10">
-                            <div class="p-2">
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="household" data-value="all">전체</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="household" data-value="0-50">50세대 이하</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="household" data-value="50-300">50-300세대</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="household" data-value="300-1000">300-1000세대</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="household" data-value="1000-+">1000세대 이상</button>
-                            </div>
+                        <div class="dropdown-content">
+                            <button class="filter-option" data-filter-type="household" data-value="all">전체</button>
+                            <button class="filter-option" data-filter-type="household" data-value="0-50">50세대 이하</button>
+                            <button class="filter-option" data-filter-type="household" data-value="50-300">50-300세대</button>
+                            <button class="filter-option" data-filter-type="household" data-value="300-1000">300-1000세대</button>
+                            <button class="filter-option" data-filter-type="household" data-value="1000-+">1000세대 이상</button>
                         </div>
                     </div>
                     
@@ -1258,13 +1278,11 @@ app.get('/', (c) => {
                         <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="area">
                             <span class="filter-text">평형</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
                         </button>
-                        <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[150px] z-10">
-                            <div class="p-2">
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="area" data-value="all">전체</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="area" data-value="small">소형 (59㎡ 이하)</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="area" data-value="medium">중형 (60-84㎡)</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="area" data-value="large">대형 (85㎡ 이상)</button>
-                            </div>
+                        <div class="dropdown-content">
+                            <button class="filter-option" data-filter-type="area" data-value="all">전체</button>
+                            <button class="filter-option" data-filter-type="area" data-value="small">소형 (59㎡ 이하)</button>
+                            <button class="filter-option" data-filter-type="area" data-value="medium">중형 (60-84㎡)</button>
+                            <button class="filter-option" data-filter-type="area" data-value="large">대형 (85㎡ 이상)</button>
                         </div>
                     </div>
                     
@@ -1273,13 +1291,11 @@ app.get('/', (c) => {
                         <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-white" data-filter="sort">
                             <span class="filter-text">마감임박순</span> <i class="fas fa-chevron-down ml-2 text-xs"></i>
                         </button>
-                        <div class="dropdown-content absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 min-w-[150px] z-10">
-                            <div class="p-2">
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="sort" data-value="latest">최신순</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="sort" data-value="deadline">마감임박순</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="sort" data-value="price-low">낮은가격순</button>
-                                <button class="filter-option w-full text-left px-3 py-2 rounded hover:bg-primary-lighter text-sm" data-filter-type="sort" data-value="price-high">높은가격순</button>
-                            </div>
+                        <div class="dropdown-content">
+                            <button class="filter-option" data-filter-type="sort" data-value="latest">최신순</button>
+                            <button class="filter-option" data-filter-type="sort" data-value="deadline">마감임박순</button>
+                            <button class="filter-option" data-filter-type="sort" data-value="price-low">낮은가격순</button>
+                            <button class="filter-option" data-filter-type="sort" data-value="price-high">높은가격순</button>
                         </div>
                     </div>
                     
@@ -2297,30 +2313,53 @@ app.get('/', (c) => {
           filterButtons.forEach(btn => {
             btn.addEventListener('click', (e) => {
               console.log('Filter button clicked');
+              e.preventDefault();
               e.stopPropagation();
+              e.stopImmediatePropagation();
+              
               const dropdown = btn.nextElementSibling;
               const parent = btn.closest('.filter-dropdown');
               
               console.log('Dropdown element:', dropdown);
               console.log('Parent element:', parent);
               
-              // Close other dropdowns and remove open class
+              // Close other dropdowns - use inline style
               document.querySelectorAll('.dropdown-content').forEach(d => {
                 if (d !== dropdown) {
                   d.classList.remove('show');
+                  d.style.display = 'none';
                   d.closest('.filter-dropdown')?.classList.remove('open');
                 }
               });
               
-              // Toggle current dropdown
-              const isOpen = dropdown.classList.toggle('show');
-              console.log('Dropdown is now:', isOpen ? 'open' : 'closed');
+              // Toggle current dropdown with inline style
+              const isOpen = dropdown.classList.contains('show');
               
               if (isOpen) {
-                parent.classList.add('open');
-              } else {
+                dropdown.classList.remove('show');
+                dropdown.style.display = 'none';
                 parent.classList.remove('open');
+                console.log('Dropdown is now: closed');
+              } else {
+                // Get button position
+                const rect = btn.getBoundingClientRect();
+                
+                dropdown.classList.add('show');
+                dropdown.style.display = 'block';
+                dropdown.style.position = 'fixed';
+                dropdown.style.top = (rect.bottom + 8) + 'px';
+                dropdown.style.left = rect.left + 'px';
+                dropdown.style.zIndex = '999999';
+                parent.classList.add('open');
+                console.log('Dropdown is now: open');
               }
+            }, true); // Use capture phase
+          });
+
+          // Prevent dropdown content clicks from closing
+          document.querySelectorAll('.dropdown-content').forEach(dropdown => {
+            dropdown.addEventListener('click', (e) => {
+              e.stopPropagation();
             });
           });
 
@@ -2333,9 +2372,10 @@ app.get('/', (c) => {
               
               filters[filterType] = value;
               
-              // Close dropdown and remove open class
+              // Close dropdown with inline style
               const dropdown = option.closest('.dropdown-content');
               dropdown.classList.remove('show');
+              dropdown.style.display = 'none';
               dropdown.closest('.filter-dropdown')?.classList.remove('open');
               
               updateActiveFilters();
@@ -2345,11 +2385,16 @@ app.get('/', (c) => {
           });
 
           // Close dropdowns when clicking outside
-          document.addEventListener('click', () => {
-            document.querySelectorAll('.dropdown-content').forEach(d => {
-              d.classList.remove('show');
-              d.closest('.filter-dropdown')?.classList.remove('open');
-            });
+          document.addEventListener('click', (e) => {
+            const target = e.target;
+            // Don't close if clicking on filter button or dropdown content
+            if (!target.closest('.filter-btn') && !target.closest('.dropdown-content')) {
+              document.querySelectorAll('.dropdown-content').forEach(d => {
+                d.classList.remove('show');
+                d.style.display = 'none';
+                d.closest('.filter-dropdown')?.classList.remove('open');
+              });
+            }
           });
 
           // Reset filters
