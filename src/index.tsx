@@ -905,6 +905,10 @@ app.get('/', (c) => {
             border-color: var(--primary);
           }
           
+          .stat-card.active .text-xs {
+            color: white !important;
+          }
+          
           .dropdown-content {
             display: none;
             z-index: 1000;
@@ -1687,7 +1691,10 @@ app.get('/', (c) => {
                 </div>
                 <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="next">
                   <div class="text-xs text-gray-500 mb-2 font-medium">조합원</div>
-                  <div class="text-3xl font-bold text-gray-900">\${stats.next}</div>
+                  <div class="text-3xl font-bold text-gray-900">0</div>
+                  <button onclick="openJohapInquiry()" class="mt-2 text-xs text-primary hover:text-primary-light font-semibold">
+                    제휴 문의
+                  </button>
                 </div>
               \`;
               
@@ -1795,18 +1802,10 @@ app.get('/', (c) => {
                         \` : ''}
                       </div>
                       
-                      <!-- 💰 투자 정보 -->
+                      <!-- 💰 투자 정보 (투자형만 표시) -->
+                      \${property.type === 'unsold' && (property.sale_price_min >= 0.1 || property.sale_price_max >= 0.1 || property.recent_trade_price >= 0.1) ? \`
                       <div class="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-400 rounded-xl p-4 mb-3">
-                        <div class="text-sm font-bold text-gray-800 mb-3 flex items-center justify-between">
-                          <span>💰 투자 정보</span>
-                          \${property.pdf_url ? \`
-                            <a href="\${property.pdf_url}" target="_blank" 
-                               class="inline-flex items-center px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-md transition-colors">
-                              <i class="fas fa-file-pdf mr-1"></i>
-                              상세보기
-                            </a>
-                          \` : ''}
-                        </div>
+                        <div class="text-sm font-bold text-gray-800 mb-3">💰 투자 정보</div>
                         <div class="space-y-3">
                           <!-- 기존 분양가 (0.1억 이상만 표시) -->
                           \${(property.sale_price_min >= 0.1 || property.sale_price_max >= 0.1) ? \`
@@ -1818,17 +1817,14 @@ app.get('/', (c) => {
                                 \` : ''}
                               </div>
                               <div class="text-right">
-                                <div class="text-xl font-bold text-red-600">
+                                <div class="text-base font-semibold text-gray-900">
                                   \${property.sale_price_min >= 0.1 && property.sale_price_max >= 0.1
-                                    ? \`\${property.sale_price_min.toFixed(2)}억\`
+                                    ? \`\${property.sale_price_min.toFixed(2)}억 ~ \${property.sale_price_max.toFixed(2)}억\`
                                     : property.sale_price_min >= 0.1
                                       ? \`\${property.sale_price_min.toFixed(2)}억\`
                                       : \`\${property.sale_price_max.toFixed(2)}억\`
                                   }
                                 </div>
-                                \${property.sale_price_min >= 0.1 && property.sale_price_max >= 0.1 && property.sale_price_min !== property.sale_price_max ? \`
-                                  <div class="text-sm text-gray-600">~ \${property.sale_price_max.toFixed(2)}억</div>
-                                \` : ''}
                               </div>
                             </div>
                           \` : ''}
@@ -1842,13 +1838,34 @@ app.get('/', (c) => {
                                   <span class="text-xs text-gray-500 mt-0.5">(\${property.recent_trade_date})</span>
                                 \` : ''}
                               </div>
-                              <div class="text-xl font-bold text-green-600">
+                              <div class="text-base font-semibold text-gray-900">
                                 \${property.recent_trade_price.toFixed(1)}억
+                              </div>
+                            </div>
+                          \` : ''}
+                          
+                          <!-- 상승률 표시 -->
+                          \${(property.sale_price_min >= 0.1 || property.sale_price_max >= 0.1) && property.recent_trade_price >= 0.1 ? \`
+                            <div class="border-t border-red-200 pt-3">
+                              <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-600">기존 분양가 대비</span>
+                                <span class="text-base font-bold \${(() => {
+                                  const basePrice = property.sale_price_max || property.sale_price_min;
+                                  const rate = ((property.recent_trade_price - basePrice) / basePrice * 100);
+                                  return rate > 0 ? 'text-red-600' : 'text-blue-600';
+                                })()}">
+                                  \${(() => {
+                                    const basePrice = property.sale_price_max || property.sale_price_min;
+                                    const rate = ((property.recent_trade_price - basePrice) / basePrice * 100);
+                                    return (rate > 0 ? '+' : '') + rate.toFixed(1) + '%';
+                                  })()}
+                                </span>
                               </div>
                             </div>
                           \` : ''}
                         </div>
                       </div>
+                      \` : ''}
                       
                       <!-- Tags -->
                       <div class="flex flex-wrap gap-1.5 mb-3">
@@ -2317,6 +2334,12 @@ app.get('/', (c) => {
               alert('주변 아파트 정보 업데이트에 실패했습니다.');
             }
           });
+
+          // 조합원 문의 모달 열기
+          window.openJohapInquiry = function() {
+            const johapModal = document.getElementById('johapInquiryModal');
+            johapModal.classList.add('show');
+          };
 
           signupBtn.addEventListener('click', () => {
             alert('회원가입 기능은 준비 중입니다!');
