@@ -1,0 +1,42 @@
+name: 실거래가 자동 업데이트
+
+on:
+  schedule:
+    # 매일 한국시간 오전 11시 (UTC 2시)에 실행
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # GitHub에서 수동 실행 가능
+
+jobs:
+  update-prices:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 실거래가 업데이트 API 호출
+        run: |
+          echo "🏠 실거래가 자동 업데이트 시작..."
+          
+          # Cloudflare Pages URL로 변경 필요 (배포 후)
+          # 현재는 예시 URL
+          RESPONSE=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            https://webapp.pages.dev/api/auto-update-all-prices \
+            -w "\n%{http_code}")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n-1)
+          
+          echo "📊 응답 코드: $HTTP_CODE"
+          echo "📄 응답 내용: $BODY"
+          
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "✅ 실거래가 업데이트 성공!"
+          else
+            echo "❌ 실거래가 업데이트 실패!"
+            exit 1
+          fi
+      
+      - name: 업데이트 결과 알림
+        if: always()
+        run: |
+          echo "🎉 자동 업데이트 작업 완료"
+          echo "⏰ 실행 시간: $(date '+%Y-%m-%d %H:%M:%S KST')"

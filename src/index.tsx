@@ -5,6 +5,7 @@ import { serveStatic } from 'hono/cloudflare-workers'
 // Define types for Cloudflare bindings
 type Bindings = {
   DB: D1Database;
+  MOLIT_API_KEY?: string; // 국토교통부 API 키 (선택사항)
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -140,6 +141,377 @@ app.get('/api/properties/detail/:id', async (c) => {
   } catch (error) {
     console.error('Error fetching property:', error)
     return c.json({ error: 'Failed to fetch property' }, 500)
+  }
+})
+
+// API endpoint to update KB market price
+app.post('/api/properties/:id/update-price', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    const body = await c.req.json()
+    
+    const { 
+      original_price,
+      sale_price_date,
+      recent_trade_price, 
+      recent_trade_date 
+    } = body
+    
+    if (!recent_trade_price || isNaN(recent_trade_price)) {
+      return c.json({ error: 'Invalid price value' }, 400)
+    }
+    
+    if (!recent_trade_date) {
+      return c.json({ error: 'Recent trade date is required' }, 400)
+    }
+    
+    // Get current property data
+    const property = await DB.prepare(
+      'SELECT original_price, sale_price_date FROM properties WHERE id = ?'
+    ).bind(id).first()
+    
+    if (!property) {
+      return c.json({ error: 'Property not found' }, 404)
+    }
+    
+    // Use provided original price or existing one
+    const orig_price = original_price !== undefined ? Number(original_price) : Number(property.original_price) || 0
+    const recent_price = Number(recent_trade_price)
+    
+    // Calculate margin and increase rate
+    const margin = recent_price - orig_price
+    const margin_rate = orig_price > 0 ? (margin / orig_price) * 100 : 0
+    const price_increase_amount = margin
+    const price_increase_rate = margin_rate
+    
+    // Update property with all fields
+    await DB.prepare(`
+      UPDATE properties 
+      SET original_price = ?,
+          sale_price_date = ?,
+          recent_trade_price = ?,
+          recent_trade_date = ?,
+          expected_margin = ?,
+          margin_rate = ?,
+          price_increase_amount = ?,
+          price_increase_rate = ?,
+          last_price_update = datetime('now'),
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).bind(
+      orig_price,
+      sale_price_date || null,
+      recent_price,
+      recent_trade_date,
+      margin,
+      margin_rate,
+      price_increase_amount,
+      price_increase_rate,
+      id
+    ).run()
+    
+    return c.json({
+      success: true,
+      data: {
+        original_price: orig_price,
+        sale_price_date: sale_price_date,
+        recent_trade_price: recent_price,
+        recent_trade_date: recent_trade_date,
+        expected_margin: margin,
+        margin_rate: margin_rate,
+        price_increase_amount: price_increase_amount,
+        price_increase_rate: price_increase_rate
+      }
+    })
+  } catch (error) {
+    console.error('Error updating price:', error)
+    return c.json({ error: 'Failed to update price' }, 500)
+  }
+})
+
+// Helper function: 주소에서 시군구 코드 추출
+function extractSigunguCode(location: string): string | null {
+  const regionMap: Record<string, Record<string, string>> = {
+    '서울': { '강남구': '11680', '강동구': '11740', '강북구': '11305', '강서구': '11500', '관악구': '11620', '광진구': '11215', '구로구': '11530', '금천구': '11545', '노원구': '11350', '도봉구': '11320', '동대문구': '11230', '동작구': '11590', '마포구': '11440', '서대문구': '11410', '서초구': '11650', '성동구': '11200', '성북구': '11290', '송파구': '11710', '양천구': '11470', '영등포구': '11560', '용산구': '11170', '은평구': '11380', '종로구': '11110', '중구': '11140', '중랑구': '11260' },
+    '인천': { '계양구': '28245', '남동구': '28200', '동구': '28110', '미추홀구': '28177', '부평구': '28237', '서구': '28260', '연수구': '28185', '중구': '28140', '강화군': '28710', '옹진군': '28720' },
+    '경기': { '고양시': '41281', '과천시': '41290', '광명시': '41210', '광주시': '41610', '구리시': '41310', '군포시': '41410', '김포시': '41570', '남양주시': '41360', '동두천시': '41250', '부천시': '41190', '성남시': '41130', '수원시': '41110', '시흥시': '41390', '안산시': '41270', '안성시': '41550', '안양시': '41170', '양주시': '41630', '여주시': '41670', '오산시': '41370', '용인시': '41460', '의왕시': '41430', '의정부시': '41150', '이천시': '41500', '파주시': '41480', '평택시': '41220', '포천시': '41650', '하남시': '41450', '화성시': '41590' },
+    '세종': { '세종시': '36110' }
+  };
+  
+  for (const [sido, districts] of Object.entries(regionMap)) {
+    if (location.includes(sido)) {
+      for (const [district, code] of Object.entries(districts)) {
+        if (location.includes(district)) {
+          return code;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+// Helper function: 아파트명 정리 (괄호, 특수문자 제거)
+function cleanApartmentName(title: string): string {
+  return title.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim().split(' ')[0];
+}
+
+// API endpoint: 모든 물건의 실거래가 자동 업데이트
+app.post('/api/auto-update-all-prices', async (c) => {
+  try {
+    const { DB } = c.env
+    const serviceKey = c.env.MOLIT_API_KEY
+    
+    if (!serviceKey) {
+      return c.json({ 
+        error: 'API 키가 설정되지 않았습니다',
+        message: '.dev.vars 파일에 MOLIT_API_KEY를 설정하세요.'
+      }, 400)
+    }
+    
+    // 모든 물건 조회
+    const properties = await DB.prepare('SELECT * FROM properties').all()
+    
+    const results = {
+      total: properties.results.length,
+      updated: 0,
+      failed: 0,
+      skipped: 0,
+      details: [] as any[]
+    }
+    
+    // 현재 날짜에서 6개월 전까지 조회
+    const today = new Date()
+    const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 6, 1)
+    const yearMonth = sixMonthsAgo.getFullYear() + (sixMonthsAgo.getMonth() + 1).toString().padStart(2, '0')
+    
+    for (const property of properties.results as any[]) {
+      const location = property.location || property.full_address || ''
+      const title = property.title || ''
+      
+      // 시군구 코드 추출
+      let sigunguCode = property.sigungu_code
+      if (!sigunguCode) {
+        sigunguCode = extractSigunguCode(location)
+        if (sigunguCode) {
+          await DB.prepare('UPDATE properties SET sigungu_code = ? WHERE id = ?')
+            .bind(sigunguCode, property.id).run()
+        }
+      }
+      
+      // 아파트명 추출
+      let apartmentName = property.apartment_name
+      if (!apartmentName) {
+        apartmentName = cleanApartmentName(title)
+        if (apartmentName) {
+          await DB.prepare('UPDATE properties SET apartment_name = ? WHERE id = ?')
+            .bind(apartmentName, property.id).run()
+        }
+      }
+      
+      if (!sigunguCode || !apartmentName) {
+        results.skipped++
+        continue
+      }
+      
+      try {
+        // 국토교통부 API 호출
+        const apiUrl = 'http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev?serviceKey=' + serviceKey + '&LAWD_CD=' + sigunguCode + '&DEAL_YMD=' + yearMonth
+        
+        const response = await fetch(apiUrl)
+        const xmlText = await response.text()
+        
+        // XML 파싱
+        const itemMatches = xmlText.matchAll(/<item>(.*?)<\/item>/gs)
+        let foundMatch = false
+        
+        for (const match of itemMatches) {
+          const itemXml = match[1]
+          
+          const getTagValue = (tag: string) => {
+            const regex = new RegExp('<' + tag + '><!\[CDATA\[(.*?)\]\]><\/' + tag + '>', 's')
+            const match = itemXml.match(regex)
+            return match ? match[1].trim() : null
+          }
+          
+          const aptName = getTagValue('아파트')
+          const price = getTagValue('거래금액')
+          const year = getTagValue('년')
+          const month = getTagValue('월')
+          const day = getTagValue('일')
+          
+          // 아파트명 매칭
+          if (aptName && aptName.includes(apartmentName) && price) {
+            const priceInBillion = parseInt(price.replace(/,/g, '')) / 10000
+            const tradeDate = year + '-' + month.padStart(2, '0') + '-' + day.padStart(2, '0')
+            
+            // 분양가와 비교하여 상승률 계산
+            const originalPrice = Number(property.original_price) || 0
+            const increase = priceInBillion - originalPrice
+            const increaseRate = originalPrice > 0 ? (increase / originalPrice) * 100 : 0
+            
+            // DB 업데이트
+            await DB.prepare(`
+              UPDATE properties 
+              SET recent_trade_price = ?,
+                  recent_trade_date = ?,
+                  expected_margin = ?,
+                  margin_rate = ?,
+                  price_increase_amount = ?,
+                  price_increase_rate = ?,
+                  last_price_update = datetime('now'),
+                  updated_at = datetime('now')
+              WHERE id = ?
+            `).bind(priceInBillion, tradeDate, increase, increaseRate, increase, increaseRate, property.id).run()
+            
+            results.updated++
+            results.details.push({
+              id: property.id,
+              title: title,
+              price: priceInBillion,
+              date: tradeDate,
+              increase: increase.toFixed(1),
+              rate: increaseRate.toFixed(1)
+            })
+            
+            foundMatch = true
+            break
+          }
+        }
+        
+        if (!foundMatch) {
+          results.skipped++
+        }
+        
+      } catch (error) {
+        results.failed++
+        console.error('Failed to update property', property.id, error)
+      }
+    }
+    
+    return c.json({
+      success: true,
+      ...results,
+      timestamp: new Date().toISOString()
+    })
+    
+  } catch (error) {
+    console.error('Auto update error:', error)
+    return c.json({ error: '자동 업데이트 실패' }, 500)
+  }
+})
+
+// API endpoint to fetch real trade price from MOLIT (국토교통부)
+app.post('/api/fetch-molit-price', async (c) => {
+  try {
+    const body = await c.req.json()
+    const { sigungu_code, year_month, apartment_name } = body
+    
+    // 환경 변수에서 API 키 가져오기 (없으면 에러 메시지)
+    const serviceKey = c.env.MOLIT_API_KEY
+    
+    if (!serviceKey) {
+      return c.json({ 
+        error: 'API 키가 설정되지 않았습니다',
+        message: '공공데이터포털(data.go.kr)에서 서비스 키를 발급받아 .dev.vars 파일에 MOLIT_API_KEY를 설정하세요.'
+      }, 400)
+    }
+    
+    if (!sigungu_code || !year_month) {
+      return c.json({ error: '시군구 코드와 년월을 입력해주세요' }, 400)
+    }
+    
+    // 국토교통부 API 호출
+    const apiUrl = 'http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev?serviceKey=' + serviceKey + '&LAWD_CD=' + sigungu_code + '&DEAL_YMD=' + year_month
+    
+    const response = await fetch(apiUrl)
+    const xmlText = await response.text()
+    
+    // XML 파싱 (간단한 정규식 사용)
+    const items = []
+    const itemMatches = xmlText.matchAll(/<item>(.*?)<\/item>/gs)
+    
+    for (const match of itemMatches) {
+      const itemXml = match[1]
+      
+      const getTagValue = (tag) => {
+        const regex = new RegExp('<' + tag + '><!\[CDATA\[(.*?)\]\]><\/' + tag + '>', 's')
+        const match = itemXml.match(regex)
+        return match ? match[1].trim() : null
+      }
+      
+      const aptName = getTagValue('아파트')
+      const price = getTagValue('거래금액')
+      const area = getTagValue('전용면적')
+      const year = getTagValue('년')
+      const month = getTagValue('월')
+      const day = getTagValue('일')
+      const dong = getTagValue('법정동')
+      const floor = getTagValue('층')
+      
+      // 아파트명 필터링 (제공된 경우)
+      if (apartment_name && aptName && !aptName.includes(apartment_name)) {
+        continue
+      }
+      
+      if (aptName && price) {
+        items.push({
+          apartment: aptName,
+          price: price.replace(/,/g, '').trim(),
+          price_formatted: (parseInt(price.replace(/,/g, '')) / 10000).toFixed(1) + '억',
+          area: area,
+          date: year + '-' + month.padStart(2, '0') + '-' + day.padStart(2, '0'),
+          dong: dong,
+          floor: floor
+        })
+      }
+    }
+    
+    return c.json({
+      success: true,
+      count: items.length,
+      data: items.slice(0, 20) // 최대 20건만 반환
+    })
+    
+  } catch (error) {
+    console.error('MOLIT API Error:', error)
+    return c.json({ 
+      error: '실거래가 조회 실패',
+      message: error.message
+    }, 500)
+  }
+})
+
+// API endpoint to update nearby apartments info
+app.post('/api/properties/:id/update-nearby', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    const body = await c.req.json()
+    
+    const { nearby_apartments } = body
+    
+    if (!Array.isArray(nearby_apartments)) {
+      return c.json({ error: 'Invalid nearby apartments data' }, 400)
+    }
+    
+    // Update property
+    await DB.prepare(`
+      UPDATE properties 
+      SET nearby_apartments = ?,
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).bind(JSON.stringify(nearby_apartments), id).run()
+    
+    return c.json({
+      success: true,
+      data: {
+        nearby_apartments: nearby_apartments
+      }
+    })
+  } catch (error) {
+    console.error('Error updating nearby apartments:', error)
+    return c.json({ error: 'Failed to update nearby apartments' }, 500)
   }
 })
 
@@ -942,6 +1314,99 @@ app.get('/', (c) => {
             </div>
         </div>
 
+        <!-- 주변 아파트 정보 Modal -->
+        <div id="nearbyApartmentModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-2xl w-full p-8 relative fade-in max-h-[90vh] overflow-y-auto">
+                <button id="closeNearbyModal" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">
+                    <i class="fas fa-times"></i>
+                </button>
+                
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">
+                        <i class="fas fa-building text-primary mr-2"></i>
+                        주변 아파트 정보 관리
+                    </h2>
+                    <p class="text-gray-600 text-sm">일반 분양의 경우 주변 아파트 시세를 추가하여 비교할 수 있습니다</p>
+                </div>
+                
+                <form id="nearbyApartmentForm" class="space-y-6">
+                    <input type="hidden" id="nearbyPropertyId">
+                    
+                    <!-- 현재 물건 정보 -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="text-sm font-semibold text-gray-700 mb-2">대상 물건</div>
+                        <div id="nearbyPropertyTitle" class="text-lg font-bold text-gray-900"></div>
+                    </div>
+                    
+                    <!-- 주변 아파트 목록 -->
+                    <div id="nearbyApartmentList" class="space-y-3">
+                        <!-- JavaScript로 동적 생성 -->
+                    </div>
+                    
+                    <!-- 새 아파트 추가 -->
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                        <div class="text-sm font-bold text-gray-700 mb-4">
+                            <i class="fas fa-plus-circle text-primary mr-2"></i>
+                            새 주변 아파트 추가
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">
+                                    아파트명 <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" id="newAptName" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none text-sm"
+                                       placeholder="예: 래미안 푸르지오">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">
+                                    거리
+                                </label>
+                                <input type="text" id="newAptDistance"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none text-sm"
+                                       placeholder="예: 500m">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">
+                                    최근 실거래가 (억원) <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="newAptPrice" step="0.1" min="0" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none text-sm"
+                                       placeholder="예: 5.2">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">
+                                    거래 날짜 <span class="text-red-500">*</span>
+                                </label>
+                                <input type="date" id="newAptDate" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none text-sm">
+                            </div>
+                        </div>
+                        
+                        <button type="button" id="addNearbyApartment"
+                                class="mt-4 w-full bg-primary text-white py-2 rounded-lg font-semibold hover:bg-primary-light transition-all text-sm">
+                            <i class="fas fa-plus mr-2"></i>
+                            추가하기
+                        </button>
+                    </div>
+                    
+                    <!-- 제출 버튼 -->
+                    <div class="flex gap-3 pt-4 border-t">
+                        <button type="button" id="cancelNearby"
+                                class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-300 transition-all">
+                            닫기
+                        </button>
+                        <button type="submit"
+                                class="flex-1 bg-primary text-white py-3 rounded-xl font-bold hover:bg-primary-light transition-all">
+                            <i class="fas fa-save mr-2"></i>
+                            저장하기
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script src="/static/app.js"></script>
         <script>
@@ -1307,25 +1772,64 @@ app.get('/', (c) => {
                       </div>
                       
                       <!-- Investment Info -->
-                      \${margin ? \`
-                        <div class="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-300 rounded-lg p-4 mb-3">
-                          <div class="text-xs font-bold text-gray-700 mb-2">💰 투자 정보</div>
-                          <div class="space-y-1.5">
-                            <div class="flex justify-between items-center text-sm">
-                              <span class="text-gray-600">기존 분양가</span>
-                              <span class="font-bold text-gray-900">\${property.original_price.toFixed(1)}억</span>
-                            </div>
-                            <div class="flex justify-between items-center text-sm">
-                              <span class="text-gray-600">최근 실거래가</span>
-                              <span class="font-bold text-gray-900">\${property.recent_trade_price.toFixed(1)}억</span>
-                            </div>
-                            <div class="border-t-2 border-red-300 pt-2 flex justify-between items-center">
-                              <span class="text-sm font-bold text-gray-900">예상 마진</span>
-                              <span class="\${margin.color} text-lg font-bold">\${margin.text}</span>
-                            </div>
-                          </div>
+                      <div class="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-300 rounded-lg p-4 mb-3">
+                        <div class="text-xs font-bold text-gray-700 mb-3 flex items-center justify-between">
+                          <span>💰 투자 정보</span>
+                          \${property.last_price_update ? \`
+                            <span class="text-xs text-gray-500 font-normal">
+                              <i class="fas fa-clock mr-1"></i>
+                              \${new Date(property.last_price_update).toLocaleDateString('ko-KR')} 업데이트
+                            </span>
+                          \` : ''}
                         </div>
-                      \` : ''}
+                        <div class="space-y-2">
+                          <!-- 분양가 정보 -->
+                          <div class="flex justify-between items-start text-sm">
+                            <div class="flex flex-col">
+                              <span class="text-gray-600">기존 분양가</span>
+                              \${property.sale_price_date ? \`
+                                <span class="text-xs text-gray-400">\${property.sale_price_date}</span>
+                              \` : ''}
+                            </div>
+                            <span class="font-bold text-gray-900">
+                              \${property.original_price > 0 ? property.original_price.toFixed(1) + '억' : '<span class="text-gray-400">미설정</span>'}
+                            </span>
+                          </div>
+                          
+                          <!-- 실거래가 정보 -->
+                          <div class="flex justify-between items-start text-sm">
+                            <div class="flex flex-col">
+                              <span class="text-gray-600">최근 실거래가</span>
+                              \${property.recent_trade_date ? \`
+                                <span class="text-xs text-gray-400">\${property.recent_trade_date}</span>
+                              \` : ''}
+                            </div>
+                            <span class="font-bold text-gray-900">
+                              \${property.recent_trade_price > 0 ? property.recent_trade_price.toFixed(1) + '억' : '<span class="text-gray-400">미설정</span>'}
+                            </span>
+                          </div>
+                          
+                          <!-- 가격 변동 정보 -->
+                          \${margin ? \`
+                            <div class="border-t-2 border-red-300 pt-2">
+                              <div class="flex justify-between items-center mb-1">
+                                <span class="text-sm font-bold text-gray-900">가격 변동</span>
+                                <span class="\${margin.color} text-base font-bold">\${margin.text}</span>
+                              </div>
+                              \${property.sale_price_date && property.recent_trade_date ? \`
+                                <div class="text-xs text-gray-500 text-right">
+                                  \${(() => {
+                                    const start = new Date(property.sale_price_date);
+                                    const end = new Date(property.recent_trade_date);
+                                    const months = Math.floor((end - start) / (1000 * 60 * 60 * 24 * 30));
+                                    return months > 0 ? \`\${months}개월간 변동\` : '';
+                                  })()}
+                                </div>
+                              \` : ''}
+                            </div>
+                          \` : ''}
+                        </div>
+                      </div>
                       
                       <!-- Tags -->
                       <div class="flex flex-wrap gap-1.5 mb-3">
@@ -1335,6 +1839,46 @@ app.get('/', (c) => {
                           </span>
                         \`).join('')}
                       </div>
+                      
+                      <!-- 주변 아파트 정보 (일반 분양만) -->
+                      \${property.type !== 'next' && property.type !== 'unsold' && property.nearby_apartments ? (() => {
+                        try {
+                          const nearby = JSON.parse(property.nearby_apartments);
+                          if (nearby.length > 0) {
+                            return \`
+                              <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-3 mb-3">
+                                <div class="text-xs font-bold text-gray-700 mb-2 flex items-center justify-between">
+                                  <span><i class="fas fa-building text-blue-600 mr-1"></i> 주변 아파트 시세</span>
+                                  <button onclick="showNearbyApartments(\${property.id})" 
+                                          class="text-blue-600 hover:text-blue-800 text-xs">
+                                    <i class="fas fa-edit mr-1"></i>편집
+                                  </button>
+                                </div>
+                                <div class="space-y-2">
+                                  \${nearby.slice(0, 3).map(apt => \`
+                                    <div class="flex justify-between items-center text-xs bg-white p-2 rounded">
+                                      <div class="flex-1">
+                                        <span class="font-semibold text-gray-900">\${apt.name}</span>
+                                        <span class="text-gray-500 ml-2">\${apt.distance || ''}</span>
+                                      </div>
+                                      <div class="text-right">
+                                        <div class="font-bold text-blue-600">\${apt.recent_price}억</div>
+                                        <div class="text-gray-400 text-xs">\${apt.date}</div>
+                                      </div>
+                                    </div>
+                                  \`).join('')}
+                                  \${nearby.length > 3 ? \`
+                                    <div class="text-center text-xs text-gray-500">
+                                      외 \${nearby.length - 3}건 더보기
+                                    </div>
+                                  \` : ''}
+                                </div>
+                              </div>
+                            \`;
+                          }
+                        } catch (e) {}
+                        return '';
+                      })() : ''}
                       
                       <!-- Action Buttons -->
                       <div class="flex gap-2">
@@ -1350,11 +1894,19 @@ app.get('/', (c) => {
                             상세 정보
                           </button>
                         \` : \`
-                          <!-- 기본 상세 정보 버튼 -->
+                          <!-- 기본 버튼 (상세 정보 + 주변 아파트) -->
                           <button onclick="showDetail(\${property.id})" 
-                                  class="w-full bg-white border-2 border-primary text-primary font-medium py-2 rounded-lg hover:bg-primary hover:text-white transition-all text-xs">
-                            상세 정보 보기
+                                  class="flex-1 bg-white border-2 border-primary text-primary font-medium py-2 rounded-lg hover:bg-primary hover:text-white transition-all text-xs">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            상세 정보
                           </button>
+                          \${property.type !== 'unsold' ? \`
+                            <button onclick="showNearbyApartments(\${property.id})" 
+                                    class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg hover:bg-blue-600 transition-all text-xs">
+                              <i class="fas fa-building mr-1"></i>
+                              주변 아파트
+                            </button>
+                          \` : ''}
                         \`}
                       </div>
                     </div>
@@ -1601,6 +2153,150 @@ app.get('/', (c) => {
             // 폼 초기화 및 모달 닫기
             johapForm.reset();
             johapModal.classList.remove('show');
+          });
+
+          // 주변 아파트 정보 modal handlers
+          const nearbyModal = document.getElementById('nearbyApartmentModal');
+          const closeNearbyModal = document.getElementById('closeNearbyModal');
+          const cancelNearby = document.getElementById('cancelNearby');
+          const nearbyForm = document.getElementById('nearbyApartmentForm');
+          let currentNearbyApartments = [];
+
+          // 주변 아파트 정보 팝업 열기 함수
+          window.showNearbyApartments = async function(id) {
+            try {
+              const response = await axios.get(\`/api/properties/detail/\${id}\`);
+              const property = response.data;
+              
+              document.getElementById('nearbyPropertyId').value = property.id;
+              document.getElementById('nearbyPropertyTitle').textContent = property.title;
+              
+              // 기존 주변 아파트 정보 로드
+              currentNearbyApartments = property.nearby_apartments ? JSON.parse(property.nearby_apartments) : [];
+              renderNearbyApartments();
+              
+              nearbyModal.classList.add('show');
+            } catch (error) {
+              console.error('물건 정보 가져오기 실패:', error);
+              alert('물건 정보를 불러오는데 실패했습니다.');
+            }
+          };
+
+          // 주변 아파트 목록 렌더링
+          function renderNearbyApartments() {
+            const list = document.getElementById('nearbyApartmentList');
+            
+            if (currentNearbyApartments.length === 0) {
+              list.innerHTML = \`
+                <div class="text-center py-8 text-gray-400">
+                  <i class="fas fa-building text-4xl mb-2"></i>
+                  <p class="text-sm">등록된 주변 아파트가 없습니다</p>
+                </div>
+              \`;
+              return;
+            }
+            
+            list.innerHTML = currentNearbyApartments.map((apt, index) => \`
+              <div class="bg-gray-50 rounded-lg p-4 relative">
+                <button onclick="removeNearbyApartment(\${index})" 
+                        class="absolute top-2 right-2 text-gray-400 hover:text-red-600">
+                  <i class="fas fa-times"></i>
+                </button>
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span class="text-gray-500">아파트명</span>
+                    <div class="font-bold text-gray-900">\${apt.name}</div>
+                  </div>
+                  <div>
+                    <span class="text-gray-500">거리</span>
+                    <div class="font-semibold text-gray-700">\${apt.distance || '-'}</div>
+                  </div>
+                  <div>
+                    <span class="text-gray-500">실거래가</span>
+                    <div class="font-bold text-primary">\${apt.recent_price}억원</div>
+                  </div>
+                  <div>
+                    <span class="text-gray-500">거래일</span>
+                    <div class="font-semibold text-gray-700">\${apt.date}</div>
+                  </div>
+                </div>
+              </div>
+            \`).join('');
+          }
+
+          // 주변 아파트 제거
+          window.removeNearbyApartment = function(index) {
+            if (confirm('이 주변 아파트 정보를 삭제하시겠습니까?')) {
+              currentNearbyApartments.splice(index, 1);
+              renderNearbyApartments();
+            }
+          };
+
+          // 주변 아파트 추가
+          document.getElementById('addNearbyApartment').addEventListener('click', () => {
+            const name = document.getElementById('newAptName').value.trim();
+            const distance = document.getElementById('newAptDistance').value.trim();
+            const price = document.getElementById('newAptPrice').value;
+            const date = document.getElementById('newAptDate').value;
+            
+            if (!name || !price || !date) {
+              alert('필수 항목을 모두 입력해주세요.');
+              return;
+            }
+            
+            currentNearbyApartments.push({
+              name: name,
+              distance: distance,
+              recent_price: parseFloat(price),
+              date: date
+            });
+            
+            // 입력 필드 초기화
+            document.getElementById('newAptName').value = '';
+            document.getElementById('newAptDistance').value = '';
+            document.getElementById('newAptPrice').value = '';
+            document.getElementById('newAptDate').value = '';
+            
+            renderNearbyApartments();
+          });
+
+          // 닫기 버튼
+          closeNearbyModal.addEventListener('click', () => {
+            nearbyModal.classList.remove('show');
+          });
+
+          cancelNearby.addEventListener('click', () => {
+            nearbyModal.classList.remove('show');
+          });
+
+          nearbyModal.addEventListener('click', (e) => {
+            if (e.target === nearbyModal) {
+              nearbyModal.classList.remove('show');
+            }
+          });
+
+          // 폼 제출
+          nearbyForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const propertyId = document.getElementById('nearbyPropertyId').value;
+            
+            try {
+              const response = await axios.post(\`/api/properties/\${propertyId}/update-nearby\`, {
+                nearby_apartments: currentNearbyApartments
+              });
+              
+              if (response.data.success) {
+                alert(\`주변 아파트 정보가 업데이트되었습니다! (총 \${currentNearbyApartments.length}건)\`);
+                nearbyModal.classList.remove('show');
+                loadProperties();
+              } else {
+                alert('업데이트에 실패했습니다.');
+              }
+            } catch (error) {
+              console.error('주변 아파트 업데이트 실패:', error);
+              alert('주변 아파트 정보 업데이트에 실패했습니다.');
+            }
           });
 
           signupBtn.addEventListener('click', () => {

@@ -1,153 +1,255 @@
-# 줍줍분양 - 토스 스타일
+# 똑똑한한채 - 스마트 부동산 분양 정보
 
-## 프로젝트 개요
-- **이름**: 줍줍분양 (Toss Style Redesign)
-- **목표**: 부동산 분양 정보를 토스의 깔끔하고 현대적인 디자인으로 제공
-- **주요 기능**: 
-  - 무순위 분양 정보 제공
-  - 청약 일정 관리
-  - 분양 예정 물건 조회
-  - 관심 물건 등록
+부동산 줍줍 분양 정보를 한눈에 볼 수 있는 플랫폼입니다.
 
-## 현재 완성된 기능
-- ✅ 토스 스타일 UI/UX 디자인 적용
-- ✅ 반응형 레이아웃 (모바일/데스크톱 지원)
-- ✅ 4가지 카테고리 필터링 (줍줍분양, 오늘청약, 모집중, 분양예정)
-- ✅ 실시간 통계 카드
-- ✅ 분양 물건 목록 표시
-- ✅ 관심등록 버튼 UI
-- ✅ 이벤트 배너
-- ✅ 부드러운 애니메이션 효과
-- ✅ **Cloudflare D1 데이터베이스 연동** (실제 데이터 저장 및 조회)
-- ✅ **25개의 실제 분양 데이터** (줍줍분양 18건, 모집중 3건, 분양예정 4건)
+## 🌐 공개 URL
 
-## 기능 진입점 (URI)
-- **메인 페이지**: `/` - 전체 분양 정보 및 필터링
-- **통계 API**: `/api/stats` - 카테고리별 분양 건수
-  - 응답 예시: `{"unsold":18,"today":0,"johab":3,"next":4}`
-- **분양 목록 API**: `/api/properties/:type` - 타입별 분양 정보
-  - 파라미터: `type` (unsold, today, johab, next, all)
-  - 응답: 분양 물건 배열 (id, type, title, location, status, deadline, price, households, tags, badge, description 등)
-- **분양 상세 API**: `/api/properties/detail/:id` - 특정 분양 물건 상세 정보
-  - 파라미터: `id` (분양 물건 ID)
+- **샌드박스**: https://3000-iwhqnkbi44emm3qlpcntd-583b4d74.sandbox.novita.ai
 
-## 아직 구현되지 않은 기능
-- ⏳ 사용자 인증 및 로그인
-- ⏳ 관심등록 기능 (프론트엔드 연동)
-- ⏳ 상세 페이지 UI
-- ⏳ 검색 및 고급 필터 기능
-- ⏳ 알림 기능
-- ⏳ 공유 기능
-- ⏳ 관리자 페이지 (분양 정보 CRUD)
+## ✨ 주요 기능
 
-## 권장 다음 개발 단계
-1. **상세 페이지 추가** - 분양 물건 상세 정보 페이지 구현
-2. **관심등록 기능 구현** - KV 스토리지 활용하여 사용자별 관심 물건 저장
-3. **검색 및 필터 고도화** - 지역별, 가격대별, 마감일별 검색 기능
-4. **관리자 페이지** - 분양 정보 추가/수정/삭제 기능
-5. **프로덕션 배포** - Cloudflare Pages에 배포 및 프로덕션 DB 마이그레이션
+### 1. 날짜 및 가격 변동 추적
+- ✅ 분양가 날짜 입력/표시
+- ✅ 실거래가 날짜 입력/표시  
+- ✅ 가격 변동량 자동 계산 (억원)
+- ✅ 상승률 자동 계산 (%)
+- ✅ 변동 기간 표시 (개월)
+- ✅ 마지막 업데이트 시간 표시
 
-## URL
-- **개발 서버**: https://3000-iwhqnkbi44emm3qlpcntd-583b4d74.sandbox.novita.ai
-- **GitHub**: (아직 연동되지 않음)
+### 2. 주변 아파트 정보 관리
+- ✅ 일반 분양 물건의 주변 아파트 시세 입력
+- ✅ 여러 개의 주변 아파트 정보 저장
+- ✅ 아파트명, 거리, 실거래가, 거래일 관리
+- ✅ 카드에 주변 아파트 시세 자동 표시
 
-## 데이터 아키텍처
-- **데이터 모델**: 
-  - **Properties (분양 물건)**: 
-    - 필드: id, type, title, location, status, deadline, price, households, tags (JSON), badge, description, image_url, created_at, updated_at
-    - 인덱스: type, deadline, created_at
-  - **User Interests (관심 물건)**: 
-    - 필드: id, user_id, property_id, created_at
-    - 인덱스: user_id, property_id
-  - **Stats (통계)**: 동적 계산 (unsold, today, johab, next)
-  
-- **스토리지 서비스**: 
-  - **Cloudflare D1 Database** (SQLite 기반)
-  - 로컬 개발: `.wrangler/state/v3/d1` (로컬 SQLite)
-  - 프로덕션: Cloudflare D1 (글로벌 분산)
-  
-- **데이터 흐름**: 
-  1. 프론트엔드에서 API 호출 (axios)
-  2. Hono 백엔드 API 라우트 처리
-  3. D1 데이터베이스 쿼리 실행
-  4. 데이터 변환 (tags JSON 파싱)
-  5. JSON 응답 반환
-  6. 프론트엔드 렌더링
+### 3. 국토교통부 실거래가 자동 수집
+- ✅ 주소에서 시군구 코드 자동 추출
+- ✅ 아파트명 자동 추출 및 정리
+- ✅ 국토교통부 API로 실거래가 자동 조회
+- ✅ `/api/auto-update-all-prices` - 모든 물건 일괄 업데이트
+- ✅ 수동 조회 UI (KB시세 모달 내)
 
-## 사용자 가이드
-1. **메인 페이지 접속**: 위 개발 서버 URL로 접속
-2. **카테고리 선택**: 상단 통계 카드 또는 탭을 클릭하여 필터링
-3. **분양 정보 확인**: 각 카드에서 위치, 가격, 마감일 확인
-4. **관심등록**: 원하는 물건의 "관심등록" 버튼 클릭 (현재는 UI만 구현)
+### 4. 투자 정보 표시
+```
+💰 투자 정보    🕐 2025-11-09 업데이트
 
-## 기술 스택
-- **프레임워크**: Hono (Cloudflare Workers)
-- **프론트엔드**: HTML5, TailwindCSS, Vanilla JavaScript
-- **폰트**: Pretendard (토스 스타일)
-- **아이콘**: Font Awesome
-- **HTTP 클라이언트**: Axios
-- **배포 플랫폼**: Cloudflare Pages
+기존 분양가         3.2억
+2024-03-15
 
-## 디자인 특징
-- **토스 스타일 요소**:
-  - 볼드한 타이포그래피
-  - 파란색 그라데이션 (#3182F6 → #1B64DA)
-  - 부드러운 애니메이션 (cubic-bezier)
-  - 카드형 레이아웃
-  - 넉넉한 여백과 라운드 처리
-  - 직관적인 아이콘 사용
+최근 실거래가        5.5억  
+2025-10-20
 
-## 배포 상태
-- **플랫폼**: Cloudflare Pages (준비 완료)
-- **상태**: ✅ 개발 서버 실행 중
-- **마지막 업데이트**: 2025-01-09
-
-## 로컬 개발 가이드
-
-### 초기 설정
-```bash
-# 의존성 설치
-npm install
-
-# 데이터베이스 마이그레이션 (최초 1회)
-npm run db:migrate:local
-
-# 테스트 데이터 삽입
-npm run db:seed
+━━━━━━━━━━━━━━━━━━
+가격 변동      +2.3억 (+71.9%)
+                19개월간 변동
 ```
 
-### 개발 서버 실행
-```bash
-# 빌드
-npm run build
+## 🔧 데이터 모델
 
-# 개발 서버 시작 (PM2)
-pm2 start ecosystem.config.cjs
+### Properties 테이블 (주요 필드)
 
-# 서비스 확인
-curl http://localhost:3000/api/stats
+```sql
+- id: INTEGER PRIMARY KEY
+- title: TEXT (물건명)
+- location: TEXT (지역)
+- full_address: TEXT (전체 주소)
+- sigungu_code: TEXT (시군구 코드, 자동 추출)
+- apartment_name: TEXT (아파트명, 자동 추출)
 
-# 로그 확인
-pm2 logs webapp --nostream
+-- 가격 정보
+- original_price: REAL (분양가, 억원)
+- sale_price_date: DATE (분양가 날짜)
+- recent_trade_price: REAL (실거래가, 억원)
+- recent_trade_date: DATE (실거래가 날짜)
+
+-- 계산 필드
+- expected_margin: REAL (예상 마진, 억원)
+- margin_rate: REAL (수익률, %)
+- price_increase_amount: REAL (가격 변동량, 억원)
+- price_increase_rate: REAL (가격 상승률, %)
+
+-- 주변 아파트
+- nearby_apartments: TEXT (JSON 배열)
+  구조: [{"name": "아파트명", "distance": "500m", "recent_price": 5.2, "date": "2025-10-15"}]
+
+-- 메타데이터
+- last_price_update: DATETIME (마지막 가격 업데이트)
+- created_at: DATETIME
+- updated_at: DATETIME
 ```
 
-### 데이터베이스 관리
+## 🚀 API 엔드포인트
+
+### 1. 실거래가 업데이트
 ```bash
-# 로컬 DB 쿼리 실행
-npm run db:console:local -- --command="SELECT * FROM properties LIMIT 5"
+POST /api/properties/:id/update-price
+Content-Type: application/json
 
-# 로컬 DB 초기화 (모든 데이터 삭제 후 재생성)
-npm run db:reset
-
-# 프로덕션 DB 마이그레이션
-npm run db:migrate:prod
+{
+  "original_price": 3.2,
+  "sale_price_date": "2024-03-15",
+  "recent_trade_price": 5.5,
+  "recent_trade_date": "2025-10-20"
+}
 ```
 
-## 프로덕션 배포 가이드
+### 2. 주변 아파트 정보 업데이트
 ```bash
-# Cloudflare API 키 설정 (최초 1회)
-# setup_cloudflare_api_key 도구 사용
+POST /api/properties/:id/update-nearby
+Content-Type: application/json
 
-# 프로젝트 빌드 및 배포
-npm run deploy:prod
+{
+  "nearby_apartments": [
+    {
+      "name": "래미안 푸르지오",
+      "distance": "500m",
+      "recent_price": 5.2,
+      "date": "2025-10-15"
+    }
+  ]
+}
 ```
+
+### 3. 국토교통부 실거래가 조회
+```bash
+POST /api/fetch-molit-price
+Content-Type: application/json
+
+{
+  "sigungu_code": "41390",
+  "year_month": "202510",
+  "apartment_name": "센트럴푸르지오"
+}
+```
+
+### 4. ⭐ 자동 일괄 업데이트 (핵심!)
+```bash
+POST /api/auto-update-all-prices
+Content-Type: application/json
+
+# 모든 물건의 실거래가를 자동으로 조회하여 업데이트
+# - 주소에서 시군구 코드 자동 추출
+# - 아파트명 자동 추출
+# - 국토교통부 API 호출
+# - DB 자동 업데이트
+```
+
+## 🔑 환경 변수 설정
+
+### 1. 국토교통부 API 키 발급
+
+1. [공공데이터포털](https://www.data.go.kr/) 회원가입
+2. "아파트매매 실거래 상세 자료" 검색
+3. [서비스 신청](https://www.data.go.kr/data/15057511/openapi.do)
+4. 서비스 키 발급 (1-2일 소요)
+
+### 2. .dev.vars 파일 생성
+
+```bash
+# /home/user/webapp/.dev.vars
+MOLIT_API_KEY=your_api_key_here
+```
+
+### 3. 프로덕션 환경 변수 설정
+
+```bash
+# Cloudflare Pages에서 환경 변수 설정
+wrangler pages secret put MOLIT_API_KEY --project-name webapp
+```
+
+## ⏰ 자동 업데이트 설정
+
+### 방법 1: GitHub Actions (추천)
+
+`.github/workflows/update-prices.yml`:
+```yaml
+name: Update Real Estate Prices
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 매일 오전 2시 (UTC)
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Auto Update API
+        run: |
+          curl -X POST https://your-domain.pages.dev/api/auto-update-all-prices \
+            -H "Content-Type: application/json"
+```
+
+### 방법 2: 외부 Cron 서비스
+
+- [cron-job.org](https://cron-job.org/)
+- [EasyCron](https://www.easycron.com/)
+- URL: `https://your-domain.pages.dev/api/auto-update-all-prices`
+- Method: POST
+- Schedule: 매일 오전 2시
+
+### 방법 3: Cloudflare Workers Cron
+
+별도의 Worker를 생성하여 Cron Trigger 설정 (Cloudflare Pages는 Cron 미지원)
+
+## 📊 현재 완성된 물건 데이터
+
+- 총 26건의 물건 등록
+- 실거래가 데이터 설정: 3건
+- 주변 아파트 정보 설정: 가능
+
+## 🎯 사용 방법
+
+### 1. 투자 정보 자동 표시
+- 메인 카드에서 투자 정보가 **자동으로 표시**됩니다
+- 분양가, 실거래가, 수익률이 자동 계산되어 표시
+- GitHub Actions가 매일 자동으로 데이터를 업데이트
+
+### 2. 주변 아파트 정보 입력
+1. 일반 분양 물건 카드에서 **"주변"** 버튼 클릭
+2. 주변 아파트 정보 추가:
+   - 아파트명
+   - 거리
+   - 실거래가
+   - 거래일
+3. 여러 개 추가 가능
+4. 저장하면 카드에 자동 표시
+
+### 3. 자동 일괄 업데이트 (관리자)
+```bash
+curl -X POST https://your-domain/api/auto-update-all-prices
+```
+
+## 🛠️ 기술 스택
+
+- **Frontend**: TailwindCSS, Axios
+- **Backend**: Hono (TypeScript)
+- **Database**: Cloudflare D1 (SQLite)
+- **Deployment**: Cloudflare Pages
+- **External API**: 국토교통부 실거래가 API
+
+## 📝 최근 업데이트
+
+- 2025-11-09: 날짜 및 상승률 계산 기능 추가
+- 2025-11-09: 주변 아파트 정보 관리 기능 추가
+- 2025-11-09: 국토교통부 실거래가 자동 수집 기능 추가
+- 2025-11-09: 자동 일괄 업데이트 API 구현
+- 2025-11-09: **KB시세 수동 입력 모달 제거** - 완전 자동화
+- 2025-11-09: **GitHub Actions 자동 업데이트 설정 완료**
+
+## 📌 다음 단계
+
+1. ✅ 날짜 및 상승률 표시
+2. ✅ 주변 아파트 정보 관리
+3. ✅ 국토교통부 API 연동
+4. ✅ GitHub Actions로 자동 업데이트 설정
+5. ✅ KB시세 수동 입력 제거 (완전 자동화)
+6. 🔄 Cloudflare Pages 프로덕션 배포
+7. 🔄 국토교통부 API 키 발급 및 설정
+
+## 💡 팁
+
+- API 키는 `.dev.vars`에만 저장하고 절대 git에 커밋하지 마세요
+- `.gitignore`에 `.dev.vars`가 포함되어 있는지 확인하세요
+- 실거래가는 최근 6개월 데이터를 조회합니다
+- 자동 업데이트는 매일 한 번씩 실행하는 것을 권장합니다

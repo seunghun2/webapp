@@ -12,5 +12,11 @@
       "database_name": "webapp-production",
       "database_id": "2c616317-d3e7-44ba-9d1f-bb307452dada"
     }
-  ]
+  ],
+  // Cron Triggers: 매일 자동으로 실거래가 업데이트
+  // 주의: Cloudflare Pages는 Cron을 지원하지 않으므로, 
+  // Workers로 별도 배포하거나 외부 Cron 서비스(GitHub Actions 등) 사용 필요
+  "triggers": {
+    "crons": ["0 2 * * *"]  // 매일 오전 2시 (KST 기준 오전 11시)
+  }
 }

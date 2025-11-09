@@ -1,0 +1,11 @@
+# 환경 변수 예시 파일
+# 실제 사용 시 .dev.vars 파일을 만들고 아래 내용을 복사하여 API 키를 입력하세요
+
+# 국토교통부 실거래가 API 서비스 키
+# 발급 방법:
+# 1. https://www.data.go.kr/ 접속
+# 2. 회원가입 및 로그인
+# 3. "아파트매매 실거래 상세 자료" 검색
+# 4. https://www.data.go.kr/data/15057511/openapi.do
+# 5. 활용신청 클릭 후 서비스 키 발급 (1-2일 소요)
+MOLIT_API_KEY=your_api_key_here
