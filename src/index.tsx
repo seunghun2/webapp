@@ -1116,6 +1116,45 @@ app.get('/googlec6d53ea00693e752.html', (c) => {
   return c.text('google-site-verification: googlec6d53ea00693e752.html')
 })
 
+// Sitemap.xml for SEO
+app.get('/sitemap.xml', (c) => {
+  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://hanchae365.com/</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://hanchae365.com/terms</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://hanchae365.com/privacy</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+</urlset>`
+  
+  c.header('Content-Type', 'application/xml')
+  return c.text(sitemap)
+})
+
+// Robots.txt for SEO
+app.get('/robots.txt', (c) => {
+  const robots = `User-agent: *
+Allow: /
+
+Sitemap: https://hanchae365.com/sitemap.xml`
+  
+  c.header('Content-Type', 'text/plain')
+  return c.text(robots)
+})
+
 // Main page
 app.get('/', (c) => {
   return c.html(`
