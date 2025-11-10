@@ -3346,11 +3346,22 @@ app.get('/', (c) => {
                             const today = new Date();
                             today.setHours(0, 0, 0, 0);
                             
+                            // 타입별 첫 단계 라벨 결정
+                            const getFirstStepLabel = () => {
+                              switch(property.type) {
+                                case 'unsold': return '줍줍일정';
+                                case 'general': return '청약일정';
+                                case 'rental': return '신청일정';
+                                case 'johab': return '모집일정';
+                                default: return '접수일정';
+                              }
+                            };
+                            
                             const steps = [
                               { 
                                 date: property.application_end_date || property.application_start_date,
                                 icon: '📝',
-                                label: '청약신청',
+                                label: getFirstStepLabel(),
                                 subtitle: '현장·인터넷·모바일',
                                 dateDisplay: property.application_start_date + (property.application_end_date && property.application_end_date !== property.application_start_date ? '~' + property.application_end_date : '')
                               },
