@@ -1188,8 +1188,8 @@ app.get('/', (c) => {
         <!-- Google Search Console Verification -->
         <meta name="google-site-verification" content="WtjDvsKm64cdN8DHVNo95tjn1iQf2EEodfquYzSCcdE" />
         
-        <!-- Naver Site Verification (나중에 추가 필요) -->
-        <!-- <meta name="naver-site-verification" content="YOUR_NAVER_VERIFICATION_CODE" /> -->
+        <!-- Naver Search Advisor Verification -->
+        <meta name="naver-site-verification" content="84b2705d1e232018634d573e94e05c4e910baa96" />
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <style>
