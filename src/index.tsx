@@ -18,9 +18,6 @@ const app = new Hono<{ Bindings: Bindings }>()
 // Enable CORS
 app.use('/api/*', cors())
 
-// Serve static files
-app.use('/static/*', serveStatic({ root: './public' }))
-
 // ==================== 카카오 로그인 API ====================
 
 // 1. 카카오 로그인 시작 (로그인 버튼 클릭 시)
@@ -3116,28 +3113,31 @@ app.get('/', (c) => {
                     </div>
                   \` : ''}
 
-                  <!-- Brochure/Pamphlet Section -->
-                  \${property.brochure_url ? \`
+                  <!-- Brochure/Pamphlet Section (Images) -->
+                  \${property.brochure_images ? \`
                     <div class="bg-gray-50 rounded-lg p-5">
                       <h3 class="text-base font-bold text-gray-900 mb-4 flex items-center">
                         <i class="fas fa-book-open text-primary mr-2"></i>
                         단지 팸플릿
                       </h3>
-                      <div class="bg-white rounded-lg p-3">
-                        <p class="text-sm text-gray-600 mb-3">단지의 상세 정보를 확인하세요</p>
-                        <embed src="\${property.brochure_url}" 
-                               type="application/pdf" 
-                               width="100%" 
-                               height="800px"
-                               class="rounded-lg border border-gray-200" />
-                        <div class="mt-3 text-center">
-                          <a href="\${property.brochure_url}" 
-                             target="_blank" 
-                             class="inline-flex items-center gap-2 text-primary font-medium hover:underline">
-                            <i class="fas fa-external-link-alt"></i>
-                            새 탭에서 크게 보기
-                          </a>
-                        </div>
+                      <div class="space-y-4">
+                        <p class="text-sm text-gray-600">단지의 상세 정보를 확인하세요 (총 \${JSON.parse(property.brochure_images).length}페이지)</p>
+                        \${(() => {
+                          try {
+                            const images = JSON.parse(property.brochure_images);
+                            return images.map((imgUrl, index) => \`
+                              <div class="bg-white rounded-lg p-2 shadow-sm">
+                                <div class="text-xs text-gray-500 mb-2 font-medium">페이지 \${index + 1}</div>
+                                <img src="\${imgUrl}" 
+                                     alt="팸플릿 페이지 \${index + 1}"
+                                     class="w-full rounded border border-gray-200"
+                                     loading="lazy" />
+                              </div>
+                            \`).join('');
+                          } catch (e) {
+                            return '<p class="text-sm text-gray-500">이미지를 불러올 수 없습니다.</p>';
+                          }
+                        })()}
                       </div>
                     </div>
                   \` : ''}
