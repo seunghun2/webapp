@@ -3428,18 +3428,17 @@ app.get('/', (c) => {
                         </div>
                         \${property.description ? \`
                           <div class="mt-3 pt-3 border-t border-gray-200">
-                            <div class="text-xs font-medium text-gray-500 mb-1">💡 AI 요약</div>
+                            <div class="text-xs font-medium text-gray-500 mb-1">👍 추천 대상</div>
                             <div class="text-xs text-gray-600 leading-relaxed">\${
                               (() => {
-                                // 추천 대상 섹션에서 핵심 키워드 추출하여 한 줄 요약
+                                // 추천 대상 섹션에서 최대 3줄 추출
                                 const match = property.description.match(/👍 추천 대상[:\\s]*([^📢🏢📐💰🏡🎯✨📞⚠️💻🔗]*)/);
                                 if (match && match[1]) {
-                                  const lines = match[1].trim().split('\\n').filter(line => line.trim());
-                                  // 첫 2개 라인의 핵심 키워드만 추출
-                                  const keywords = lines.slice(0, 2).map(line => 
-                                    line.replace(/[•\\-]/g, '').trim()
-                                  ).join(', ');
-                                  return keywords.length > 60 ? keywords.substring(0, 57) + '...' : keywords;
+                                  const lines = match[1].trim().split('\\n')
+                                    .filter(line => line.trim() && line.trim() !== '👍 추천 대상')
+                                    .slice(0, 3);  // 최대 3줄
+                                  
+                                  return lines.map(line => line.trim()).join('<br>');
                                 }
                                 return '임대주택을 찾는 무주택 세대주에게 적합';
                               })()
