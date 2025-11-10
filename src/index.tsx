@@ -2893,271 +2893,84 @@ app.get('/', (c) => {
                     </div>
                   </div>
 
-                  <!-- Detailed Description (Toss Style) -->
-                  \${property.description ? \`
-                    <div class="space-y-4">
-                      \${(() => {
-                        const desc = property.description;
-                        const sections = [];
-                        
-                        // 단지 개요 추출
-                        const overviewMatch = desc.match(/🏢 단지 개요([\\s\\S]*?)(?=📐|💰|🏡|🎯|✨|📞|⚠️|💻|🔗|👍|$)/);
-                        if (overviewMatch) {
-                          sections.push(\`
-                            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-5 border border-blue-100">
-                              <h3 class="text-base font-bold text-gray-900 mb-3 flex items-center">
-                                <span class="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
-                                  <i class="fas fa-building text-white text-sm"></i>
-                                </span>
-                                단지 개요
-                              </h3>
-                              <div class="text-sm text-gray-700 leading-relaxed space-y-1 pl-11">
-                                \${overviewMatch[1].trim().split('\\n').filter(line => line.trim()).map(line => 
-                                  \`<div class="flex items-start"><span class="text-blue-500 mr-2">•</span><span>\${line.trim()}</span></div>\`
-                                ).join('')}
-                              </div>
-                            </div>
-                          \`);
-                        }
-                        
-                        // 공급 타입 추출
-                        const areaMatch = desc.match(/📐 공급 타입([\\s\\S]*?)(?=💰|🏡|🎯|✨|📞|⚠️|💻|🔗|👍|$)/);
-                        if (areaMatch) {
-                          sections.push(\`
-                            <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-5 border border-purple-100">
-                              <h3 class="text-base font-bold text-gray-900 mb-3 flex items-center">
-                                <span class="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center mr-3">
-                                  <i class="fas fa-home text-white text-sm"></i>
-                                </span>
-                                공급 타입 및 면적
-                              </h3>
-                              <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap pl-11">\${areaMatch[1].trim()}</div>
-                            </div>
-                          \`);
-                        }
-                        
-                        // 임대 조건 추출
-                        const rentalMatch = desc.match(/💰 임대 조건([\\s\\S]*?)(?=🏡|🎯|✨|📞|⚠️|💻|🔗|👍|$)/);
-                        if (rentalMatch) {
-                          sections.push(\`
-                            <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-5 border border-green-100">
-                              <h3 class="text-base font-bold text-gray-900 mb-3 flex items-center">
-                                <span class="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center mr-3">
-                                  <i class="fas fa-won-sign text-white text-sm"></i>
-                                </span>
-                                임대 조건
-                              </h3>
-                              <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap pl-11">\${rentalMatch[1].trim()}</div>
-                            </div>
-                          \`);
-                        }
-                        
-                        // 입주 자격 추출
-                        const qualificationMatch = desc.match(/🏡 입주 자격([\\s\\S]*?)(?=🎯|✨|📞|⚠️|💻|🔗|👍|$)/);
-                        if (qualificationMatch) {
-                          sections.push(\`
-                            <div class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl p-5 border border-orange-100">
-                              <h3 class="text-base font-bold text-gray-900 mb-3 flex items-center">
-                                <span class="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center mr-3">
-                                  <i class="fas fa-user-check text-white text-sm"></i>
-                                </span>
-                                입주 자격
-                              </h3>
-                              <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap pl-11">\${qualificationMatch[1].trim()}</div>
-                            </div>
-                          \`);
-                        }
-                        
-                        // 단지 특징 추출
-                        const featuresMatch = desc.match(/✨ 단지 특징([\\s\\S]*?)(?=📞|⚠️|💻|🔗|👍|$)/);
-                        if (featuresMatch) {
-                          sections.push(\`
-                            <div class="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-2xl p-5 border border-yellow-100">
-                              <h3 class="text-base font-bold text-gray-900 mb-3 flex items-center">
-                                <span class="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center mr-3">
-                                  <i class="fas fa-star text-white text-sm"></i>
-                                </span>
-                                단지 특징
-                              </h3>
-                              <div class="text-sm text-gray-700 leading-relaxed space-y-1 pl-11">
-                                \${featuresMatch[1].trim().split('\\n').filter(line => line.trim()).map(line => 
-                                  \`<div class="flex items-start"><span class="text-yellow-500 mr-2">✦</span><span>\${line.trim()}</span></div>\`
-                                ).join('')}
-                              </div>
-                            </div>
-                          \`);
-                        }
-                        
-                        // 문의 및 신청 추출
-                        const contactMatch = desc.match(/📞 문의 및 신청([\\s\\S]*?)(?=⚠️|💻|🔗|👍|$)/);
-                        if (contactMatch) {
-                          sections.push(\`
-                            <div class="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl p-5 border border-cyan-100">
-                              <h3 class="text-base font-bold text-gray-900 mb-3 flex items-center">
-                                <span class="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center mr-3">
-                                  <i class="fas fa-phone text-white text-sm"></i>
-                                </span>
-                                문의 및 신청
-                              </h3>
-                              <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap pl-11">\${contactMatch[1].trim()}</div>
-                            </div>
-                          \`);
-                        }
-                        
-                        // 주의사항 추출
-                        const warningMatch = desc.match(/⚠️ 주의사항([\\s\\S]*?)(?=💻|🔗|👍|$)/);
-                        if (warningMatch) {
-                          sections.push(\`
-                            <div class="bg-gradient-to-br from-red-50 to-pink-50 rounded-2xl p-5 border border-red-100">
-                              <h3 class="text-base font-bold text-gray-900 mb-3 flex items-center">
-                                <span class="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center mr-3">
-                                  <i class="fas fa-exclamation-triangle text-white text-sm"></i>
-                                </span>
-                                주의사항
-                              </h3>
-                              <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap pl-11">\${warningMatch[1].trim()}</div>
-                            </div>
-                          \`);
-                        }
-                        
-                        // 추천 대상 추출
-                        const recommendMatch = desc.match(/👍 추천 대상([\\s\\S]*?)$/);
-                        if (recommendMatch) {
-                          sections.push(\`
-                            <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-5 border-2 border-indigo-200">
-                              <h3 class="text-base font-bold text-gray-900 mb-3 flex items-center">
-                                <span class="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center mr-3">
-                                  <i class="fas fa-thumbs-up text-white text-sm"></i>
-                                </span>
-                                추천 대상
-                              </h3>
-                              <div class="text-sm text-gray-700 leading-relaxed space-y-1 pl-11">
-                                \${recommendMatch[1].trim().split('\\n').filter(line => line.trim()).map(line => 
-                                  \`<div class="flex items-start"><span class="text-indigo-500 mr-2">👉</span><span>\${line.trim()}</span></div>\`
-                                ).join('')}
-                              </div>
-                            </div>
-                          \`);
-                        }
-                        
-                        return sections.join('');
-                      })()}
-                    </div>
-                  \` : ''}
-
-                  <!-- Investment Info -->
-                  \${margin ? \`
-                    <div class="bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200 rounded-xl p-6">
-                      <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                        <i class="fas fa-chart-line text-red-500 mr-2"></i>
-                        투자 분석
-                      </h3>
-                      <div class="space-y-3">
-                        <div class="flex justify-between items-center">
-                          <span class="text-sm text-gray-600">분양 당시</span>
-                          <span class="font-bold text-gray-900">\${property.original_price.toFixed(1)}억</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                          <span class="text-sm text-gray-600">최근 실거래가</span>
-                          <span class="font-bold text-gray-900">\${property.recent_trade_price.toFixed(1)}억</span>
-                        </div>
-                        <div class="border-t-2 border-red-200 pt-3 flex justify-between items-center">
-                          <span class="text-base font-bold text-gray-900">예상 마진</span>
-                          <div class="text-right">
-                            <div class="\${margin.color} text-xl">\${margin.text}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  \` : ''}
-
-                  <!-- Basic Info -->
-                  <div class="bg-gray-50 rounded-xl p-6">
-                    <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                      <i class="fas fa-building text-primary mr-2"></i>
-                      단지 정보
-                    </h3>
+                  <!-- Basic Info (Toss Simple Style) -->
+                  <div class="bg-gray-50 rounded-lg p-5">
+                    <h3 class="text-base font-bold text-gray-900 mb-4">단지 정보</h3>
                     <div class="space-y-3">
                       \${property.exclusive_area_range || property.area_type ? \`
-                        <div class="flex justify-between">
+                        <div class="flex justify-between items-center py-2 border-b border-gray-200">
                           <span class="text-sm text-gray-600">전용면적</span>
-                          <span class="text-sm font-medium text-gray-900">\${property.exclusive_area_range || property.area_type}</span>
+                          <span class="text-sm font-semibold text-gray-900">\${property.exclusive_area_range || property.area_type}</span>
                         </div>
                       \` : ''}
-                      <div class="flex justify-between">
+                      <div class="flex justify-between items-center py-2 border-b border-gray-200">
                         <span class="text-sm text-gray-600">\${
                           property.title && (property.title.includes('행복주택') || property.title.includes('희망타운') || property.title.includes('임대'))
                             ? '임대보증금'
                             : '분양가'
                         }</span>
-                        <span class="text-sm font-medium text-gray-900">\${
+                        <span class="text-sm font-semibold text-gray-900">\${
                           (() => {
-                            // 임대주택인 경우 rental_deposit_range 우선 표시
                             if (property.title && (property.title.includes('행복주택') || property.title.includes('희망타운') || property.title.includes('임대'))) {
-                              if (property.rental_deposit_range) {
-                                return property.rental_deposit_range;
-                              } else if (property.rental_deposit_min && property.rental_deposit_max) {
+                              if (property.rental_deposit_range) return property.rental_deposit_range;
+                              if (property.rental_deposit_min && property.rental_deposit_max) {
                                 return property.rental_deposit_min.toFixed(1) + '억~' + property.rental_deposit_max.toFixed(1) + '억';
                               }
                             }
-                            // 기존 로직
                             return property.price;
                           })()
                         }</span>
                       </div>
-                      <div class="flex justify-between">
+                      <div class="flex justify-between items-center py-2 border-b border-gray-200">
                         <span class="text-sm text-gray-600">모집세대</span>
-                        <span class="text-sm font-medium text-gray-900">\${property.households}</span>
+                        <span class="text-sm font-semibold text-gray-900">\${property.households}</span>
                       </div>
                       \${property.move_in_date ? \`
-                        <div class="flex justify-between">
+                        <div class="flex justify-between items-center py-2 border-b border-gray-200">
                           <span class="text-sm text-gray-600">입주예정</span>
-                          <span class="text-sm font-medium text-gray-900">\${property.move_in_date}</span>
+                          <span class="text-sm font-semibold text-gray-900">\${property.move_in_date}</span>
                         </div>
                       \` : ''}
                       \${property.parking ? \`
-                        <div class="flex justify-between">
+                        <div class="flex justify-between items-center py-2 border-b border-gray-200">
                           <span class="text-sm text-gray-600">주차</span>
-                          <span class="text-sm font-medium text-gray-900">\${property.parking}</span>
+                          <span class="text-sm font-semibold text-gray-900">\${property.parking}</span>
                         </div>
                       \` : ''}
                       \${property.heating ? \`
-                        <div class="flex justify-between">
+                        <div class="flex justify-between items-center py-2 border-b border-gray-200">
                           <span class="text-sm text-gray-600">난방</span>
-                          <span class="text-sm font-medium text-gray-900">\${property.heating}</span>
+                          <span class="text-sm font-semibold text-gray-900">\${property.heating}</span>
                         </div>
                       \` : ''}
                       \${property.builder ? \`
-                        <div class="flex justify-between">
+                        <div class="flex justify-between items-center py-2">
                           <span class="text-sm text-gray-600">시공사</span>
-                          <span class="text-sm font-medium text-gray-900">\${property.builder}</span>
+                          <span class="text-sm font-semibold text-gray-900">\${property.builder}</span>
                         </div>
                       \` : ''}
                     </div>
                   </div>
 
-                  <!-- Subscription Schedule (from PDF parsing) -->
+                  <!-- Subscription Schedule -->
                   \${property.no_rank_date || property.first_rank_date || property.special_subscription_date ? \`
-                    <div class="bg-primary/5 rounded-xl p-6">
-                      <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                        <i class="fas fa-calendar-check text-primary mr-2"></i>
-                        청약일정
-                      </h3>
+                    <div class="bg-gray-50 rounded-lg p-5">
+                      <h3 class="text-base font-bold text-gray-900 mb-4">청약 일정</h3>
                       <div class="space-y-3">
                         \${property.special_subscription_date || property.special_supply_date ? \`
-                          <div class="flex justify-between items-center">
+                          <div class="flex justify-between items-center py-2 border-b border-gray-200">
                             <span class="text-sm text-gray-600">특별청약</span>
                             <span class="text-sm font-bold text-primary">\${property.special_subscription_date || property.special_supply_date}</span>
                           </div>
                         \` : ''}
                         \${property.first_rank_date || property.general_supply_date ? \`
-                          <div class="flex justify-between items-center">
+                          <div class="flex justify-between items-center py-2 border-b border-gray-200">
                             <span class="text-sm text-gray-600">1순위청약</span>
                             <span class="text-sm font-bold text-primary">\${property.first_rank_date || property.general_supply_date}</span>
                           </div>
                         \` : ''}
                         \${property.no_rank_date || (property.subscription_start && property.subscription_end) ? \`
-                          <div class="flex justify-between items-center">
+                          <div class="flex justify-between items-center py-2">
                             <span class="text-sm text-gray-600">무순위청약</span>
                             <span class="text-sm font-bold text-primary">\${
                               property.no_rank_date || 
@@ -3170,46 +2983,64 @@ app.get('/', (c) => {
                       </div>
                     </div>
                   \` : ''}
-                </div>
 
-                  <!-- Infrastructure -->
-                  <div class="grid md:grid-cols-2 gap-4">
-                    \${property.transportation ? \`
-                      <div class="bg-blue-50 rounded-xl p-4">
-                        <h4 class="text-sm font-bold text-gray-900 mb-2 flex items-center">
-                          <i class="fas fa-subway text-primary mr-2"></i>교통
-                        </h4>
-                        <p class="text-xs text-gray-700 leading-relaxed">\${property.transportation}</p>
-                      </div>
-                    \` : ''}
-                    
-                    \${property.education ? \`
-                      <div class="bg-green-50 rounded-xl p-4">
-                        <h4 class="text-sm font-bold text-gray-900 mb-2 flex items-center">
-                          <i class="fas fa-school text-green-600 mr-2"></i>교육
-                        </h4>
-                        <p class="text-xs text-gray-700 leading-relaxed">\${property.education}</p>
-                      </div>
-                    \` : ''}
-                    
-                    \${property.shopping ? \`
-                      <div class="bg-purple-50 rounded-xl p-4">
-                        <h4 class="text-sm font-bold text-gray-900 mb-2 flex items-center">
-                          <i class="fas fa-shopping-cart text-purple-600 mr-2"></i>쇼핑
-                        </h4>
-                        <p class="text-xs text-gray-700 leading-relaxed">\${property.shopping}</p>
-                      </div>
-                    \` : ''}
-                    
-                    \${property.medical ? \`
-                      <div class="bg-red-50 rounded-xl p-4">
-                        <h4 class="text-sm font-bold text-gray-900 mb-2 flex items-center">
-                          <i class="fas fa-hospital text-red-600 mr-2"></i>병원
-                        </h4>
-                        <p class="text-xs text-gray-700 leading-relaxed">\${property.medical}</p>
-                      </div>
-                    \` : ''}
-                  </div>
+                  <!-- Detailed Description (Simple Style) -->
+                  \${property.description ? \`
+                    <div class="space-y-4">
+                      \${(() => {
+                        const desc = property.description;
+                        const sections = [];
+                        
+                        // 단지 개요 추출
+                        const overviewMatch = desc.match(/🏢 단지 개요([\\s\\S]*?)(?=📐|💰|🏡|🎯|✨|📞|⚠️|💻|🔗|👍|$)/);
+                        if (overviewMatch) {
+                          sections.push(\`
+                            <div class="bg-gray-50 rounded-lg p-5">
+                              <h3 class="text-base font-bold text-gray-900 mb-3">단지 개요</h3>
+                              <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">\${overviewMatch[1].trim()}</div>
+                            </div>
+                          \`);
+                        }
+                        
+                        // 임대 조건 추출
+                        const rentalMatch = desc.match(/💰 임대 조건([\\s\\S]*?)(?=🏡|🎯|✨|📞|⚠️|💻|🔗|👍|$)/);
+                        if (rentalMatch) {
+                          sections.push(\`
+                            <div class="bg-gray-50 rounded-lg p-5">
+                              <h3 class="text-base font-bold text-gray-900 mb-3">임대 조건</h3>
+                              <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">\${rentalMatch[1].trim()}</div>
+                            </div>
+                          \`);
+                        }
+                        
+                        // 주의사항 추출
+                        const warningMatch = desc.match(/⚠️ 주의사항([\\s\\S]*?)(?=💻|🔗|👍|$)/);
+                        if (warningMatch) {
+                          sections.push(\`
+                            <div class="bg-gray-50 rounded-lg p-5">
+                              <h3 class="text-base font-bold text-gray-900 mb-3">주의사항</h3>
+                              <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">\${warningMatch[1].trim()}</div>
+                            </div>
+                          \`);
+                        }
+                        
+                        // 온라인 신청 추출
+                        const onlineMatch = desc.match(/💻 온라인 신청([\\s\\S]*?)(?=🔗|👍|$)/);
+                        if (onlineMatch) {
+                          sections.push(\`
+                            <div class="bg-gray-50 rounded-lg p-5">
+                              <h3 class="text-base font-bold text-gray-900 mb-3">온라인 신청</h3>
+                              <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">\${onlineMatch[1].trim()}</div>
+                            </div>
+                          \`);
+                        }
+                        
+                        return sections.join('');
+                      })()}
+                    </div>
+                  \` : ''}
+
+                </div>
 
                   <!-- Official Documents -->
                   <div class="flex gap-3">
@@ -3408,29 +3239,41 @@ app.get('/', (c) => {
                             <div class="text-xs text-gray-500 mb-1">🏗️ 시공사</div>
                             <div class="font-bold text-gray-900 text-xs">\${property.builder || '-'}</div>
                           </div>
-                          \${property.special_supply_date ? \`
+                          \${property.special_subscription_date || property.special_supply_date ? \`
                           <div>
                             <div class="text-xs text-gray-500 mb-1">⭐ 특별청약</div>
-                            <div class="font-bold text-primary text-xs">\${property.special_supply_date}</div>
+                            <div class="font-bold text-primary text-xs">\${property.special_subscription_date || property.special_supply_date}</div>
                           </div>
                           \` : ''}
-                          \${property.subscription_start || property.subscription_end ? \`
+                          \${property.first_rank_date || property.general_supply_date ? \`
+                          <div>
+                            <div class="text-xs text-gray-500 mb-1">1️⃣ 1순위청약</div>
+                            <div class="font-bold text-primary text-xs">\${property.first_rank_date || property.general_supply_date}</div>
+                          </div>
+                          \` : ''}
+                          \${property.no_rank_date || property.subscription_start || property.subscription_end ? \`
                           <div>
                             <div class="text-xs text-gray-500 mb-1">📝 무순위청약</div>
-                            <div class="font-bold text-primary text-xs">\${property.subscription_start}\${property.subscription_end && property.subscription_end !== property.subscription_start ? '~' + property.subscription_end : ''}</div>
+                            <div class="font-bold text-primary text-xs">\${property.no_rank_date || property.subscription_start}\${property.subscription_end && property.subscription_end !== property.subscription_start && !property.no_rank_date ? '~' + property.subscription_end : ''}</div>
                           </div>
                           \` : ''}
                         </div>
                         \${property.description ? \`
                           <div class="mt-3 pt-3 border-t border-gray-200">
-                            <div class="text-xs font-medium text-gray-500 mb-2">👍 추천 대상</div>
-                            <div class="text-xs text-gray-700 leading-relaxed">\${
+                            <div class="text-xs font-medium text-gray-500 mb-1">💡 AI 요약</div>
+                            <div class="text-xs text-gray-600 leading-relaxed">\${
                               (() => {
+                                // 추천 대상 섹션에서 핵심 키워드 추출하여 한 줄 요약
                                 const match = property.description.match(/👍 추천 대상[:\\s]*([^📢🏢📐💰🏡🎯✨📞⚠️💻🔗]*)/);
                                 if (match && match[1]) {
-                                  return match[1].trim().split('\\n').filter(line => line.trim() && !line.includes('📢') && !line.includes('🏢')).slice(0, 3).join(' ');
+                                  const lines = match[1].trim().split('\\n').filter(line => line.trim());
+                                  // 첫 2개 라인의 핵심 키워드만 추출
+                                  const keywords = lines.slice(0, 2).map(line => 
+                                    line.replace(/[•\\-]/g, '').trim()
+                                  ).join(', ');
+                                  return keywords.length > 60 ? keywords.substring(0, 57) + '...' : keywords;
                                 }
-                                return property.description.substring(0, 80) + '...';
+                                return '임대주택을 찾는 무주택 세대주에게 적합';
                               })()
                             }</div>
                           </div>
