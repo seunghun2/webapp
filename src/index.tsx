@@ -1112,8 +1112,8 @@ app.get('/privacy', (c) => {
 })
 
 // Google Search Console verification
-app.get('/googleec6d53ea00693e752.html', (c) => {
-  return c.text('google-site-verification: googleec6d53ea00693e752.html')
+app.get('/googlec6d53ea00693e752.html', (c) => {
+  return c.text('google-site-verification: googlec6d53ea00693e752.html')
 })
 
 // Main page
