@@ -8,6 +8,9 @@ type Bindings = {
   MOLIT_API_KEY?: string; // 국토교통부 API 키 (선택사항)
   KAKAO_REST_API_KEY?: string; // 카카오 REST API 키
   KAKAO_REDIRECT_URI?: string; // 카카오 리다이렉트 URI
+  NAVER_CLIENT_ID?: string; // 네이버 클라이언트 ID
+  NAVER_CLIENT_SECRET?: string; // 네이버 클라이언트 시크릿
+  NAVER_REDIRECT_URI?: string; // 네이버 리다이렉트 URI
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -141,6 +144,258 @@ app.get('/auth/kakao/callback', async (c) => {
   }
 })
 
+// ==================== 네이버 로그인 API ====================
+
+// 1. 네이버 로그인 시작
+app.get('/auth/naver/login', (c) => {
+  const NAVER_CLIENT_ID = c.env.NAVER_CLIENT_ID || 'txLNa6r7ObsEx0lTX85n'
+  const NAVER_REDIRECT_URI = c.env.NAVER_REDIRECT_URI || 'https://hanchae365.com/auth/naver/callback'
+  
+  const state = Math.random().toString(36).substring(7) // CSRF 방지용 state
+  
+  const naverAuthUrl = `https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=${NAVER_CLIENT_ID}&redirect_uri=${encodeURIComponent(NAVER_REDIRECT_URI)}&state=${state}`
+  
+  return c.redirect(naverAuthUrl)
+})
+
+// 2. 네이버 로그인 콜백
+app.get('/auth/naver/callback', async (c) => {
+  try {
+    const code = c.req.query('code')
+    const state = c.req.query('state')
+    const NAVER_CLIENT_ID = c.env.NAVER_CLIENT_ID || 'txLNa6r7ObsEx0lTX85n'
+    const NAVER_CLIENT_SECRET = c.env.NAVER_CLIENT_SECRET || 'uPfZL72eXW'
+    
+    if (!code || !state) {
+      return c.html(`
+        <script>
+          alert('로그인에 실패했습니다.');
+          window.location.href = '/';
+        </script>
+      `)
+    }
+
+    // 1단계: 액세스 토큰 받기
+    const tokenResponse = await fetch(`https://nid.naver.com/oauth2.0/token?grant_type=authorization_code&client_id=${NAVER_CLIENT_ID}&client_secret=${NAVER_CLIENT_SECRET}&code=${code}&state=${state}`)
+
+    const tokenData = await tokenResponse.json()
+    
+    if (!tokenData.access_token) {
+      throw new Error('Failed to get access token')
+    }
+
+    // 2단계: 사용자 정보 받기
+    const userResponse = await fetch('https://openapi.naver.com/v1/nid/me', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`
+      }
+    })
+
+    const userData = await userResponse.json()
+    
+    if (userData.resultcode !== '00') {
+      throw new Error('Failed to get user info')
+    }
+    
+    // 3단계: DB에 사용자 저장/업데이트
+    const { DB } = c.env
+    
+    const naverId = userData.response.id
+    const nickname = userData.response.nickname || userData.response.name || '네이버 사용자'
+    const profileImage = userData.response.profile_image || ''
+    const email = userData.response.email || ''
+
+    // 기존 사용자 확인
+    const existingUser = await DB.prepare(`
+      SELECT * FROM users WHERE naver_id = ?
+    `).bind(naverId).first()
+
+    let userId
+    
+    if (existingUser) {
+      // 기존 사용자 업데이트
+      await DB.prepare(`
+        UPDATE users 
+        SET nickname = ?, profile_image = ?, email = ?, last_login = datetime('now'), updated_at = datetime('now')
+        WHERE naver_id = ?
+      `).bind(nickname, profileImage, email, naverId).run()
+      
+      userId = existingUser.id
+    } else {
+      // 신규 사용자 생성
+      const result = await DB.prepare(`
+        INSERT INTO users (naver_id, nickname, profile_image, email, last_login, login_provider)
+        VALUES (?, ?, ?, ?, datetime('now'), 'naver')
+      `).bind(naverId, nickname, profileImage, email).run()
+      
+      userId = result.meta.last_row_id
+      
+      // 알림 설정 기본값 생성
+      await DB.prepare(`
+        INSERT INTO notification_settings (user_id, notification_enabled)
+        VALUES (?, 1)
+      `).bind(userId).run()
+    }
+
+    // 로그인 성공 - 메인 페이지로 리다이렉트
+    return c.html(`
+      <script>
+        localStorage.setItem('user', JSON.stringify({
+          id: ${userId},
+          naverId: '${naverId}',
+          nickname: '${nickname}',
+          profileImage: '${profileImage}',
+          email: '${email}',
+          provider: 'naver'
+        }));
+        alert('${nickname}님, 환영합니다!');
+        window.location.href = '/';
+      </script>
+    `)
+
+  } catch (error) {
+    console.error('Naver login error:', error)
+    return c.html(`
+      <script>
+        alert('로그인 처리 중 오류가 발생했습니다.');
+        window.location.href = '/';
+      </script>
+    `)
+  }
+})
+
+// ==================== 이메일 로그인 API ====================
+
+// Password hashing using Web Crypto API (compatible with Cloudflare Workers)
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(password)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  return hashHex
+}
+
+async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+  const hash = await hashPassword(password)
+  return hash === hashedPassword
+}
+
+// 1. 이메일 회원가입
+app.post('/auth/email/signup', async (c) => {
+  try {
+    const { email, password, nickname } = await c.req.json()
+    const { DB } = c.env
+
+    // 입력 검증
+    if (!email || !password || !nickname) {
+      return c.json({ error: '이메일, 비밀번호, 닉네임을 모두 입력해주세요.' }, 400)
+    }
+
+    // 이메일 형식 검증
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return c.json({ error: '올바른 이메일 형식이 아닙니다.' }, 400)
+    }
+
+    // 비밀번호 길이 검증
+    if (password.length < 6) {
+      return c.json({ error: '비밀번호는 최소 6자 이상이어야 합니다.' }, 400)
+    }
+
+    // 이메일 중복 확인
+    const existingUser = await DB.prepare(`
+      SELECT id FROM users WHERE email = ?
+    `).bind(email).first()
+
+    if (existingUser) {
+      return c.json({ error: '이미 사용 중인 이메일입니다.' }, 409)
+    }
+
+    // 비밀번호 해싱
+    const passwordHash = await hashPassword(password)
+
+    // 사용자 생성
+    const result = await DB.prepare(`
+      INSERT INTO users (email, password_hash, nickname, login_provider, last_login)
+      VALUES (?, ?, ?, 'email', datetime('now'))
+    `).bind(email, passwordHash, nickname).run()
+
+    const userId = result.meta.last_row_id
+
+    // 알림 설정 기본값 생성
+    await DB.prepare(`
+      INSERT INTO notification_settings (user_id, notification_enabled)
+      VALUES (?, 1)
+    `).bind(userId).run()
+
+    return c.json({
+      success: true,
+      user: {
+        id: userId,
+        email,
+        nickname,
+        provider: 'email'
+      }
+    })
+
+  } catch (error) {
+    console.error('Email signup error:', error)
+    return c.json({ error: '회원가입 처리 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// 2. 이메일 로그인
+app.post('/auth/email/login', async (c) => {
+  try {
+    const { email, password } = await c.req.json()
+    const { DB } = c.env
+
+    // 입력 검증
+    if (!email || !password) {
+      return c.json({ error: '이메일과 비밀번호를 입력해주세요.' }, 400)
+    }
+
+    // 사용자 조회
+    const user = await DB.prepare(`
+      SELECT id, email, password_hash, nickname, profile_image
+      FROM users WHERE email = ? AND login_provider = 'email'
+    `).bind(email).first() as any
+
+    if (!user) {
+      return c.json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' }, 401)
+    }
+
+    // 비밀번호 검증
+    const isValid = await verifyPassword(password, user.password_hash)
+    if (!isValid) {
+      return c.json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' }, 401)
+    }
+
+    // 마지막 로그인 시간 업데이트
+    await DB.prepare(`
+      UPDATE users SET last_login = datetime('now') WHERE id = ?
+    `).bind(user.id).run()
+
+    return c.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        nickname: user.nickname,
+        profileImage: user.profile_image || '',
+        provider: 'email'
+      }
+    })
+
+  } catch (error) {
+    console.error('Email login error:', error)
+    return c.json({ error: '로그인 처리 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// ==================== 공통 로그아웃 ====================
+
 // 3. 로그아웃
 app.get('/auth/logout', (c) => {
   return c.html(`
@@ -222,6 +477,139 @@ app.post('/api/user/:id/notifications', async (c) => {
   } catch (error) {
     console.error('Error updating notification settings:', error)
     return c.json({ error: 'Failed to update settings' }, 500)
+  }
+})
+
+// 7. 프로필 수정
+app.put('/api/user/:id/profile', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    const body = await c.req.json()
+    
+    const { nickname, bio, phone } = body
+    
+    // 닉네임 중복 확인 (자기 자신 제외)
+    if (nickname) {
+      const existingUser = await DB.prepare(`
+        SELECT id FROM users WHERE nickname = ? AND id != ?
+      `).bind(nickname, id).first()
+      
+      if (existingUser) {
+        return c.json({ error: '이미 사용 중인 닉네임입니다.' }, 409)
+      }
+    }
+    
+    await DB.prepare(`
+      UPDATE users 
+      SET nickname = COALESCE(?, nickname),
+          bio = ?,
+          phone = ?,
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).bind(nickname, bio, phone, id).run()
+    
+    // 업데이트된 사용자 정보 반환
+    const user = await DB.prepare(`
+      SELECT id, email, nickname, profile_image, bio, phone, login_provider
+      FROM users WHERE id = ?
+    `).bind(id).first()
+    
+    return c.json({ success: true, user })
+  } catch (error) {
+    console.error('Error updating profile:', error)
+    return c.json({ error: 'Failed to update profile' }, 500)
+  }
+})
+
+// 8. 비밀번호 변경 (이메일 로그인 사용자만)
+app.put('/api/user/:id/password', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    const { currentPassword, newPassword } = await c.req.json()
+    
+    // 사용자 조회
+    const user = await DB.prepare(`
+      SELECT password_hash, login_provider FROM users WHERE id = ?
+    `).bind(id).first() as any
+    
+    if (!user) {
+      return c.json({ error: '사용자를 찾을 수 없습니다.' }, 404)
+    }
+    
+    if (user.login_provider !== 'email') {
+      return c.json({ error: '소셜 로그인 사용자는 비밀번호를 변경할 수 없습니다.' }, 400)
+    }
+    
+    // 현재 비밀번호 검증
+    const isValid = await verifyPassword(currentPassword, user.password_hash)
+    if (!isValid) {
+      return c.json({ error: '현재 비밀번호가 올바르지 않습니다.' }, 401)
+    }
+    
+    // 새 비밀번호 해싱
+    const newPasswordHash = await hashPassword(newPassword)
+    
+    // 비밀번호 업데이트
+    await DB.prepare(`
+      UPDATE users 
+      SET password_hash = ?,
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).bind(newPasswordHash, id).run()
+    
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error changing password:', error)
+    return c.json({ error: 'Failed to change password' }, 500)
+  }
+})
+
+// 9. 회원탈퇴
+app.delete('/api/user/:id', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    const { reason, password } = await c.req.json()
+    
+    // 사용자 조회
+    const user = await DB.prepare(`
+      SELECT password_hash, login_provider FROM users WHERE id = ?
+    `).bind(id).first() as any
+    
+    if (!user) {
+      return c.json({ error: '사용자를 찾을 수 없습니다.' }, 404)
+    }
+    
+    // 이메일 로그인 사용자는 비밀번호 확인
+    if (user.login_provider === 'email' && password) {
+      const isValid = await verifyPassword(password, user.password_hash)
+      if (!isValid) {
+        return c.json({ error: '비밀번호가 올바르지 않습니다.' }, 401)
+      }
+    }
+    
+    // 소프트 삭제 (데이터는 보관)
+    await DB.prepare(`
+      UPDATE users 
+      SET status = 'deleted',
+          deleted_at = datetime('now'),
+          deletion_reason = ?
+      WHERE id = ?
+    `).bind(reason || '', id).run()
+    
+    // 알림 설정도 비활성화
+    await DB.prepare(`
+      UPDATE notification_settings 
+      SET notification_enabled = 0
+      WHERE user_id = ?
+    `).bind(id).run()
+    
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting user:', error)
+    return c.json({ error: 'Failed to delete user' }, 500)
   }
 })
 
@@ -376,6 +764,139 @@ app.get('/api/properties/detail/:id', async (c) => {
 })
 
 // LH 청약센터 크롤링 API
+// ===== PDF 파싱 유틸리티 함수 =====
+
+// PDF URL에서 텍스트 추출 (외부 API 사용)
+async function extractPdfText(pdfUrl: string): Promise<string> {
+  try {
+    // 방법 1: pdf.co API 사용 (무료 티어: 월 300크레딧)
+    // const pdfcoApiKey = 'YOUR_PDF_CO_API_KEY' // 나중에 환경변수로 설정
+    
+    // 방법 2: 일단 PDF URL만 반환하고 나중에 파싱
+    // 현재는 간단하게 fetch로 PDF 바이너리를 가져와 간단한 텍스트 추출 시도
+    
+    const response = await fetch(pdfUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    })
+    
+    if (!response.ok) {
+      console.error(`Failed to download PDF: ${response.status}`)
+      return ''
+    }
+    
+    // PDF 바이너리를 ArrayBuffer로 받기
+    const pdfBuffer = await response.arrayBuffer()
+    
+    // 간단한 텍스트 추출 (PDF 내부의 평문 텍스트만 추출)
+    // 주의: 이 방법은 제한적이며, 복잡한 PDF는 파싱하지 못함
+    const decoder = new TextDecoder('utf-8', { fatal: false })
+    const pdfText = decoder.decode(pdfBuffer)
+    
+    return pdfText
+  } catch (error) {
+    console.error('PDF extraction error:', error)
+    return ''
+  }
+}
+
+// PDF 텍스트에서 전용면적 추출
+function extractExclusiveArea(pdfText: string): string {
+  // 패턴 예시: "25㎡~44㎡", "59㎡, 74㎡", "84.85㎡"
+  const patterns = [
+    /전용[면적]*\s*[:：]?\s*([\d.,~\s㎡]+)/,
+    /([\d.]+㎡\s*[~]\s*[\d.]+㎡)/,
+    /([\d.]+㎡(?:\s*,\s*[\d.]+㎡)+)/
+  ]
+  
+  for (const pattern of patterns) {
+    const match = pdfText.match(pattern)
+    if (match) {
+      return match[1].trim()
+    }
+  }
+  
+  return ''
+}
+
+// PDF 텍스트에서 임대보증금 추출
+function extractRentalDeposit(pdfText: string): { range: string, min: number, max: number } {
+  // 패턴 예시: "1,314만원~4,348만원", "1천314만원 ~ 4천348만원"
+  const patterns = [
+    /임대보증금\s*[:：]?\s*([\d,천만억원\s~-]+)/,
+    /보증금\s*[:：]?\s*([\d,천만억원\s~-]+)/
+  ]
+  
+  for (const pattern of patterns) {
+    const match = pdfText.match(pattern)
+    if (match) {
+      const range = match[1].trim()
+      
+      // 숫자 추출 (만원 단위로 변환)
+      const numbers = range.match(/[\d,]+/g)
+      if (numbers && numbers.length >= 2) {
+        const min = parseFloat(numbers[0].replace(/,/g, '')) / 10000 // 만원 → 억원
+        const max = parseFloat(numbers[1].replace(/,/g, '')) / 10000
+        return { range, min, max }
+      }
+      
+      return { range, min: 0, max: 0 }
+    }
+  }
+  
+  return { range: '', min: 0, max: 0 }
+}
+
+// PDF 텍스트에서 시공사 추출
+function extractBuilder(pdfText: string): string {
+  const patterns = [
+    /시공[사업체]*\s*[:：]?\s*([가-힣\s(주)]+)/,
+    /시공\s*[:：]?\s*([가-힣\s(주)]+)/,
+    /건설사\s*[:：]?\s*([가-힣\s(주)]+)/
+  ]
+  
+  for (const pattern of patterns) {
+    const match = pdfText.match(pattern)
+    if (match) {
+      return match[1].trim()
+    }
+  }
+  
+  return ''
+}
+
+// PDF 텍스트에서 청약일정 추출
+function extractSubscriptionSchedule(pdfText: string): {
+  noRankDate: string
+  firstRankDate: string
+  specialDate: string
+  scheduleDetail: string
+} {
+  let noRankDate = ''
+  let firstRankDate = ''
+  let specialDate = ''
+  
+  // 무순위 청약일
+  const noRankMatch = pdfText.match(/무순위.*?(\d{4}[-./]\d{2}[-./]\d{2})/)
+  if (noRankMatch) noRankDate = noRankMatch[1].replace(/[./]/g, '-')
+  
+  // 1순위 청약일
+  const firstRankMatch = pdfText.match(/1순위.*?(\d{4}[-./]\d{2}[-./]\d{2})/)
+  if (firstRankMatch) firstRankDate = firstRankMatch[1].replace(/[./]/g, '-')
+  
+  // 특별청약일
+  const specialMatch = pdfText.match(/특별[공급청약]*.*?(\d{4}[-./]\d{2}[-./]\d{2})/)
+  if (specialMatch) specialDate = specialMatch[1].replace(/[./]/g, '-')
+  
+  const scheduleDetail = JSON.stringify({
+    no_rank: noRankDate,
+    first_rank: firstRankDate,
+    special: specialDate
+  })
+  
+  return { noRankDate, firstRankDate, specialDate, scheduleDetail }
+}
+
+// ===== LH 크롤러 API =====
 app.post('/api/crawl/lh', async (c) => {
   try {
     const { DB } = c.env
@@ -402,28 +923,63 @@ app.post('/api/crawl/lh', async (c) => {
     }
     
     const tbody = tbodyMatch[1]
-    const rowRegex = /<tr>\s*<td>(\d+)<\/td>\s*<td[^>]*>(.*?)<\/td>\s*<td[^>]*>.*?<span>(.*?)<\/span>.*?<\/td>\s*<td[^>]*>(.*?)<\/td>.*?<td>(\d{4}\.\d{2}\.\d{2})<\/td>\s*<td>(\d{4}\.\d{2}\.\d{2})<\/td>\s*<td[^>]*>(.*?)<\/td>/gs
     
+    // 각 행과 첨부파일 정보를 추출하는 정규식 (더 넓은 범위 매칭)
+    const rowRegex = /<tr>(.*?)<\/tr>/gs
     const rows = [...tbody.matchAll(rowRegex)]
     
     let newCount = 0
     let updateCount = 0
+    let pdfParseCount = 0
     
     for (const match of rows) {
-      const [, number, announcementType, titleRaw, region, announcementDate, deadline, status] = match
+      const rowHtml = match[1]
       
-      // 공고명 정리 (HTML 태그 제거)
-      const titleText = titleRaw.replace(/<[^>]+>/g, '').trim()
+      // 행 내부 데이터 추출
+      const tdMatches = rowHtml.match(/<td[^>]*>(.*?)<\/td>/gs)
+      if (!tdMatches || tdMatches.length < 9) continue // 총 9개 td 필요
+      
+      // 각 컬럼 추출 (정확한 인덱스)
+      // TD[0]: 번호
+      // TD[1]: 유형 (공공분양, 국민임대 등)
+      // TD[2]: 제목
+      // TD[3]: 지역
+      // TD[4]: 첨부파일 (PDF 다운로드)
+      // TD[5]: 공고일
+      // TD[6]: 마감일
+      // TD[7]: 상태 (공고중, 접수중 등)
+      // TD[8]: 조회수
+      
+      const number = tdMatches[0].replace(/<[^>]+>/g, '').trim()
+      const announcementType = tdMatches[1].replace(/<[^>]+>/g, '').trim()
+      const titleRaw = tdMatches[2]
+      const region = tdMatches[3].replace(/<[^>]+>/g, '').trim()
+      const fileTd = tdMatches[4] // 첨부파일 컬럼
+      const announcementDate = tdMatches[5].replace(/<[^>]+>/g, '').trim()
+      const deadline = tdMatches[6].replace(/<[^>]+>/g, '').trim()
+      const status = tdMatches[7].replace(/<[^>]+>/g, '').trim()
+      
+      // 제목 추출 (<span> 태그 안의 텍스트, "N일전" 제거)
+      const titleMatch = titleRaw.match(/<span[^>]*>(.*?)<\/span>/)
+      let titleText = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim() : ''
+      // "1일전", "2일전" 등 제거
+      titleText = titleText.replace(/\s*\d+일전\s*$/, '').trim()
       if (!titleText) continue
       
-      // 유형 정리
-      const cleanType = announcementType.trim()
+      // PDF 다운로드 링크 정보 추출 (TD[4]에서 찾기)
+      let pdfUrl = ''
       
-      // 지역 정리
-      const cleanRegion = region.trim()
+      // 정규식 매칭 (class 속성에 "listFileDown"이 포함된 경우)
+      const pdfLinkMatch = fileTd.match(/class="[^"]*listFileDown[^"]*"[\s\S]*?data-id1="([^"]*)"[\s\S]*?data-id2="([^"]*)"[\s\S]*?data-id3="([^"]*)"[\s\S]*?data-id4="([^"]*)"[\s\S]*?data-id5="([^"]*)"/)
       
-      // 상태 정리
-      const cleanStatus = status.trim()
+      if (pdfLinkMatch) {
+        const [, id1, id2, id3, id4, id5] = pdfLinkMatch
+        // LH PDF 다운로드 URL 구성
+        pdfUrl = `https://apply.lh.or.kr/lhapply/wt/wrtanc/wrtFileDownl.do?pnuclrStle1=${id1}&pnuclrStle2=${id2}&pnuclrStle3=${id3}&pnuclrStle4=${id4}&pnuclrStle5=${id5}`
+        console.log(`✅ PDF URL found for ${titleText}: ${pdfUrl}`)
+      } else {
+        console.log(`❌ No PDF link found for: ${titleText}`)
+      }
       
       // 분양 타입 결정
       let propertyType = 'unsold' // 기본값
@@ -451,6 +1007,46 @@ app.post('/api/crawl/lh', async (c) => {
       // LH 공고 ID 생성 (제목 기반)
       const lhId = Buffer.from(titleText).toString('base64').substring(0, 32)
       
+      // PDF 파싱 (URL이 있는 경우)
+      let exclusiveAreaRange = ''
+      let rentalDepositRange = ''
+      let rentalDepositMin = 0
+      let rentalDepositMax = 0
+      let builder = ''
+      let noRankDate = ''
+      let firstRankDate = ''
+      let specialDate = ''
+      let subscriptionScheduleDetail = ''
+      let pdfRawText = ''
+      let pdfParsed = false
+      
+      if (pdfUrl) {
+        try {
+          console.log(`Parsing PDF for: ${titleText}`)
+          const pdfText = await extractPdfText(pdfUrl)
+          pdfRawText = pdfText.substring(0, 10000) // 최대 10KB만 저장
+          
+          // 데이터 추출
+          exclusiveAreaRange = extractExclusiveArea(pdfText)
+          const depositInfo = extractRentalDeposit(pdfText)
+          rentalDepositRange = depositInfo.range
+          rentalDepositMin = depositInfo.min
+          rentalDepositMax = depositInfo.max
+          builder = extractBuilder(pdfText)
+          
+          const scheduleInfo = extractSubscriptionSchedule(pdfText)
+          noRankDate = scheduleInfo.noRankDate
+          firstRankDate = scheduleInfo.firstRankDate
+          specialDate = scheduleInfo.specialDate
+          subscriptionScheduleDetail = scheduleInfo.scheduleDetail
+          
+          pdfParsed = true
+          pdfParseCount++
+        } catch (error) {
+          console.error(`PDF parsing failed for ${titleText}:`, error)
+        }
+      }
+      
       // 기존 데이터 확인
       const existing = await DB.prepare(
         'SELECT id FROM properties WHERE lh_announcement_id = ? OR title = ?'
@@ -464,10 +1060,28 @@ app.post('/api/crawl/lh', async (c) => {
           UPDATE properties SET
             announcement_status = ?,
             deadline = ?,
+            pdf_url = ?,
+            exclusive_area_range = ?,
+            rental_deposit_range = ?,
+            rental_deposit_min = ?,
+            rental_deposit_max = ?,
+            builder = ?,
+            no_rank_date = ?,
+            first_rank_date = ?,
+            subscription_schedule_detail = ?,
+            pdf_parsed = ?,
+            pdf_parsed_at = ?,
+            pdf_raw_text = ?,
             last_crawled_at = ?,
             updated_at = ?
           WHERE lh_announcement_id = ? OR title = ?
-        `).bind(status, deadline, now, now, lhId, titleText).run()
+        `).bind(
+          status, deadline, pdfUrl,
+          exclusiveAreaRange, rentalDepositRange, rentalDepositMin, rentalDepositMax,
+          builder, noRankDate, firstRankDate, subscriptionScheduleDetail,
+          pdfParsed ? 1 : 0, pdfParsed ? now : null, pdfRawText,
+          now, now, lhId, titleText
+        ).run()
         updateCount++
       } else {
         // 새로 삽입
@@ -475,26 +1089,20 @@ app.post('/api/crawl/lh', async (c) => {
           INSERT INTO properties (
             type, title, location, status, deadline, price, households, tags,
             region, announcement_type, announcement_status, announcement_date,
-            lh_announcement_id, source, last_crawled_at, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            lh_announcement_id, source, pdf_url,
+            exclusive_area_range, rental_deposit_range, rental_deposit_min, rental_deposit_max,
+            builder, no_rank_date, first_rank_date, subscription_schedule_detail,
+            pdf_parsed, pdf_parsed_at, pdf_raw_text,
+            last_crawled_at, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
-          propertyType,
-          titleText,
-          region,
-          status,
-          deadline,
-          '미정',
-          '미정',
-          JSON.stringify(['LH청약']),
-          normalizedRegion,
-          announcementType,
-          status,
-          announcementDate,
-          lhId,
-          'lh_auto',
-          now,
-          now,
-          now
+          propertyType, titleText, region, status, deadline, '미정', '미정',
+          JSON.stringify(['LH청약']), normalizedRegion, announcementType, status, announcementDate,
+          lhId, 'lh_auto', pdfUrl,
+          exclusiveAreaRange, rentalDepositRange, rentalDepositMin, rentalDepositMax,
+          builder, noRankDate, firstRankDate, subscriptionScheduleDetail,
+          pdfParsed ? 1 : 0, pdfParsed ? now : null, pdfRawText,
+          now, now, now
         ).run()
         newCount++
       }
@@ -502,9 +1110,10 @@ app.post('/api/crawl/lh', async (c) => {
     
     return c.json({
       success: true,
-      message: `LH 크롤링 완료: 신규 ${newCount}건, 업데이트 ${updateCount}건`,
+      message: `LH 크롤링 완료: 신규 ${newCount}건, 업데이트 ${updateCount}건, PDF 파싱 ${pdfParseCount}건`,
       newCount,
       updateCount,
+      pdfParseCount,
       timestamp: new Date().toISOString()
     })
   } catch (error) {
@@ -1612,6 +2221,173 @@ app.get('/', (c) => {
         </style>
     </head>
     <body class="bg-gray-50">
+        <!-- 로그인 모달 -->
+        <div id="loginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full p-8 relative">
+                <!-- 닫기 버튼 -->
+                <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+                
+                <!-- 제목 -->
+                <div class="text-center mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">로그인</h2>
+                    <p class="text-gray-600 text-sm">똑똑한한채에 오신 것을 환영합니다</p>
+                </div>
+                
+                <!-- 로그인 버튼들 -->
+                <div class="space-y-3">
+                    <!-- 카카오 로그인 -->
+                    <button onclick="window.location.href='/auth/kakao/login'" class="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all">
+                        <i class="fas fa-comment text-xl"></i>
+                        <span>카카오로 시작하기</span>
+                    </button>
+                    
+                    <!-- 네이버 로그인 -->
+                    <button onclick="window.location.href='/auth/naver/login'" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all">
+                        <span class="text-xl font-bold">N</span>
+                        <span>네이버로 시작하기</span>
+                    </button>
+                    
+                    <!-- 이메일 로그인 -->
+                    <button onclick="openEmailLoginModal()" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all">
+                        <i class="fas fa-envelope text-xl"></i>
+                        <span>이메일로 시작하기</span>
+                    </button>
+                </div>
+                
+                <!-- 회원가입 링크 -->
+                <div class="text-center mt-6">
+                    <p class="text-gray-600 text-sm">
+                        계정이 없으신가요? 
+                        <button onclick="openSignupModal()" class="text-primary font-bold hover:underline">회원가입</button>
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 이메일 로그인 모달 -->
+        <div id="emailLoginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full p-8 relative">
+                <!-- 닫기 버튼 -->
+                <button onclick="closeEmailLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+                
+                <!-- 제목 -->
+                <div class="text-center mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">이메일 로그인</h2>
+                    <p class="text-gray-600 text-sm">이메일과 비밀번호를 입력하세요</p>
+                </div>
+                
+                <!-- 로그인 폼 -->
+                <form id="emailLoginForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">이메일</label>
+                        <input type="email" id="loginEmail" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="example@email.com">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">비밀번호</label>
+                        <input type="password" id="loginPassword" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="비밀번호를 입력하세요">
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-primary hover:bg-primary-light text-white font-bold py-4 rounded-xl transition-all">
+                        로그인
+                    </button>
+                </form>
+                
+                <!-- 회원가입 링크 -->
+                <div class="text-center mt-6">
+                    <p class="text-gray-600 text-sm">
+                        계정이 없으신가요? 
+                        <button onclick="closeEmailLoginModal(); openSignupModal();" class="text-primary font-bold hover:underline">회원가입</button>
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 회원가입 모달 -->
+        <div id="signupModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full p-8 relative">
+                <!-- 닫기 버튼 -->
+                <button onclick="closeSignupModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+                
+                <!-- 제목 -->
+                <div class="text-center mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">회원가입</h2>
+                    <p class="text-gray-600 text-sm">똑똑한한채에 가입하세요</p>
+                </div>
+                
+                <!-- 회원가입 폼 -->
+                <form id="signupForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">이메일</label>
+                        <input type="email" id="signupEmail" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="example@email.com">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">닉네임</label>
+                        <input type="text" id="signupNickname" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="닉네임을 입력하세요">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">비밀번호</label>
+                        <input type="password" id="signupPassword" required minlength="6" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="최소 6자 이상">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">비밀번호 확인</label>
+                        <input type="password" id="signupPasswordConfirm" required minlength="6" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="비밀번호를 다시 입력하세요">
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-primary hover:bg-primary-light text-white font-bold py-4 rounded-xl transition-all">
+                        가입하기
+                    </button>
+                </form>
+                
+                <!-- 로그인 링크 -->
+                <div class="text-center mt-6">
+                    <p class="text-gray-600 text-sm">
+                        이미 계정이 있으신가요? 
+                        <button onclick="closeSignupModal(); openEmailLoginModal();" class="text-primary font-bold hover:underline">로그인</button>
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 마이페이지 드롭다운 (사람인 스타일) -->
+        <div id="myPageDropdown" class="hidden absolute top-16 right-4 w-80 bg-white rounded-lg shadow-2xl border border-gray-200 z-50">
+            <!-- 프로필 헤더 -->
+            <div id="myPageHeader" class="px-6 py-5 border-b border-gray-100">
+                <!-- User info will be injected here -->
+            </div>
+            
+            <!-- 메뉴 리스트 -->
+            <div class="py-2">
+                <button onclick="openProfileEdit()" class="w-full px-6 py-3 text-left hover:bg-gray-50 transition-colors">
+                    <span class="text-gray-700 text-sm">계정정보 설정</span>
+                </button>
+                
+                <button onclick="openNotificationSettings()" class="w-full px-6 py-3 text-left hover:bg-gray-50 transition-colors">
+                    <span class="text-gray-700 text-sm">알림 설정</span>
+                </button>
+                
+                <button onclick="openContact()" class="w-full px-6 py-3 text-left hover:bg-gray-50 transition-colors">
+                    <span class="text-gray-700 text-sm">고객센터</span>
+                </button>
+            </div>
+            
+            <!-- 하단 액션 -->
+            <div class="border-t border-gray-100 py-2">
+                <button onclick="handleLogout()" class="w-full px-6 py-3 text-left hover:bg-gray-50 transition-colors">
+                    <span class="text-gray-600 text-sm">로그아웃</span>
+                </button>
+            </div>
+        </div>
+        
         <!-- Header -->
         <header class="bg-white sticky top-0 z-50 shadow-sm border-b border-gray-200">
             <div class="max-w-6xl mx-auto px-4 py-3">
@@ -2045,13 +2821,13 @@ app.get('/', (c) => {
             if (diffDays < 0) {
               return { text: '마감', class: 'bg-gray-400', days: diffDays };
             } else if (diffDays === 0) {
-              return { text: 'D-Day', class: 'bg-red-500', days: 0 };
+              return { text: '오늘 마감', class: 'bg-red-500', days: 0 };
             } else if (diffDays <= 7) {
-              return { text: \`D-\${diffDays}\`, class: 'bg-red-500', days: diffDays };
+              return { text: \`\${diffDays}일 남음\`, class: 'bg-red-500', days: diffDays };
             } else if (diffDays <= 30) {
-              return { text: \`D-\${diffDays}\`, class: 'bg-orange-500', days: diffDays };
+              return { text: \`\${diffDays}일 남음\`, class: 'bg-orange-500', days: diffDays };
             } else {
-              return { text: \`D-\${diffDays}\`, class: 'bg-blue-500', days: diffDays };
+              return { text: \`\${diffDays}일 남음\`, class: 'bg-blue-500', days: diffDays };
             }
           }
 
@@ -2117,6 +2893,17 @@ app.get('/', (c) => {
                     </div>
                   </div>
 
+                  <!-- Detailed Description -->
+                  \${property.description ? \`
+                    <div class="bg-blue-50 rounded-xl p-6">
+                      <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                        <i class="fas fa-info-circle text-blue-600 mr-2"></i>
+                        상세 설명
+                      </h3>
+                      <div class="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">\${property.description}</div>
+                    </div>
+                  \` : ''}
+
                   <!-- Investment Info -->
                   \${margin ? \`
                     <div class="bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200 rounded-xl p-6">
@@ -2150,15 +2937,32 @@ app.get('/', (c) => {
                       단지 정보
                     </h3>
                     <div class="space-y-3">
-                      \${property.area_type ? \`
+                      \${property.exclusive_area_range || property.area_type ? \`
                         <div class="flex justify-between">
-                          <span class="text-sm text-gray-600">면적</span>
-                          <span class="text-sm font-medium text-gray-900">\${property.area_type}</span>
+                          <span class="text-sm text-gray-600">전용면적</span>
+                          <span class="text-sm font-medium text-gray-900">\${property.exclusive_area_range || property.area_type}</span>
                         </div>
                       \` : ''}
                       <div class="flex justify-between">
-                        <span class="text-sm text-gray-600">분양가</span>
-                        <span class="text-sm font-medium text-gray-900">\${property.price}</span>
+                        <span class="text-sm text-gray-600">\${
+                          property.title && (property.title.includes('행복주택') || property.title.includes('희망타운') || property.title.includes('임대'))
+                            ? '임대보증금'
+                            : '분양가'
+                        }</span>
+                        <span class="text-sm font-medium text-gray-900">\${
+                          (() => {
+                            // 임대주택인 경우 rental_deposit_range 우선 표시
+                            if (property.title && (property.title.includes('행복주택') || property.title.includes('희망타운') || property.title.includes('임대'))) {
+                              if (property.rental_deposit_range) {
+                                return property.rental_deposit_range;
+                              } else if (property.rental_deposit_min && property.rental_deposit_max) {
+                                return property.rental_deposit_min.toFixed(1) + '억~' + property.rental_deposit_max.toFixed(1) + '억';
+                              }
+                            }
+                            // 기존 로직
+                            return property.price;
+                          })()
+                        }</span>
                       </div>
                       <div class="flex justify-between">
                         <span class="text-sm text-gray-600">모집세대</span>
@@ -2190,6 +2994,42 @@ app.get('/', (c) => {
                       \` : ''}
                     </div>
                   </div>
+
+                  <!-- Subscription Schedule (from PDF parsing) -->
+                  \${property.no_rank_date || property.first_rank_date || property.special_subscription_date ? \`
+                    <div class="bg-primary/5 rounded-xl p-6">
+                      <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                        <i class="fas fa-calendar-check text-primary mr-2"></i>
+                        청약일정
+                      </h3>
+                      <div class="space-y-3">
+                        \${property.special_subscription_date || property.special_supply_date ? \`
+                          <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">특별청약</span>
+                            <span class="text-sm font-bold text-primary">\${property.special_subscription_date || property.special_supply_date}</span>
+                          </div>
+                        \` : ''}
+                        \${property.first_rank_date || property.general_supply_date ? \`
+                          <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">1순위청약</span>
+                            <span class="text-sm font-bold text-primary">\${property.first_rank_date || property.general_supply_date}</span>
+                          </div>
+                        \` : ''}
+                        \${property.no_rank_date || (property.subscription_start && property.subscription_end) ? \`
+                          <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">무순위청약</span>
+                            <span class="text-sm font-bold text-primary">\${
+                              property.no_rank_date || 
+                              (property.subscription_start && property.subscription_end 
+                                ? property.subscription_start + ' ~ ' + property.subscription_end 
+                                : property.subscription_start || property.subscription_end)
+                            }</span>
+                          </div>
+                        \` : ''}
+                      </div>
+                    </div>
+                  \` : ''}
+                </div>
 
                   <!-- Infrastructure -->
                   <div class="grid md:grid-cols-2 gap-4">
@@ -2263,6 +3103,10 @@ app.get('/', (c) => {
               
               const statsContainer = document.getElementById('statsContainer');
               statsContainer.innerHTML = \`
+                <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="all">
+                  <div class="text-xs text-gray-500 mb-2 font-medium">전체분양</div>
+                  <div class="text-3xl font-bold text-gray-900">\${stats.unsold + stats.johab + stats.next}</div>
+                </div>
                 <div class="stat-card bg-white rounded-xl shadow-sm p-5 active" data-type="unsold">
                   <div class="text-xs text-gray-500 mb-2 font-medium">줍줍분양</div>
                   <div class="text-3xl font-bold">\${stats.unsold}</div>
@@ -2270,10 +3114,6 @@ app.get('/', (c) => {
                 <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="today">
                   <div class="text-xs text-gray-500 mb-2 font-medium">오늘청약</div>
                   <div class="text-3xl font-bold text-gray-900">0</div>
-                </div>
-                <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="all">
-                  <div class="text-xs text-gray-500 mb-2 font-medium">전체분양</div>
-                  <div class="text-3xl font-bold text-gray-900">\${stats.unsold + stats.johab + stats.next}</div>
                 </div>
                 <div class="stat-card bg-white rounded-xl shadow-sm p-5 cursor-pointer" onclick="openJohapInquiry()">
                   <div class="text-xs text-gray-500 mb-2 font-medium">조합원</div>
@@ -2340,14 +3180,7 @@ app.get('/', (c) => {
                       <!-- Header -->
                       <div class="flex items-start justify-between mb-3">
                         <div class="flex-1">
-                          <div class="flex items-center gap-2 mb-2">
-                            <h3 class="text-lg font-bold text-gray-900">\${property.title}</h3>
-                            \${property.badge ? \`
-                              <span class="badge-\${property.badge.toLowerCase()} text-white text-xs font-bold px-2 py-0.5 rounded">
-                                \${property.badge}
-                              </span>
-                            \` : ''}
-                          </div>
+                          <h3 class="text-lg font-bold text-gray-900 mb-2">\${property.title}</h3>
                         </div>
                         <div class="flex items-center gap-2">
                           <span class="\${dday.class} text-white text-xs font-bold px-2 py-1 rounded">
@@ -2356,16 +3189,17 @@ app.get('/', (c) => {
                         </div>
                       </div>
                       
-                      <!-- Location -->
-                      <div class="mb-3">
-                        <div class="flex items-center gap-2 text-sm text-gray-700 mb-1">
-                          <i class="fas fa-map-marker-alt text-primary text-xs"></i>
-                          <span class="font-medium">\${property.full_address || property.location}</span>
+                      <!-- Location & Map Button -->
+                      <div class="mb-3 flex items-center justify-between">
+                        <div class="flex items-center gap-2 text-sm text-gray-600">
+                          <i class="fas fa-map-marker-alt text-gray-400 text-xs"></i>
+                          <span>\${property.full_address || property.location}</span>
                         </div>
                         \${property.full_address ? \`
                           <button onclick="openMap('\${property.full_address.replace(/'/g, "\\\\'")}', \${property.lat}, \${property.lng})" 
-                                  class="text-primary text-xs hover:underline ml-5 flex items-center gap-1">
-                            🗺️ 지도에서 보기
+                                  class="text-gray-400 hover:text-gray-600 transition-colors"
+                                  title="지도에서 보기">
+                            <i class="fas fa-map-marker-alt text-lg"></i>
                           </button>
                         \` : ''}
                       </div>
@@ -2383,7 +3217,7 @@ app.get('/', (c) => {
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">📏 전용면적</div>
-                            <div class="font-bold text-gray-900">\${property.exclusive_area || '-'}</div>
+                            <div class="font-bold text-gray-900">\${property.exclusive_area_range || property.exclusive_area || '-'}</div>
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">📐 공급면적</div>
@@ -2406,11 +3240,27 @@ app.get('/', (c) => {
                             }</div>
                           </div>
                           <div>
-                            <div class="text-xs text-gray-500 mb-1">💰 분양가격</div>
+                            <div class="text-xs text-gray-500 mb-1">\${
+                              property.title && (property.title.includes('행복주택') || property.title.includes('희망타운') || property.title.includes('임대'))
+                                ? '💰 임대보증금'
+                                : '💰 분양가격'
+                            }</div>
                             <div class="font-bold text-gray-900 text-xs">\${
-                              property.sale_price_min && property.sale_price_max 
-                                ? property.sale_price_min.toFixed(1) + '억~' + property.sale_price_max.toFixed(1) + '억'
-                                : property.price
+                              (() => {
+                                // 임대주택인 경우 rental_deposit_range 우선 표시
+                                if (property.title && (property.title.includes('행복주택') || property.title.includes('희망타운') || property.title.includes('임대'))) {
+                                  if (property.rental_deposit_range) {
+                                    return property.rental_deposit_range;
+                                  } else if (property.rental_deposit_min && property.rental_deposit_max) {
+                                    return property.rental_deposit_min.toFixed(1) + '억~' + property.rental_deposit_max.toFixed(1) + '억';
+                                  }
+                                }
+                                // 분양주택인 경우 기존 로직
+                                if (property.sale_price_min && property.sale_price_max) {
+                                  return property.sale_price_min.toFixed(1) + '억~' + property.sale_price_max.toFixed(1) + '억';
+                                }
+                                return property.price;
+                              })()
                             }</div>
                           </div>
                           <div>
@@ -2563,11 +3413,8 @@ app.get('/', (c) => {
                       <div class="flex gap-2">
                         <!-- 상세 정보 버튼 (모든 타입 공통) -->
                         <button onclick="showDetail(\${property.id})" 
-                                class="w-full bg-white border-2 border-primary text-primary font-medium py-2.5 rounded-lg hover:bg-primary transition-all text-sm group">
-                          <span class="group-hover:text-white">
-                            <i class="fas fa-info-circle mr-1"></i>
-                            상세 정보
-                          </span>
+                                class="w-full bg-white border border-gray-200 text-gray-600 font-medium py-2.5 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all text-sm">
+                          상세정보 보기
                         </button>
                       </div>
                     </div>
@@ -3079,6 +3926,116 @@ app.get('/', (c) => {
 
           // ==================== 로그인 관리 ====================
           
+          // 로그인 모달 열기
+          function openLoginModal() {
+            document.getElementById('loginModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+          }
+          
+          // 로그인 모달 닫기
+          window.closeLoginModal = function() {
+            document.getElementById('loginModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+          }
+          
+          // 이메일 로그인 모달 열기
+          window.openEmailLoginModal = function() {
+            document.getElementById('loginModal').classList.add('hidden');
+            document.getElementById('emailLoginModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+          }
+          
+          // 이메일 로그인 모달 닫기
+          window.closeEmailLoginModal = function() {
+            document.getElementById('emailLoginModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+          }
+          
+          // 회원가입 모달 열기
+          window.openSignupModal = function() {
+            document.getElementById('loginModal').classList.add('hidden');
+            document.getElementById('signupModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+          }
+          
+          // 회원가입 모달 닫기
+          window.closeSignupModal = function() {
+            document.getElementById('signupModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+          }
+          
+          // 이메일 로그인 처리
+          document.getElementById('emailLoginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            try {
+              const response = await fetch('/auth/email/login', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, password })
+              });
+              
+              const data = await response.json();
+              
+              if (data.success) {
+                // 로그인 성공
+                localStorage.setItem('user', JSON.stringify(data.user));
+                alert(\`\${data.user.nickname}님, 환영합니다!\`);
+                window.location.reload();
+              } else {
+                alert(data.error || '로그인에 실패했습니다.');
+              }
+            } catch (error) {
+              console.error('Login error:', error);
+              alert('로그인 처리 중 오류가 발생했습니다.');
+            }
+          });
+          
+          // 회원가입 처리
+          document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('signupEmail').value;
+            const nickname = document.getElementById('signupNickname').value;
+            const password = document.getElementById('signupPassword').value;
+            const passwordConfirm = document.getElementById('signupPasswordConfirm').value;
+            
+            // 비밀번호 확인
+            if (password !== passwordConfirm) {
+              alert('비밀번호가 일치하지 않습니다.');
+              return;
+            }
+            
+            try {
+              const response = await fetch('/auth/email/signup', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, nickname, password })
+              });
+              
+              const data = await response.json();
+              
+              if (data.success) {
+                // 회원가입 성공
+                localStorage.setItem('user', JSON.stringify(data.user));
+                alert(\`\${data.user.nickname}님, 가입을 환영합니다!\`);
+                window.location.reload();
+              } else {
+                alert(data.error || '회원가입에 실패했습니다.');
+              }
+            } catch (error) {
+              console.error('Signup error:', error);
+              alert('회원가입 처리 중 오류가 발생했습니다.');
+            }
+          });
+          
           // 로그인 상태 확인 및 UI 업데이트
           function checkLoginStatus() {
             const userStr = localStorage.getItem('user');
@@ -3103,32 +4060,123 @@ app.get('/', (c) => {
                 localStorage.removeItem('user');
               }
             } else {
-              // 로그아웃 상태: 로그인 버튼
+              // 로그아웃 상태: 로그인 버튼 - 모달 열기
               loginBtn.innerHTML = '로그인';
-              loginBtn.onclick = () => {
-                window.location.href = '/auth/kakao/login';
-              };
+              loginBtn.onclick = openLoginModal;
             }
           }
           
-          // 사용자 메뉴 표시 (로그인 후)
+          // ==================== 마이페이지 드롭다운 (사람인 스타일) ====================
+          
+          // 드롭다운 열기/닫기 토글
           function showUserMenu() {
             const userStr = localStorage.getItem('user');
             if (!userStr) return;
             
             const user = JSON.parse(userStr);
+            const dropdown = document.getElementById('myPageDropdown');
             
-            // 간단한 메뉴 표시
-            const menu = confirm(\`\${user.nickname}님\\n\\n알림 설정을 하시겠습니까?\\n\\n확인: 알림 설정\\n취소: 로그아웃\`);
+            // 이미 열려있으면 닫기
+            if (!dropdown.classList.contains('hidden')) {
+              dropdown.classList.add('hidden');
+              return;
+            }
             
-            if (menu) {
-              // 알림 설정 페이지로 이동
-              showNotificationSettings(user);
-            } else {
-              // 로그아웃
-              if (confirm('로그아웃 하시겠습니까?')) {
-                window.location.href = '/auth/logout';
+            // 프로필 헤더 업데이트
+            const header = document.getElementById('myPageHeader');
+            const providerLabel = {
+              'kakao': '카카오',
+              'naver': '네이버',
+              'email': '이메일'
+            }[user.provider] || '소셜';
+            
+            header.innerHTML = \`
+              <div class="flex items-center gap-3">
+                <img src="\${user.profileImage || 'https://via.placeholder.com/60'}" 
+                     class="w-12 h-12 rounded-full border border-gray-200" 
+                     onerror="this.src='https://via.placeholder.com/60'">
+                <div class="flex-1">
+                  <h3 class="font-bold text-gray-900">\${user.nickname}</h3>
+                  <p class="text-xs text-gray-500 mt-0.5">\${providerLabel} 로그인</p>
+                </div>
+              </div>
+            \`;
+            
+            // 드롭다운 표시
+            dropdown.classList.remove('hidden');
+          }
+          
+          // 드롭다운 외부 클릭 시 닫기
+          document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('myPageDropdown');
+            const loginBtn = document.getElementById('loginBtn');
+            
+            if (dropdown && !dropdown.contains(e.target) && e.target !== loginBtn && !loginBtn.contains(e.target)) {
+              dropdown.classList.add('hidden');
+            }
+          });
+          
+          // 계정정보 설정 (프로필 수정)
+          window.openProfileEdit = function() {
+            // 드롭다운 닫기
+            document.getElementById('myPageDropdown').classList.add('hidden');
+            
+            const userStr = localStorage.getItem('user');
+            if (!userStr) return;
+            
+            const user = JSON.parse(userStr);
+            
+            const nickname = prompt('새 닉네임을 입력하세요:', user.nickname);
+            if (!nickname || nickname === user.nickname) return;
+            
+            fetch(\`/api/user/\${user.id}/profile\`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ nickname })
+            })
+            .then(res => res.json())
+            .then(data => {
+              if (data.success) {
+                user.nickname = data.user.nickname;
+                localStorage.setItem('user', JSON.stringify(user));
+                alert('프로필이 수정되었습니다!');
+                window.location.reload();
+              } else {
+                alert(data.error || '프로필 수정에 실패했습니다.');
               }
+            })
+            .catch(error => {
+              console.error('Profile update error:', error);
+              alert('프로필 수정 중 오류가 발생했습니다.');
+            });
+          }
+          
+          // 알림 설정
+          window.openNotificationSettings = function() {
+            // 드롭다운 닫기
+            document.getElementById('myPageDropdown').classList.add('hidden');
+            
+            const userStr = localStorage.getItem('user');
+            if (!userStr) return;
+            
+            const user = JSON.parse(userStr);
+            showNotificationSettings(user);
+          }
+          
+          // 고객센터 (문의하기)
+          window.openContact = function() {
+            // 드롭다운 닫기
+            document.getElementById('myPageDropdown').classList.add('hidden');
+            
+            const email = 'support@hanchae365.com';
+            const subject = '[똑똑한한채] 문의하기';
+            window.location.href = \`mailto:\${email}?subject=\${encodeURIComponent(subject)}\`;
+          }
+          
+          // 로그아웃
+          window.handleLogout = function() {
+            if (confirm('로그아웃 하시겠습니까?')) {
+              window.location.href = '/auth/logout';
             }
           }
           
