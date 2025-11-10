@@ -6,6 +6,8 @@ import { serveStatic } from 'hono/cloudflare-workers'
 type Bindings = {
   DB: D1Database;
   MOLIT_API_KEY?: string; // 국토교통부 API 키 (선택사항)
+  KAKAO_REST_API_KEY?: string; // 카카오 REST API 키
+  KAKAO_REDIRECT_URI?: string; // 카카오 리다이렉트 URI
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -15,6 +17,215 @@ app.use('/api/*', cors())
 
 // Serve static files
 app.use('/static/*', serveStatic({ root: './public' }))
+
+// ==================== 카카오 로그인 API ====================
+
+// 1. 카카오 로그인 시작 (로그인 버튼 클릭 시)
+app.get('/auth/kakao/login', (c) => {
+  const KAKAO_REST_API_KEY = c.env.KAKAO_REST_API_KEY || '4a2d6ac21713dbce3c2f9633ed25cca4'
+  const KAKAO_REDIRECT_URI = c.env.KAKAO_REDIRECT_URI || 'https://hanchae365.com/auth/kakao/callback'
+  
+  const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_REST_API_KEY}&redirect_uri=${encodeURIComponent(KAKAO_REDIRECT_URI)}&response_type=code`
+  
+  return c.redirect(kakaoAuthUrl)
+})
+
+// 2. 카카오 로그인 콜백 (인증 완료 후)
+app.get('/auth/kakao/callback', async (c) => {
+  try {
+    const code = c.req.query('code')
+    const KAKAO_REST_API_KEY = c.env.KAKAO_REST_API_KEY || '4a2d6ac21713dbce3c2f9633ed25cca4'
+    const KAKAO_REDIRECT_URI = c.env.KAKAO_REDIRECT_URI || 'https://hanchae365.com/auth/kakao/callback'
+    
+    if (!code) {
+      return c.html(`
+        <script>
+          alert('로그인에 실패했습니다.');
+          window.location.href = '/';
+        </script>
+      `)
+    }
+
+    // 1단계: 액세스 토큰 받기
+    const tokenResponse = await fetch('https://kauth.kakao.com/oauth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: KAKAO_REST_API_KEY,
+        redirect_uri: KAKAO_REDIRECT_URI,
+        code: code
+      }).toString()
+    })
+
+    const tokenData = await tokenResponse.json()
+    
+    if (!tokenData.access_token) {
+      throw new Error('Failed to get access token')
+    }
+
+    // 2단계: 사용자 정보 받기
+    const userResponse = await fetch('https://kapi.kakao.com/v2/user/me', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`
+      }
+    })
+
+    const userData = await userResponse.json()
+    
+    // 3단계: DB에 사용자 저장/업데이트
+    const { DB } = c.env
+    
+    const kakaoId = String(userData.id)
+    const nickname = userData.properties?.nickname || '카카오 사용자'
+    const profileImage = userData.properties?.profile_image || ''
+    const email = userData.kakao_account?.email || ''
+
+    // 기존 사용자 확인
+    const existingUser = await DB.prepare(`
+      SELECT * FROM users WHERE kakao_id = ?
+    `).bind(kakaoId).first()
+
+    let userId
+    
+    if (existingUser) {
+      // 기존 사용자 업데이트
+      await DB.prepare(`
+        UPDATE users 
+        SET nickname = ?, profile_image = ?, email = ?, last_login = datetime('now'), updated_at = datetime('now')
+        WHERE kakao_id = ?
+      `).bind(nickname, profileImage, email, kakaoId).run()
+      
+      userId = existingUser.id
+    } else {
+      // 신규 사용자 생성
+      const result = await DB.prepare(`
+        INSERT INTO users (kakao_id, nickname, profile_image, email, last_login)
+        VALUES (?, ?, ?, ?, datetime('now'))
+      `).bind(kakaoId, nickname, profileImage, email).run()
+      
+      userId = result.meta.last_row_id
+      
+      // 알림 설정 기본값 생성
+      await DB.prepare(`
+        INSERT INTO notification_settings (user_id, notification_enabled)
+        VALUES (?, 1)
+      `).bind(userId).run()
+    }
+
+    // 로그인 성공 - 메인 페이지로 리다이렉트 (쿠키에 사용자 정보 저장)
+    return c.html(`
+      <script>
+        localStorage.setItem('user', JSON.stringify({
+          id: ${userId},
+          kakaoId: '${kakaoId}',
+          nickname: '${nickname}',
+          profileImage: '${profileImage}',
+          email: '${email}'
+        }));
+        alert('${nickname}님, 환영합니다!');
+        window.location.href = '/';
+      </script>
+    `)
+
+  } catch (error) {
+    console.error('Kakao login error:', error)
+    return c.html(`
+      <script>
+        alert('로그인 처리 중 오류가 발생했습니다.');
+        window.location.href = '/';
+      </script>
+    `)
+  }
+})
+
+// 3. 로그아웃
+app.get('/auth/logout', (c) => {
+  return c.html(`
+    <script>
+      localStorage.removeItem('user');
+      alert('로그아웃되었습니다.');
+      window.location.href = '/';
+    </script>
+  `)
+})
+
+// 4. 사용자 정보 조회 API
+app.get('/api/user/:id', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    
+    const user = await DB.prepare(`
+      SELECT id, kakao_id, nickname, profile_image, email, created_at, last_login
+      FROM users WHERE id = ?
+    `).bind(id).first()
+    
+    if (!user) {
+      return c.json({ error: 'User not found' }, 404)
+    }
+    
+    return c.json(user)
+  } catch (error) {
+    console.error('Error fetching user:', error)
+    return c.json({ error: 'Failed to fetch user' }, 500)
+  }
+})
+
+// 5. 알림 설정 조회
+app.get('/api/user/:id/notifications', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    
+    const settings = await DB.prepare(`
+      SELECT * FROM notification_settings WHERE user_id = ?
+    `).bind(id).first()
+    
+    if (!settings) {
+      return c.json({ error: 'Settings not found' }, 404)
+    }
+    
+    return c.json(settings)
+  } catch (error) {
+    console.error('Error fetching notification settings:', error)
+    return c.json({ error: 'Failed to fetch settings' }, 500)
+  }
+})
+
+// 6. 알림 설정 업데이트
+app.post('/api/user/:id/notifications', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    const body = await c.req.json()
+    
+    const { notification_enabled, regions, property_types } = body
+    
+    await DB.prepare(`
+      UPDATE notification_settings 
+      SET notification_enabled = ?,
+          regions = ?,
+          property_types = ?,
+          updated_at = datetime('now')
+      WHERE user_id = ?
+    `).bind(
+      notification_enabled ? 1 : 0,
+      regions ? JSON.stringify(regions) : null,
+      property_types ? JSON.stringify(property_types) : null,
+      id
+    ).run()
+    
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error updating notification settings:', error)
+    return c.json({ error: 'Failed to update settings' }, 500)
+  }
+})
+
+// ==================== 기존 API ====================
 
 // API endpoint for property statistics
 app.get('/api/stats', async (c) => {
@@ -2866,7 +3077,98 @@ app.get('/', (c) => {
             });
           }
 
+          // ==================== 로그인 관리 ====================
+          
+          // 로그인 상태 확인 및 UI 업데이트
+          function checkLoginStatus() {
+            const userStr = localStorage.getItem('user');
+            const loginBtn = document.getElementById('loginBtn');
+            
+            if (userStr) {
+              try {
+                const user = JSON.parse(userStr);
+                // 로그인 상태: 프로필 이미지 + 닉네임 표시
+                loginBtn.innerHTML = \`
+                  <div class="flex items-center gap-2">
+                    <img src="\${user.profileImage || 'https://via.placeholder.com/32'}" 
+                         class="w-8 h-8 rounded-full" 
+                         onerror="this.src='https://via.placeholder.com/32'">
+                    <span class="hidden sm:inline">\${user.nickname}</span>
+                    <i class="fas fa-chevron-down text-xs"></i>
+                  </div>
+                \`;
+                loginBtn.onclick = showUserMenu;
+              } catch (e) {
+                console.error('Failed to parse user data:', e);
+                localStorage.removeItem('user');
+              }
+            } else {
+              // 로그아웃 상태: 로그인 버튼
+              loginBtn.innerHTML = '로그인';
+              loginBtn.onclick = () => {
+                window.location.href = '/auth/kakao/login';
+              };
+            }
+          }
+          
+          // 사용자 메뉴 표시 (로그인 후)
+          function showUserMenu() {
+            const userStr = localStorage.getItem('user');
+            if (!userStr) return;
+            
+            const user = JSON.parse(userStr);
+            
+            // 간단한 메뉴 표시
+            const menu = confirm(\`\${user.nickname}님\\n\\n알림 설정을 하시겠습니까?\\n\\n확인: 알림 설정\\n취소: 로그아웃\`);
+            
+            if (menu) {
+              // 알림 설정 페이지로 이동
+              showNotificationSettings(user);
+            } else {
+              // 로그아웃
+              if (confirm('로그아웃 하시겠습니까?')) {
+                window.location.href = '/auth/logout';
+              }
+            }
+          }
+          
+          // 알림 설정 모달 표시
+          async function showNotificationSettings(user) {
+            try {
+              // 현재 알림 설정 불러오기
+              const response = await fetch(\`/api/user/\${user.id}/notifications\`);
+              const settings = await response.json();
+              
+              const enabled = settings.notification_enabled === 1;
+              const regions = settings.regions ? JSON.parse(settings.regions) : [];
+              const propertyTypes = settings.property_types ? JSON.parse(settings.property_types) : [];
+              
+              // 간단한 설정 UI (나중에 모달로 개선)
+              const enableNotification = confirm(
+                \`알림 받기 설정\\n\\n현재 상태: \${enabled ? 'ON' : 'OFF'}\\n\\n확인: 알림 켜기\\n취소: 알림 끄기\`
+              );
+              
+              // 설정 업데이트
+              await fetch(\`/api/user/\${user.id}/notifications\`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  notification_enabled: enableNotification ? 1 : 0,
+                  regions: regions.length > 0 ? regions : ['전체'],
+                  property_types: propertyTypes.length > 0 ? propertyTypes : ['전체']
+                })
+              });
+              
+              alert(\`알림이 \${enableNotification ? '켜졌' : '꺼졌'}습니다!\\n\\n새 분양 공고가 등록되면 카카오톡으로 알림을 보내드립니다.\`);
+              
+            } catch (error) {
+              console.error('Failed to update notification settings:', error);
+              alert('알림 설정 중 오류가 발생했습니다.');
+            }
+          }
+
           // Initialize
+          checkLoginStatus();
           loadStats();
           loadProperties();
           setupNewFilters();
