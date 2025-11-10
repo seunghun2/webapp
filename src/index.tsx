@@ -2964,104 +2964,97 @@ app.get('/', (c) => {
                         
                         <!-- Timeline Steps -->
                         <div class="space-y-4">
-                          <!-- Step 1: 청약신청 -->
-                          \${property.application_start_date ? \`
-                            <div class="relative pl-10">
-                              <div class="absolute left-2.5 top-1.5 w-3 h-3 bg-primary rounded-full border-2 border-white"></div>
-                              <div class="bg-white rounded-lg p-3 shadow-sm">
-                                <div class="flex justify-between items-start mb-1">
-                                  <div>
-                                    <span class="text-xs font-bold text-primary">STEP 1</span>
-                                    <h4 class="text-sm font-bold text-gray-900">청약신청</h4>
-                                    <p class="text-xs text-gray-500 mt-1">현장·인터넷·모바일</p>
+                          \${(() => {
+                            // 오늘 날짜
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            
+                            // 각 단계의 날짜와 정보
+                            const steps = [
+                              { 
+                                date: property.application_end_date || property.application_start_date,
+                                step: 1,
+                                title: '청약신청',
+                                subtitle: '현장·인터넷·모바일',
+                                dateDisplay: property.application_start_date + (property.application_end_date && property.application_end_date !== property.application_start_date ? '~' + property.application_end_date : '')
+                              },
+                              { 
+                                date: property.document_submission_date,
+                                step: 2,
+                                title: '서류제출 대상자 발표',
+                                subtitle: '인터넷·모바일 신청자 한함',
+                                dateDisplay: property.document_submission_date
+                              },
+                              { 
+                                date: property.document_acceptance_end_date || property.document_acceptance_start_date,
+                                step: 3,
+                                title: '사업주체 대상자 서류접수',
+                                subtitle: '인터넷 신청자',
+                                dateDisplay: property.document_acceptance_start_date + (property.document_acceptance_end_date && property.document_acceptance_end_date !== property.document_acceptance_start_date ? '~' + property.document_acceptance_end_date : '')
+                              },
+                              { 
+                                date: property.qualification_verification_date,
+                                step: 4,
+                                title: '입주자격 검증 및 부적격자 소명',
+                                subtitle: '',
+                                dateDisplay: property.qualification_verification_date
+                              },
+                              { 
+                                date: property.appeal_review_date,
+                                step: 5,
+                                title: '소명 절차 및 심사',
+                                subtitle: '',
+                                dateDisplay: property.appeal_review_date
+                              },
+                              { 
+                                date: property.final_announcement_date,
+                                step: 6,
+                                title: '예비입주자 당첨자 발표',
+                                subtitle: '',
+                                dateDisplay: property.final_announcement_date
+                              }
+                            ];
+                            
+                            // 현재 단계 찾기
+                            let currentStep = 6;
+                            for (const s of steps) {
+                              if (s.date) {
+                                const stepDate = new Date(s.date);
+                                stepDate.setHours(0, 0, 0, 0);
+                                if (stepDate >= today) {
+                                  currentStep = s.step;
+                                  break;
+                                }
+                              }
+                            }
+                            
+                            // 각 단계 렌더링
+                            return steps.filter(s => s.date).map(s => {
+                              const isCurrent = s.step === currentStep;
+                              const dotColor = isCurrent ? 'bg-primary' : 'bg-gray-400';
+                              const labelColor = isCurrent ? 'text-primary font-bold' : 'text-gray-500';
+                              const titleColor = isCurrent ? 'text-primary font-bold' : 'text-gray-700';
+                              const dateColor = isCurrent ? 'text-primary font-bold' : 'text-gray-600';
+                              
+                              return \`
+                                <div class="relative pl-10">
+                                  <div class="absolute left-2.5 top-1.5 w-3 h-3 \${dotColor} rounded-full border-2 border-white"></div>
+                                  <div class="bg-white rounded-lg p-3 shadow-sm">
+                                    <div class="flex justify-between items-start mb-1">
+                                      <div>
+                                        <span class="text-xs \${labelColor}">STEP \${s.step}</span>
+                                        <h4 class="text-sm \${titleColor}">\${s.title}</h4>
+                                        \${s.subtitle ? \`<p class="text-xs text-gray-500 mt-1">\${s.subtitle}</p>\` : ''}
+                                      </div>
+                                      <span class="text-xs \${dateColor}">\${s.dateDisplay}</span>
+                                    </div>
                                   </div>
-                                  <span class="text-xs font-bold text-gray-900">\${property.application_start_date}\${property.application_end_date && property.application_end_date !== property.application_start_date ? '~' + property.application_end_date : ''}</span>
                                 </div>
-                              </div>
-                            </div>
-                          \` : ''}
-                          
-                          <!-- Step 2: 서류제출 대상자 발표 -->
-                          \${property.document_submission_date ? \`
-                            <div class="relative pl-10">
-                              <div class="absolute left-2.5 top-1.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-white"></div>
-                              <div class="bg-white rounded-lg p-3 shadow-sm">
-                                <div class="flex justify-between items-start mb-1">
-                                  <div>
-                                    <span class="text-xs font-bold text-blue-500">STEP 2</span>
-                                    <h4 class="text-sm font-bold text-gray-900">서류제출 대상자 발표</h4>
-                                    <p class="text-xs text-gray-500 mt-1">인터넷·모바일 신청자 한함</p>
-                                  </div>
-                                  <span class="text-xs font-bold text-gray-900">\${property.document_submission_date}</span>
-                                </div>
-                              </div>
-                            </div>
-                          \` : ''}
-                          
-                          <!-- Step 3: 사업주체 대상자 서류접수 -->
-                          \${property.document_acceptance_start_date ? \`
-                            <div class="relative pl-10">
-                              <div class="absolute left-2.5 top-1.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-                              <div class="bg-white rounded-lg p-3 shadow-sm">
-                                <div class="flex justify-between items-start mb-1">
-                                  <div>
-                                    <span class="text-xs font-bold text-green-500">STEP 3</span>
-                                    <h4 class="text-sm font-bold text-gray-900">사업주체 대상자 서류접수</h4>
-                                    <p class="text-xs text-gray-500 mt-1">인터넷 신청자</p>
-                                  </div>
-                                  <span class="text-xs font-bold text-gray-900">\${property.document_acceptance_start_date}\${property.document_acceptance_end_date && property.document_acceptance_end_date !== property.document_acceptance_start_date ? '~' + property.document_acceptance_end_date : ''}</span>
-                                </div>
-                              </div>
-                            </div>
-                          \` : ''}
-                          
-                          <!-- Step 4: 입주자격 검증 -->
-                          \${property.qualification_verification_date ? \`
-                            <div class="relative pl-10">
-                              <div class="absolute left-2.5 top-1.5 w-3 h-3 bg-yellow-500 rounded-full border-2 border-white"></div>
-                              <div class="bg-white rounded-lg p-3 shadow-sm">
-                                <div class="flex justify-between items-start mb-1">
-                                  <div>
-                                    <span class="text-xs font-bold text-yellow-600">STEP 4</span>
-                                    <h4 class="text-sm font-bold text-gray-900">입주자격 검증 및 부적격자 소명</h4>
-                                  </div>
-                                  <span class="text-xs font-bold text-gray-900">\${property.qualification_verification_date}</span>
-                                </div>
-                              </div>
-                            </div>
-                          \` : ''}
-                          
-                          <!-- Step 5: 소명 절차 및 심사 -->
-                          \${property.appeal_review_date ? \`
-                            <div class="relative pl-10">
-                              <div class="absolute left-2.5 top-1.5 w-3 h-3 bg-purple-500 rounded-full border-2 border-white"></div>
-                              <div class="bg-white rounded-lg p-3 shadow-sm">
-                                <div class="flex justify-between items-start mb-1">
-                                  <div>
-                                    <span class="text-xs font-bold text-purple-500">STEP 5</span>
-                                    <h4 class="text-sm font-bold text-gray-900">소명 절차 및 심사</h4>
-                                  </div>
-                                  <span class="text-xs font-bold text-gray-900">\${property.appeal_review_date}</span>
-                                </div>
-                              </div>
-                            </div>
-                          \` : ''}
-                          
-                          <!-- Step 6: 당첨자 발표 -->
-                          \${property.final_announcement_date ? \`
-                            <div class="relative pl-10">
-                              <div class="absolute left-2.5 top-1.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></div>
-                              <div class="bg-white rounded-lg p-3 shadow-sm border-2 border-red-200">
-                                <div class="flex justify-between items-start mb-1">
-                                  <div>
-                                    <span class="text-xs font-bold text-red-500">STEP 6</span>
-                                    <h4 class="text-sm font-bold text-red-600">예비입주자 당첨자 발표</h4>
-                                  </div>
-                                  <span class="text-xs font-bold text-red-600">\${property.final_announcement_date}</span>
-                                </div>
-                              </div>
-                            </div>
-                          \` : ''}
+                              \`;
+                            }).join('');
+                          })()}
+                        </div>
+
                         </div>
                       </div>
                     </div>
@@ -3322,30 +3315,90 @@ app.get('/', (c) => {
                             <div class="text-xs text-gray-500 mb-1">🏗️ 시공사</div>
                             <div class="font-bold text-gray-900 text-xs">\${property.builder || '-'}</div>
                           </div>
-                          \${property.special_subscription_date || property.special_supply_date ? \`
-                          <div>
-                            <div class="text-xs text-gray-500 mb-1">⭐ 특별청약</div>
-                            <div class="font-bold text-primary text-xs">\${property.special_subscription_date || property.special_supply_date}</div>
-                          </div>
-                          \` : ''}
-                          \${property.first_rank_date || property.general_supply_date ? \`
-                          <div>
-                            <div class="text-xs text-gray-500 mb-1">1️⃣ 1순위청약</div>
-                            <div class="font-bold text-primary text-xs">\${property.first_rank_date || property.general_supply_date}</div>
-                          </div>
-                          \` : ''}
-                          \${property.no_rank_date || property.subscription_start || property.subscription_end ? \`
-                          <div>
-                            <div class="text-xs text-gray-500 mb-1">📝 무순위청약</div>
-                            <div class="font-bold text-primary text-xs">\${property.no_rank_date || property.subscription_start}\${property.subscription_end && property.subscription_end !== property.subscription_start && !property.no_rank_date ? '~' + property.subscription_end : ''}</div>
-                          </div>
-                          \` : ''}
-                          \${property.final_announcement_date ? \`
-                          <div>
-                            <div class="text-xs text-gray-500 mb-1">🎉 당첨자발표</div>
-                            <div class="font-bold text-red-600 text-xs">\${property.final_announcement_date}</div>
-                          </div>
-                          \` : ''}
+                          \${(() => {
+                            // 현재 날짜와 가장 가까운 다음 단계만 표시
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            
+                            const steps = [
+                              { 
+                                date: property.application_end_date || property.application_start_date,
+                                icon: '📝',
+                                label: '청약신청',
+                                subtitle: '현장·인터넷·모바일',
+                                dateDisplay: property.application_start_date + (property.application_end_date && property.application_end_date !== property.application_start_date ? '~' + property.application_end_date : '')
+                              },
+                              { 
+                                date: property.document_submission_date,
+                                icon: '📄',
+                                label: '서류제출 대상자 발표',
+                                subtitle: '인터넷·모바일 신청자 한함',
+                                dateDisplay: property.document_submission_date
+                              },
+                              { 
+                                date: property.document_acceptance_end_date || property.document_acceptance_start_date,
+                                icon: '📋',
+                                label: '사업주체 대상자 서류접수',
+                                subtitle: '인터넷 신청자',
+                                dateDisplay: property.document_acceptance_start_date + (property.document_acceptance_end_date && property.document_acceptance_end_date !== property.document_acceptance_start_date ? '~' + property.document_acceptance_end_date : '')
+                              },
+                              { 
+                                date: property.qualification_verification_date,
+                                icon: '✅',
+                                label: '입주자격 검증 및 부적격자 소명',
+                                subtitle: '',
+                                dateDisplay: property.qualification_verification_date
+                              },
+                              { 
+                                date: property.appeal_review_date,
+                                icon: '📊',
+                                label: '소명 절차 및 심사',
+                                subtitle: '',
+                                dateDisplay: property.appeal_review_date
+                              },
+                              { 
+                                date: property.final_announcement_date,
+                                icon: '🎉',
+                                label: '예비입주자 당첨자 발표',
+                                subtitle: '',
+                                dateDisplay: property.final_announcement_date
+                              }
+                            ];
+                            
+                            // 현재 단계 찾기
+                            let currentStep = null;
+                            for (const s of steps) {
+                              if (s.date) {
+                                const stepDate = new Date(s.date);
+                                stepDate.setHours(0, 0, 0, 0);
+                                if (stepDate >= today) {
+                                  currentStep = s;
+                                  break;
+                                }
+                              }
+                            }
+                            
+                            // 모든 단계가 지났으면 마지막 단계 표시
+                            if (!currentStep && steps[steps.length - 1].date) {
+                              currentStep = steps[steps.length - 1];
+                            }
+                            
+                            if (!currentStep) return '';
+                            
+                            return \`
+                              <div class="col-span-2">
+                                <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+                                  <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                      <div class="text-xs text-blue-600 font-bold mb-1">\${currentStep.icon} \${currentStep.label}</div>
+                                      \${currentStep.subtitle ? \`<div class="text-xs text-gray-600 mb-2">\${currentStep.subtitle}</div>\` : ''}
+                                      <div class="text-sm font-bold text-primary">\${currentStep.dateDisplay}</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            \`;
+                          })()}
                         </div>
                         \${property.description ? \`
                           <div class="mt-3 pt-3 border-t border-gray-200">
