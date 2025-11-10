@@ -1146,11 +1146,11 @@ app.get('/', (c) => {
         <meta name="twitter:title" content="똑똑한한채 - 스마트 부동산 분양 정보">
         <meta name="twitter:description" content="전국 부동산 분양 정보를 한눈에! 줍줍분양, 조합원 모집, 실시간 마감임박 정보">
         
+        <!-- Google Search Console Verification -->
+        <meta name="google-site-verification" content="WtjDvsKm64cdN8DHVNo95tjn1iQf2EEodfquYzSCcdE" />
+        
         <!-- Naver Site Verification (나중에 추가 필요) -->
         <!-- <meta name="naver-site-verification" content="YOUR_NAVER_VERIFICATION_CODE" /> -->
-        
-        <!-- Google Site Verification (나중에 추가 필요) -->
-        <!-- <meta name="google-site-verification" content="YOUR_GOOGLE_VERIFICATION_CODE" /> -->
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <style>
