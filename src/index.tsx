@@ -3116,6 +3116,32 @@ app.get('/', (c) => {
                     </div>
                   \` : ''}
 
+                  <!-- Brochure/Pamphlet Section -->
+                  \${property.brochure_url ? \`
+                    <div class="bg-gray-50 rounded-lg p-5">
+                      <h3 class="text-base font-bold text-gray-900 mb-4 flex items-center">
+                        <i class="fas fa-book-open text-primary mr-2"></i>
+                        단지 팸플릿
+                      </h3>
+                      <div class="bg-white rounded-lg p-3">
+                        <p class="text-sm text-gray-600 mb-3">단지의 상세 정보를 확인하세요</p>
+                        <embed src="\${property.brochure_url}" 
+                               type="application/pdf" 
+                               width="100%" 
+                               height="800px"
+                               class="rounded-lg border border-gray-200" />
+                        <div class="mt-3 text-center">
+                          <a href="\${property.brochure_url}" 
+                             target="_blank" 
+                             class="inline-flex items-center gap-2 text-primary font-medium hover:underline">
+                            <i class="fas fa-external-link-alt"></i>
+                            새 탭에서 크게 보기
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  \` : ''}
+
                 </div>
 
                   <!-- Official Documents -->
