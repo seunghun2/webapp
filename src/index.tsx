@@ -1111,6 +1111,11 @@ app.get('/privacy', (c) => {
   `)
 })
 
+// Google Search Console verification
+app.get('/googleec6d53ea00693e752.html', (c) => {
+  return c.text('google-site-verification: googleec6d53ea00693e752.html')
+})
+
 // Main page
 app.get('/', (c) => {
   return c.html(`
