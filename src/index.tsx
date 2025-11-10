@@ -1119,7 +1119,33 @@ app.get('/', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>똑똑한한채 - 스마트 부동산 분양 정보</title>
+        <title>똑똑한한채 - 스마트 부동산 분양 정보 | 줍줍분양 실시간 업데이트</title>
+        
+        <!-- SEO Meta Tags -->
+        <meta name="description" content="전국 부동산 분양 정보를 한눈에! 줍줍분양(미분양), 조합원 모집, 실시간 마감임박 정보를 놓치지 마세요. 똑똑한한채에서 확인하세요.">
+        <meta name="keywords" content="부동산분양,줍줍분양,미분양,조합원모집,아파트분양,신규분양,분양정보,부동산,아파트,청약,분양가,부동산정보">
+        <meta name="author" content="똑똑한한채">
+        <meta name="robots" content="index, follow">
+        <link rel="canonical" href="https://your-domain.pages.dev/">
+        
+        <!-- Open Graph Meta Tags (Facebook, KakaoTalk) -->
+        <meta property="og:type" content="website">
+        <meta property="og:title" content="똑똑한한채 - 스마트 부동산 분양 정보">
+        <meta property="og:description" content="전국 부동산 분양 정보를 한눈에! 줍줍분양, 조합원 모집, 실시간 마감임박 정보">
+        <meta property="og:url" content="https://your-domain.pages.dev/">
+        <meta property="og:site_name" content="똑똑한한채">
+        <meta property="og:locale" content="ko_KR">
+        
+        <!-- Twitter Card Meta Tags -->
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="똑똑한한채 - 스마트 부동산 분양 정보">
+        <meta name="twitter:description" content="전국 부동산 분양 정보를 한눈에! 줍줍분양, 조합원 모집, 실시간 마감임박 정보">
+        
+        <!-- Naver Site Verification (나중에 추가 필요) -->
+        <!-- <meta name="naver-site-verification" content="YOUR_NAVER_VERIFICATION_CODE" /> -->
+        
+        <!-- Google Site Verification (나중에 추가 필요) -->
+        <!-- <meta name="google-site-verification" content="YOUR_GOOGLE_VERIFICATION_CODE" /> -->
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <style>
@@ -1230,6 +1256,37 @@ app.get('/', (c) => {
             color: #333;
           }
           
+          /* 모바일에서 초기화 버튼 오른쪽 고정 */
+          .filter-chip-reset-fixed {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            background-color: white;
+            border: 2px solid #e5e5e5;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #666;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            z-index: 10;
+          }
+          
+          .filter-chip-reset-fixed:hover {
+            background-color: #f5f5f5;
+            color: #333;
+            border-color: #d0d0d0;
+          }
+          
+          .filter-chip-reset-fixed:active {
+            transform: translateY(-50%) scale(0.95);
+          }
+          
           @keyframes fadeIn {
             from {
               opacity: 0;
@@ -1331,11 +1388,21 @@ app.get('/', (c) => {
         <main class="max-w-6xl mx-auto px-4 pb-12">
             
             <!-- 호갱노노 스타일 필터 -->
-            <div class="bg-white px-4 py-3 mb-4 overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
-                <div class="flex gap-2 items-center min-w-max">
+            <div class="bg-white px-4 py-3 mb-2 relative">
+                <div class="overflow-x-auto pr-14" style="-webkit-overflow-scrolling: touch;">
+                    <div class="flex gap-2 items-center min-w-max">
+                    <!-- 정렬 (맨 앞) -->
+                    <select id="filterSort" class="filter-chip">
+                        <option value="deadline">마감순</option>
+                        <option value="latest">최신순</option>
+                        <option value="price-low">낮은가격</option>
+                        <option value="price-high">높은가격</option>
+                    </select>
+                    
                     <!-- 지역 필터 -->
                     <select id="filterRegion" class="filter-chip">
                         <option value="all">지역</option>
+                        <option value="all">전체</option>
                         <option value="서울">서울</option>
                         <option value="경기">경기</option>
                         <option value="인천">인천</option>
@@ -1363,7 +1430,7 @@ app.get('/', (c) => {
                         <option value="large">대형</option>
                     </select>
                     
-                    <!-- 가격(세대수) 필터 -->
+                    <!-- 세대수 필터 -->
                     <select id="filterHousehold" class="filter-chip">
                         <option value="all">세대수</option>
                         <option value="0-50">50↓</option>
@@ -1372,18 +1439,19 @@ app.get('/', (c) => {
                         <option value="1000-+">1000↑</option>
                     </select>
                     
-                    <!-- 더보기 (정렬) -->
-                    <select id="filterSort" class="filter-chip">
-                        <option value="deadline">마감순</option>
-                        <option value="latest">최신순</option>
-                        <option value="price-low">낮은가격</option>
-                        <option value="price-high">높은가격</option>
-                    </select>
-                    
-                    <!-- 초기화 버튼 -->
-                    <button id="btnResetFilters" class="filter-chip-reset">
-                        <i class="fas fa-redo text-xs"></i>
-                    </button>
+                    </div>
+                </div>
+                
+                <!-- 초기화 버튼 (오른쪽 고정) -->
+                <button id="btnResetFilters" class="filter-chip-reset-fixed">
+                    <i class="fas fa-redo text-xs"></i>
+                </button>
+            </div>
+            
+            <!-- 선택된 필터 표시 -->
+            <div id="selectedFilters" class="bg-white px-4 pb-3 mb-4 hidden">
+                <div class="flex gap-2 flex-wrap items-center">
+                    <!-- JavaScript로 동적 생성 -->
                 </div>
             </div>
 
@@ -2573,6 +2641,7 @@ app.get('/', (c) => {
             const filterArea = document.getElementById('filterArea');
             const filterSort = document.getElementById('filterSort');
             const btnReset = document.getElementById('btnResetFilters');
+            const selectedFiltersContainer = document.getElementById('selectedFilters');
             
             // 필터 변경 시 active 클래스 토글
             function updateActiveClass(select) {
@@ -2583,10 +2652,118 @@ app.get('/', (c) => {
               }
             }
             
+            // 선택된 필터 표시
+            function updateSelectedFilters() {
+              const selected = [];
+              
+              // 정렬은 기본값이 아닐 때만 표시
+              if (filterSort.value !== 'deadline') {
+                selected.push({
+                  label: filterSort.options[filterSort.selectedIndex].text,
+                  key: 'sort'
+                });
+              }
+              
+              // 지역
+              if (filterRegion.value !== 'all') {
+                selected.push({
+                  label: filterRegion.options[filterRegion.selectedIndex].text,
+                  key: 'region'
+                });
+              }
+              
+              // 매매 타입
+              if (filterType.value !== 'all') {
+                selected.push({
+                  label: filterType.options[filterType.selectedIndex].text,
+                  key: 'type'
+                });
+              }
+              
+              // 평형
+              if (filterArea.value !== 'all') {
+                selected.push({
+                  label: filterArea.options[filterArea.selectedIndex].text,
+                  key: 'area'
+                });
+              }
+              
+              // 세대수
+              if (filterHousehold.value !== 'all') {
+                selected.push({
+                  label: filterHousehold.options[filterHousehold.selectedIndex].text,
+                  key: 'household'
+                });
+              }
+              
+              // 선택된 필터가 있으면 표시
+              if (selected.length > 0) {
+                selectedFiltersContainer.classList.remove('hidden');
+                selectedFiltersContainer.innerHTML = \`
+                  <div class="flex gap-2 flex-wrap items-center">
+                    \${selected.map(item => \`
+                      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-sm font-medium rounded-full">
+                        \${item.label}
+                        <button onclick="removeSelectedFilter('\${item.key}')" class="hover:bg-white/20 rounded-full p-0.5 transition-colors">
+                          <i class="fas fa-times text-xs"></i>
+                        </button>
+                      </span>
+                    \`).join('')}
+                    <button onclick="resetAllFilters()" class="text-sm text-gray-500 hover:text-gray-700 font-medium">
+                      전체 해제
+                    </button>
+                  </div>
+                \`;
+              } else {
+                selectedFiltersContainer.classList.add('hidden');
+              }
+            }
+            
+            // 개별 필터 제거
+            window.removeSelectedFilter = function(key) {
+              if (key === 'sort') {
+                filterSort.value = 'deadline';
+                filterSort.classList.remove('active');
+                filters.sort = 'deadline';
+              } else if (key === 'region') {
+                filterRegion.value = 'all';
+                filterRegion.classList.remove('active');
+                filters.region = 'all';
+              } else if (key === 'type') {
+                filterType.value = 'all';
+                filterType.classList.remove('active');
+                filters.type = 'all';
+              } else if (key === 'area') {
+                filterArea.value = 'all';
+                filterArea.classList.remove('active');
+                filters.area = 'all';
+              } else if (key === 'household') {
+                filterHousehold.value = 'all';
+                filterHousehold.classList.remove('active');
+                filters.household = 'all';
+              }
+              updateSelectedFilters();
+              loadProperties();
+            };
+            
+            // 전체 필터 초기화
+            window.resetAllFilters = function() {
+              btnReset.click();
+            };
+            
+            // 정렬 필터 (맨 앞)
+            filterSort.addEventListener('change', () => {
+              filters.sort = filterSort.value;
+              updateActiveClass(filterSort);
+              updateSelectedFilters();
+              loadProperties();
+            });
+            
             // 지역 필터
             filterRegion.addEventListener('change', () => {
               filters.region = filterRegion.value;
               updateActiveClass(filterRegion);
+              updateSelectedFilters();
               loadProperties();
             });
             
@@ -2594,6 +2771,7 @@ app.get('/', (c) => {
             filterType.addEventListener('change', () => {
               filters.type = filterType.value;
               updateActiveClass(filterType);
+              updateSelectedFilters();
               loadProperties();
               
               // Update stat card active state
@@ -2602,24 +2780,19 @@ app.get('/', (c) => {
               if (targetCard) targetCard.classList.add('active');
             });
             
-            // 세대수 필터
-            filterHousehold.addEventListener('change', () => {
-              filters.household = filterHousehold.value;
-              updateActiveClass(filterHousehold);
-              loadProperties();
-            });
-            
             // 평형 필터
             filterArea.addEventListener('change', () => {
               filters.area = filterArea.value;
               updateActiveClass(filterArea);
+              updateSelectedFilters();
               loadProperties();
             });
             
-            // 정렬 필터
-            filterSort.addEventListener('change', () => {
-              filters.sort = filterSort.value;
-              updateActiveClass(filterSort);
+            // 세대수 필터
+            filterHousehold.addEventListener('change', () => {
+              filters.household = filterHousehold.value;
+              updateActiveClass(filterHousehold);
+              updateSelectedFilters();
               loadProperties();
             });
             
@@ -2644,6 +2817,7 @@ app.get('/', (c) => {
               filterArea.classList.remove('active');
               filterSort.classList.remove('active');
               
+              updateSelectedFilters();
               loadProperties();
             });
           }
