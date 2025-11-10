@@ -2952,34 +2952,117 @@ app.get('/', (c) => {
                     </div>
                   </div>
 
-                  <!-- Subscription Schedule -->
-                  \${property.no_rank_date || property.first_rank_date || property.special_subscription_date ? \`
+                  <!-- Selection Timeline (6 Steps) -->
+                  \${property.application_start_date || property.no_rank_date || property.first_rank_date || property.special_subscription_date ? \`
                     <div class="bg-gray-50 rounded-lg p-5">
-                      <h3 class="text-base font-bold text-gray-900 mb-4">청약 일정</h3>
-                      <div class="space-y-3">
-                        \${property.special_subscription_date || property.special_supply_date ? \`
-                          <div class="flex justify-between items-center py-2 border-b border-gray-200">
-                            <span class="text-sm text-gray-600">특별청약</span>
-                            <span class="text-sm font-bold text-primary">\${property.special_subscription_date || property.special_supply_date}</span>
-                          </div>
-                        \` : ''}
-                        \${property.first_rank_date || property.general_supply_date ? \`
-                          <div class="flex justify-between items-center py-2 border-b border-gray-200">
-                            <span class="text-sm text-gray-600">1순위청약</span>
-                            <span class="text-sm font-bold text-primary">\${property.first_rank_date || property.general_supply_date}</span>
-                          </div>
-                        \` : ''}
-                        \${property.no_rank_date || (property.subscription_start && property.subscription_end) ? \`
-                          <div class="flex justify-between items-center py-2">
-                            <span class="text-sm text-gray-600">무순위청약</span>
-                            <span class="text-sm font-bold text-primary">\${
-                              property.no_rank_date || 
-                              (property.subscription_start && property.subscription_end 
-                                ? property.subscription_start + ' ~ ' + property.subscription_end 
-                                : property.subscription_start || property.subscription_end)
-                            }</span>
-                          </div>
-                        \` : ''}
+                      <h3 class="text-base font-bold text-gray-900 mb-4">📋 선정 절차</h3>
+                      
+                      <!-- Timeline Container -->
+                      <div class="relative">
+                        <!-- Vertical Line -->
+                        <div class="absolute left-4 top-3 bottom-3 w-0.5 bg-gray-300"></div>
+                        
+                        <!-- Timeline Steps -->
+                        <div class="space-y-4">
+                          <!-- Step 1: 청약신청 -->
+                          \${property.application_start_date ? \`
+                            <div class="relative pl-10">
+                              <div class="absolute left-2.5 top-1.5 w-3 h-3 bg-primary rounded-full border-2 border-white"></div>
+                              <div class="bg-white rounded-lg p-3 shadow-sm">
+                                <div class="flex justify-between items-start mb-1">
+                                  <div>
+                                    <span class="text-xs font-bold text-primary">STEP 1</span>
+                                    <h4 class="text-sm font-bold text-gray-900">청약신청</h4>
+                                    <p class="text-xs text-gray-500 mt-1">현장·인터넷·모바일</p>
+                                  </div>
+                                  <span class="text-xs font-bold text-gray-900">\${property.application_start_date}\${property.application_end_date && property.application_end_date !== property.application_start_date ? '~' + property.application_end_date : ''}</span>
+                                </div>
+                              </div>
+                            </div>
+                          \` : ''}
+                          
+                          <!-- Step 2: 서류제출 대상자 발표 -->
+                          \${property.document_submission_date ? \`
+                            <div class="relative pl-10">
+                              <div class="absolute left-2.5 top-1.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-white"></div>
+                              <div class="bg-white rounded-lg p-3 shadow-sm">
+                                <div class="flex justify-between items-start mb-1">
+                                  <div>
+                                    <span class="text-xs font-bold text-blue-500">STEP 2</span>
+                                    <h4 class="text-sm font-bold text-gray-900">서류제출 대상자 발표</h4>
+                                    <p class="text-xs text-gray-500 mt-1">인터넷·모바일 신청자 한함</p>
+                                  </div>
+                                  <span class="text-xs font-bold text-gray-900">\${property.document_submission_date}</span>
+                                </div>
+                              </div>
+                            </div>
+                          \` : ''}
+                          
+                          <!-- Step 3: 사업주체 대상자 서류접수 -->
+                          \${property.document_acceptance_start_date ? \`
+                            <div class="relative pl-10">
+                              <div class="absolute left-2.5 top-1.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                              <div class="bg-white rounded-lg p-3 shadow-sm">
+                                <div class="flex justify-between items-start mb-1">
+                                  <div>
+                                    <span class="text-xs font-bold text-green-500">STEP 3</span>
+                                    <h4 class="text-sm font-bold text-gray-900">사업주체 대상자 서류접수</h4>
+                                    <p class="text-xs text-gray-500 mt-1">인터넷 신청자</p>
+                                  </div>
+                                  <span class="text-xs font-bold text-gray-900">\${property.document_acceptance_start_date}\${property.document_acceptance_end_date && property.document_acceptance_end_date !== property.document_acceptance_start_date ? '~' + property.document_acceptance_end_date : ''}</span>
+                                </div>
+                              </div>
+                            </div>
+                          \` : ''}
+                          
+                          <!-- Step 4: 입주자격 검증 -->
+                          \${property.qualification_verification_date ? \`
+                            <div class="relative pl-10">
+                              <div class="absolute left-2.5 top-1.5 w-3 h-3 bg-yellow-500 rounded-full border-2 border-white"></div>
+                              <div class="bg-white rounded-lg p-3 shadow-sm">
+                                <div class="flex justify-between items-start mb-1">
+                                  <div>
+                                    <span class="text-xs font-bold text-yellow-600">STEP 4</span>
+                                    <h4 class="text-sm font-bold text-gray-900">입주자격 검증 및 부적격자 소명</h4>
+                                  </div>
+                                  <span class="text-xs font-bold text-gray-900">\${property.qualification_verification_date}</span>
+                                </div>
+                              </div>
+                            </div>
+                          \` : ''}
+                          
+                          <!-- Step 5: 소명 절차 및 심사 -->
+                          \${property.appeal_review_date ? \`
+                            <div class="relative pl-10">
+                              <div class="absolute left-2.5 top-1.5 w-3 h-3 bg-purple-500 rounded-full border-2 border-white"></div>
+                              <div class="bg-white rounded-lg p-3 shadow-sm">
+                                <div class="flex justify-between items-start mb-1">
+                                  <div>
+                                    <span class="text-xs font-bold text-purple-500">STEP 5</span>
+                                    <h4 class="text-sm font-bold text-gray-900">소명 절차 및 심사</h4>
+                                  </div>
+                                  <span class="text-xs font-bold text-gray-900">\${property.appeal_review_date}</span>
+                                </div>
+                              </div>
+                            </div>
+                          \` : ''}
+                          
+                          <!-- Step 6: 당첨자 발표 -->
+                          \${property.final_announcement_date ? \`
+                            <div class="relative pl-10">
+                              <div class="absolute left-2.5 top-1.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></div>
+                              <div class="bg-white rounded-lg p-3 shadow-sm border-2 border-red-200">
+                                <div class="flex justify-between items-start mb-1">
+                                  <div>
+                                    <span class="text-xs font-bold text-red-500">STEP 6</span>
+                                    <h4 class="text-sm font-bold text-red-600">예비입주자 당첨자 발표</h4>
+                                  </div>
+                                  <span class="text-xs font-bold text-red-600">\${property.final_announcement_date}</span>
+                                </div>
+                              </div>
+                            </div>
+                          \` : ''}
+                        </div>
                       </div>
                     </div>
                   \` : ''}
@@ -3255,6 +3338,12 @@ app.get('/', (c) => {
                           <div>
                             <div class="text-xs text-gray-500 mb-1">📝 무순위청약</div>
                             <div class="font-bold text-primary text-xs">\${property.no_rank_date || property.subscription_start}\${property.subscription_end && property.subscription_end !== property.subscription_start && !property.no_rank_date ? '~' + property.subscription_end : ''}</div>
+                          </div>
+                          \` : ''}
+                          \${property.final_announcement_date ? \`
+                          <div>
+                            <div class="text-xs text-gray-500 mb-1">🎉 당첨자발표</div>
+                            <div class="font-bold text-red-600 text-xs">\${property.final_announcement_date}</div>
                           </div>
                           \` : ''}
                         </div>
