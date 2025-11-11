@@ -5374,9 +5374,9 @@ app.get('/', (c) => {
                   <!-- Toggle Button for Additional Details -->
                   <div class="text-center my-6">
                     <button id="toggleDetailsBtn" onclick="toggleAdditionalDetails()" 
-                            class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors">
-                      <span id="toggleDetailsText">자세히 보기</span>
-                      <i id="toggleDetailsIcon" class="fas fa-chevron-down"></i>
+                            class="inline-flex items-center gap-1 text-gray-700 hover:text-gray-900 transition-colors group">
+                      <span id="toggleDetailsText" class="text-sm font-medium border-b-2 border-gray-700 pb-0.5">더보기</span>
+                      <i id="toggleDetailsIcon" class="fas fa-chevron-down text-xs group-hover:translate-y-0.5 transition-transform"></i>
                     </button>
                   </div>
 
@@ -5632,12 +5632,12 @@ app.get('/', (c) => {
             
             if (container.style.display === 'none') {
               container.style.display = 'block';
-              text.textContent = '간단히 보기';
+              text.textContent = '접기';
               icon.classList.remove('fa-chevron-down');
               icon.classList.add('fa-chevron-up');
             } else {
               container.style.display = 'none';
-              text.textContent = '자세히 보기';
+              text.textContent = '더보기';
               icon.classList.remove('fa-chevron-up');
               icon.classList.add('fa-chevron-down');
             }
