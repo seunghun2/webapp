@@ -6335,26 +6335,36 @@ app.get('/', (c) => {
                         <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-3">
                           <div class="text-xs font-bold text-gray-700 mb-3">
                             <i class="fas fa-chart-line text-blue-600 mr-2"></i>
-                            💰 투자 정보
+                            투자 정보
                           </div>
                           \${property.original_price > 0 && property.recent_trade_price > 0 ? \`
                             <div class="grid grid-cols-3 gap-3 text-center">
                               <div>
-                                <div class="text-xs text-gray-500 mb-1">기존 분양가</div>
-                                <div class="font-bold text-gray-900 text-sm">\${property.original_price.toFixed(2)}억</div>
+                                <div class="text-xs text-gray-500 mb-1">원분양가</div>
+                                <div class="font-bold text-gray-900 text-sm">\${(() => {
+                                  const price = property.original_price;
+                                  return price % 1 === 0 ? price.toFixed(0) : price.toFixed(2).replace(/\\.?0+$/, '');
+                                })()}억</div>
                                 <div class="text-xs text-gray-400 mt-1">(\${property.sale_price_date ? (() => {
-                                  const dateStr = String(property.sale_price_date);
-                                  const [year, month] = dateStr.split('.');
-                                  return year + '. ' + (month || '1') + '.';
+                                  const dateStr = String(property.sale_price_date).replace('-', '.');
+                                  const parts = dateStr.split('.');
+                                  const year = parts[0];
+                                  const month = parts[1] ? String(parseInt(parts[1])).padStart(2, '0') : '01';
+                                  return year + '. ' + month;
                                 })() : '-'})</div>
                               </div>
                               <div>
                                 <div class="text-xs text-gray-500 mb-1">최근 실거래가</div>
-                                <div class="font-bold text-blue-600 text-sm">\${property.recent_trade_price.toFixed(2)}억</div>
+                                <div class="font-bold text-blue-600 text-sm">\${(() => {
+                                  const price = property.recent_trade_price;
+                                  return price % 1 === 0 ? price.toFixed(0) : price.toFixed(2).replace(/\\.?0+$/, '');
+                                })()}억</div>
                                 <div class="text-xs text-gray-400 mt-1">(\${property.recent_trade_date ? (() => {
-                                  const dateStr = String(property.recent_trade_date);
-                                  const [year, month] = dateStr.split('.');
-                                  return year + '. ' + (month || '1') + '.';
+                                  const dateStr = String(property.recent_trade_date).replace('-', '.');
+                                  const parts = dateStr.split('.');
+                                  const year = parts[0];
+                                  const month = parts[1] ? String(parseInt(parts[1])).padStart(2, '0') : '01';
+                                  return year + '. ' + month;
                                 })() : '-'})</div>
                               </div>
                               <div>
@@ -6362,11 +6372,12 @@ app.get('/', (c) => {
                                 \${(() => {
                                   const priceIncrease = property.recent_trade_price - property.original_price;
                                   const increaseRate = (priceIncrease / property.original_price) * 100;
+                                  const formattedIncrease = priceIncrease % 1 === 0 ? priceIncrease.toFixed(0) : priceIncrease.toFixed(2).replace(/\\.?0+$/, '');
                                   return \`
                                     <div class="font-bold \${increaseRate >= 0 ? 'text-red-600' : 'text-blue-600'} text-sm">
                                       \${increaseRate >= 0 ? '+' : ''}\${increaseRate.toFixed(1)}%
                                     </div>
-                                    <div class="text-xs text-gray-400 mt-1">(\${priceIncrease >= 0 ? '+' : ''}\${priceIncrease.toFixed(2)}억)</div>
+                                    <div class="text-xs text-gray-400 mt-1">(\${priceIncrease >= 0 ? '+' : ''}\${formattedIncrease}억)</div>
                                   \`;
                                 })()}
                               </div>
