@@ -3074,6 +3074,17 @@ app.get('/admin', (c) => {
 
                             <div class="grid grid-cols-2 gap-4 mb-4">
                                 <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">청약시작일 <span class="text-gray-400 text-xs">(상태 자동계산용)</span></label>
+                                    <input type="date" id="subscriptionStartDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">청약마감일 <span class="text-gray-400 text-xs">(상태 자동계산용)</span></label>
+                                    <input type="date" id="subscriptionEndDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">시공사</label>
                                     <input type="text" id="constructor" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="LH, 현대건설 등">
                                 </div>
@@ -3127,6 +3138,25 @@ app.get('/admin', (c) => {
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">해시태그 (쉼표로 구분)</label>
                                 <input type="text" id="hashtags" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="국민임대, 신혼부부, 전북김제">
+                            </div>
+
+                            <!-- 추천대상 3줄 -->
+                            <div class="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                                <h4 class="text-sm font-bold text-gray-900 mb-3">👍 추천 대상 (3줄 구조)</h4>
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 mb-1">1줄: 거주지 + 주체</label>
+                                        <input type="text" id="targetAudience1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="예: 세종시 거주 무주택 신혼부부">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 mb-1">2줄: 신청 자격</label>
+                                        <input type="text" id="targetAudience2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="예: 청약통장 없어도 신청 가능">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 mb-1">3줄: 추가 조건/혜택</label>
+                                        <input type="text" id="targetAudience3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="예: 소득·자산 제한 없는 공공분야 희망자">
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -3816,9 +3846,22 @@ app.get('/admin', (c) => {
                     document.getElementById('fullAddress').value = property.full_address || '';
                     document.getElementById('announcementDate').value = property.announcement_date || '';
                     document.getElementById('moveInDate').value = property.move_in_date || '';
+                    document.getElementById('subscriptionStartDate').value = extData.subscriptionStartDate || '';
+                    document.getElementById('subscriptionEndDate').value = extData.subscriptionEndDate || '';
                     document.getElementById('constructor').value = property.constructor || '';
                     document.getElementById('mainImage').value = extData.mainImage || '';
                     document.getElementById('hashtags').value = property.tags ? property.tags.join(', ') : '';
+                    
+                    // Target audience lines
+                    if (extData.targetAudienceLines && Array.isArray(extData.targetAudienceLines)) {
+                        document.getElementById('targetAudience1').value = extData.targetAudienceLines[0] || '';
+                        document.getElementById('targetAudience2').value = extData.targetAudienceLines[1] || '';
+                        document.getElementById('targetAudience3').value = extData.targetAudienceLines[2] || '';
+                    } else {
+                        document.getElementById('targetAudience1').value = '';
+                        document.getElementById('targetAudience2').value = '';
+                        document.getElementById('targetAudience3').value = '';
+                    }
 
                     // Steps
                     document.getElementById('stepsContainer').innerHTML = '';
@@ -3995,10 +4038,20 @@ app.get('/admin', (c) => {
                     education: document.getElementById('detail_education').value
                 };
 
+                // Collect target audience lines
+                const targetAudienceLines = [
+                    document.getElementById('targetAudience1').value,
+                    document.getElementById('targetAudience2').value,
+                    document.getElementById('targetAudience3').value
+                ].filter(line => line.trim());
+
                 // Extended data object
                 const extendedData = {
                     supplyType: document.getElementById('supplyType').value,
                     mainImage: document.getElementById('mainImage').value,
+                    subscriptionStartDate: document.getElementById('subscriptionStartDate').value,
+                    subscriptionEndDate: document.getElementById('subscriptionEndDate').value,
+                    targetAudienceLines: targetAudienceLines,
                     steps: steps,
                     supplyInfo: supplyInfo,
                     details: details
@@ -5305,6 +5358,18 @@ app.get('/', (c) => {
                     </div>
                   \` : ''}
 
+                  <!-- Toggle Button for Additional Details -->
+                  <div class="text-center my-6">
+                    <button id="toggleDetailsBtn" onclick="toggleAdditionalDetails()" 
+                            class="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors">
+                      <span id="toggleDetailsText">자세히 보기</span>
+                      <i id="toggleDetailsIcon" class="fas fa-chevron-down"></i>
+                    </button>
+                  </div>
+
+                  <!-- Additional Details Container (Hidden by default) -->
+                  <div id="additionalDetailsContainer" style="display: none;">
+                  
                   <!-- 신청자격 from extended_data -->
                   \${extendedData.details?.targetTypes || extendedData.details?.incomeLimit || extendedData.details?.assetLimit ? \`
                     <div class="bg-gray-50 rounded-lg p-5">
@@ -5375,6 +5440,9 @@ app.get('/', (c) => {
                       </div>
                     </div>
                   \` : ''}
+                  
+                  </div>
+                  <!-- End of Additional Details Container -->
 
                   <!-- Detailed Description (Simple Style) -->
                   \${property.description ? \`
@@ -5539,6 +5607,26 @@ app.get('/', (c) => {
             } catch (error) {
               console.error('Failed to load detail:', error);
               alert('상세 정보를 불러올 수 없습니다.');
+            }
+          }
+
+          // Toggle additional details
+          function toggleAdditionalDetails() {
+            const container = document.getElementById('additionalDetailsContainer');
+            const btn = document.getElementById('toggleDetailsBtn');
+            const text = document.getElementById('toggleDetailsText');
+            const icon = document.getElementById('toggleDetailsIcon');
+            
+            if (container.style.display === 'none') {
+              container.style.display = 'block';
+              text.textContent = '간단히 보기';
+              icon.classList.remove('fa-chevron-down');
+              icon.classList.add('fa-chevron-up');
+            } else {
+              container.style.display = 'none';
+              text.textContent = '자세히 보기';
+              icon.classList.remove('fa-chevron-up');
+              icon.classList.add('fa-chevron-down');
             }
           }
 
