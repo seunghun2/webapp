@@ -10,5 +10,12 @@
       "database_name": "webapp-production",
       "database_id": "2c616317-d3e7-44ba-9d1f-bb307452dada"
     }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "IMAGES",
+      "bucket_name": "webapp-images",
+      "preview_bucket_name": "webapp-images-dev"
+    }
   ]
 }

@@ -335,6 +335,15 @@ curl -X POST https://hanchae365.com/api/auto-update-all-prices
 - ✅ 국토교통부 API 연동
 - ✅ GitHub Actions 자동 업데이트
 - ✅ KB시세 수동 입력 제거 (완전 자동화)
+- ✅ **관리자 페이지** (2025-11-11 완성!)
+  - ✅ 로그인 시스템 (비밀번호: admin1234)
+  - ✅ PDF 자동 파싱 (Google Gemini API, 40+ 필드)
+  - ✅ 신청 절차 스텝 관리
+  - ✅ 공급 세대 정보 테이블
+  - ✅ 8개 상세 섹션 (단지정보, 신청자격, 공급세대정보, 입주자선정기준, 주의사항, 온라인신청, 문의처, 단지개요)
+  - ✅ extended_data JSON 구조로 상세 정보 저장
+  - ✅ 메인 페이지 상세 팝업에 전체 데이터 표시
+  - ✅ **이미지 업로드 (Cloudflare R2)** - 코드 완성, R2 활성화 대기
 
 ### ✅ 배포 완료
 - ✅ Cloudflare Pages 프로덕션 배포
@@ -351,10 +360,12 @@ curl -X POST https://hanchae365.com/api/auto-update-all-prices
 - ✅ robots.txt 설정
 - ✅ 메타 태그 최적화
 
-### 🔄 진행 중
-- 🔄 국토교통부 API 키 발급 및 설정
-- 🔄 자동 업데이트 GitHub Actions 테스트
-- 🔄 검색 노출 대기 (구글: 1-2일, 네이버: 2-7일)
+### ⏳ 진행 중
+- ⏳ **Cloudflare R2 활성화** - 이미지 업로드 기능 활성화 위해 필요
+- ⏳ 복제(Duplicate) 기능
+- ⏳ 미리보기(Preview) 기능
+- ⏳ 자동저장 (10초 간격 LocalStorage)
+- ⏳ 폼 유효성 검사
 
 ## 🚀 실시간 개발 워크플로우
 

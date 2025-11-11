@@ -626,10 +626,10 @@ app.get('/api/stats', async (c) => {
     `).all()
     
     const stats = {
+      rental: 0,
+      general: 0,
       unsold: 0,
-      today: 0,
-      johab: 0,
-      next: 0
+      today: 0
     }
     
     result.results.forEach((row: any) => {
@@ -648,13 +648,10 @@ app.get('/api/properties', async (c) => {
   try {
     const { DB } = c.env
     const type = c.req.query('type') || 'all'
-    const region = c.req.query('region') || 'all'
-    const household = c.req.query('household') || 'all'
-    const area = c.req.query('area') || 'all'
     const sort = c.req.query('sort') || 'latest'
     
-    // Exclude expired properties (deadline < today)
-    let query = "SELECT * FROM properties WHERE deadline >= date('now')"
+    // Build query for admin - show all properties including expired
+    let query = "SELECT * FROM properties WHERE 1=1"
     let params: any[] = []
     
     // Type filter
@@ -666,50 +663,10 @@ app.get('/api/properties', async (c) => {
       params.push(type)
     }
     
-    // Region filter
-    if (region !== 'all') {
-      query += ' AND region = ?'
-      params.push(region)
-    }
-    
-    // Household filter
-    if (household !== 'all') {
-      const [min, max] = household.split('-')
-      if (max === '+') {
-        query += ' AND household_count >= ?'
-        params.push(parseInt(min))
-      } else {
-        query += ' AND household_count >= ? AND household_count < ?'
-        params.push(parseInt(min), parseInt(max))
-      }
-    }
-    
-    // Area filter (평형)
-    if (area !== 'all') {
-      // area_size는 숫자로 저장되어 있다고 가정 (단위: ㎡)
-      switch (area) {
-        case 'small': // 59㎡ 이하
-          query += ' AND area_size <= 59'
-          break
-        case 'medium': // 60-84㎡
-          query += ' AND area_size >= 60 AND area_size <= 84'
-          break
-        case 'large': // 85㎡ 이상
-          query += ' AND area_size >= 85'
-          break
-      }
-    }
-    
     // Sorting
     switch (sort) {
       case 'deadline':
         query += ' ORDER BY deadline ASC'
-        break
-      case 'price-low':
-        query += ' ORDER BY sale_price_min ASC'
-        break
-      case 'price-high':
-        query += ' ORDER BY sale_price_max DESC'
         break
       default:
         query += ' ORDER BY created_at DESC'
@@ -722,10 +679,19 @@ app.get('/api/properties', async (c) => {
     
     const result = await stmt.all()
     
-    const properties = result.results.map((prop: any) => ({
-      ...prop,
-      tags: JSON.parse(prop.tags)
-    }))
+    const properties = result.results.map((prop: any) => {
+      let parsedTags = []
+      try {
+        parsedTags = typeof prop.tags === 'string' ? JSON.parse(prop.tags) : (prop.tags || [])
+      } catch (e) {
+        console.warn('Failed to parse tags:', e)
+      }
+      
+      return {
+        ...prop,
+        tags: parsedTags
+      }
+    })
     
     return c.json(properties)
   } catch (error) {
@@ -757,6 +723,426 @@ app.get('/api/properties/detail/:id', async (c) => {
   } catch (error) {
     console.error('Error fetching property:', error)
     return c.json({ error: 'Failed to fetch property' }, 500)
+  }
+})
+
+// ==================== 국토교통부 실거래가 API ====================
+
+// 법정동 코드 매핑 (주요 지역만 - 필요시 확장)
+const LAWD_CD_MAP: { [key: string]: string } = {
+  '세종': '36110',
+  '익산': '35140',
+  '평택': '31070',
+  '서울': '11000',
+  '부산': '26000',
+  '대구': '27000',
+  '인천': '28000',
+  '광주': '29000',
+  '대전': '30000',
+  '울산': '31000',
+  // 필요시 추가
+}
+
+// 아파트 이름 자동 매칭 함수
+function findBestMatchingApartment(
+  userInputName: string,
+  apiApartments: string[]
+): { bestMatch: string | null; score: number } {
+  if (apiApartments.length === 0) {
+    return { bestMatch: null, score: 0 }
+  }
+
+  // 사용자 입력에서 숫자와 한글만 추출 (영문, 특수문자 제거)
+  const cleanInput = userInputName
+    .replace(/[a-zA-Z\s\-_.()]/g, '')
+    .replace(/단지|아파트|타운|빌라|맨션|APT/gi, '')
+    .trim()
+
+  let bestMatch: string | null = null
+  let highestScore = 0
+
+  for (const aptName of apiApartments) {
+    let score = 0
+
+    // 1. 완전 일치 (최고 점수)
+    if (aptName === userInputName) {
+      return { bestMatch: aptName, score: 100 }
+    }
+
+    // 2. 포함 관계
+    if (aptName.includes(cleanInput)) {
+      score += 80
+    } else if (cleanInput.includes(aptName)) {
+      score += 70
+    }
+
+    // 3. 숫자 패턴 매칭 (예: "6-3" → "6-3단지")
+    const numberPattern = cleanInput.match(/\d+[-]\d+|\d+/g)
+    if (numberPattern) {
+      numberPattern.forEach(num => {
+        if (aptName.includes(num)) {
+          score += 50
+        }
+      })
+    }
+
+    // 4. 한글 키워드 매칭
+    const koreanPattern = cleanInput.match(/[가-힣]+/g)
+    if (koreanPattern) {
+      koreanPattern.forEach(keyword => {
+        if (keyword.length >= 2 && aptName.includes(keyword)) {
+          score += 30
+        }
+      })
+    }
+
+    // 5. 부분 일치 점수
+    let matchCount = 0
+    for (let i = 0; i < cleanInput.length; i++) {
+      if (aptName.includes(cleanInput[i])) {
+        matchCount++
+      }
+    }
+    score += (matchCount / cleanInput.length) * 20
+
+    if (score > highestScore) {
+      highestScore = score
+      bestMatch = aptName
+    }
+  }
+
+  return { bestMatch, score: highestScore }
+}
+
+// 국토교통부 실거래가 API 호출 (개선 버전)
+async function fetchApartmentTrades(
+  lawdCd: string,
+  dealYmd: string,
+  apiKey: string,
+  apartmentName?: string
+): Promise<any[]> {
+  try {
+    // 국토교통부 아파트 매매 실거래 자료 API (공공데이터포털)
+    const endpoint = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade'
+    
+    const params = new URLSearchParams({
+      serviceKey: apiKey,
+      LAWD_CD: lawdCd,
+      DEAL_YMD: dealYmd,
+      numOfRows: '1000',
+      pageNo: '1'
+    })
+
+    const response = await fetch(`${endpoint}?${params}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    })
+    
+    if (!response.ok) {
+      console.error(`MOLIT API error: ${response.status}`)
+      return []
+    }
+
+    const xmlText = await response.text()
+    
+    // XML 파싱 (간단한 방법 - DOMParser 대신 정규식 사용)
+    const items: any[] = []
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g
+    let match
+
+    while ((match = itemRegex.exec(xmlText)) !== null) {
+      const itemXml = match[1]
+      
+      // 각 필드 추출
+      const getField = (fieldName: string) => {
+        const regex = new RegExp(`<${fieldName}>([^<]*)<\/${fieldName}>`)
+        const m = itemXml.match(regex)
+        return m ? m[1].trim() : ''
+      }
+
+      const aptName = getField('aptNm')
+      
+      // 아파트 이름 필터링 (제공된 경우)
+      if (apartmentName && !aptName.includes(apartmentName)) {
+        continue
+      }
+
+      items.push({
+        apartmentName: aptName,
+        dealAmount: getField('dealAmount').replace(/,/g, '').trim(),
+        buildYear: getField('buildYear'),
+        dealYear: getField('dealYear'),
+        dealMonth: getField('dealMonth'),
+        dealDay: getField('dealDay'),
+        area: getField('excluUseAr'),
+        floor: getField('floor'),
+        dong: getField('umdNm'),
+        jibun: getField('jibun')
+      })
+    }
+
+    return items
+  } catch (error) {
+    console.error('Error fetching apartment trades:', error)
+    return []
+  }
+}
+
+// 실거래가 데이터 분석 (평균, 최고, 최저, 최근)
+function analyzeTradeData(trades: any[]): {
+  averagePrice: number
+  maxPrice: number
+  minPrice: number
+  recentPrice: number
+  recentDate: string
+  totalCount: number
+} {
+  if (trades.length === 0) {
+    return {
+      averagePrice: 0,
+      maxPrice: 0,
+      minPrice: 0,
+      recentPrice: 0,
+      recentDate: '',
+      totalCount: 0
+    }
+  }
+
+  // 거래금액을 숫자로 변환 (만원 → 억원)
+  const prices = trades.map(t => parseFloat(t.dealAmount) / 10000)
+  
+  const sum = prices.reduce((a, b) => a + b, 0)
+  const avg = sum / prices.length
+  const max = Math.max(...prices)
+  const min = Math.min(...prices)
+
+  // 최근 거래 찾기 (날짜순 정렬)
+  const sortedTrades = [...trades].sort((a, b) => {
+    const dateA = `${a.dealYear}-${a.dealMonth.padStart(2, '0')}-${a.dealDay.padStart(2, '0')}`
+    const dateB = `${b.dealYear}-${b.dealMonth.padStart(2, '0')}-${b.dealDay.padStart(2, '0')}`
+    return dateB.localeCompare(dateA) // 내림차순
+  })
+
+  const recent = sortedTrades[0]
+  const recentPrice = parseFloat(recent.dealAmount) / 10000
+  const recentDate = `${recent.dealYear}-${recent.dealMonth.padStart(2, '0')}-${recent.dealDay.padStart(2, '0')}`
+
+  return {
+    averagePrice: parseFloat(avg.toFixed(2)),
+    maxPrice: parseFloat(max.toFixed(2)),
+    minPrice: parseFloat(min.toFixed(2)),
+    recentPrice: parseFloat(recentPrice.toFixed(2)),
+    recentDate,
+    totalCount: trades.length
+  }
+}
+
+// API: 매물 ID로 실거래가 자동 조회 및 업데이트
+app.post('/api/properties/:id/update-trade-price', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    const apiKey = c.env.MOLIT_API_KEY
+
+    if (!apiKey) {
+      return c.json({ 
+        error: 'MOLIT_API_KEY not configured',
+        message: '국토교통부 API 키가 설정되지 않았습니다. wrangler secret을 사용하여 설정하세요.'
+      }, 500)
+    }
+
+    // 매물 정보 조회
+    const property = await DB.prepare(
+      'SELECT id, title, city, district, full_address FROM properties WHERE id = ?'
+    ).bind(id).first()
+
+    if (!property) {
+      return c.json({ error: 'Property not found' }, 404)
+    }
+
+    // 도시명에서 법정동 코드 찾기
+    const lawdCd = LAWD_CD_MAP[property.city as string]
+    if (!lawdCd) {
+      return c.json({ 
+        error: 'City code not found',
+        message: `${property.city}의 법정동 코드를 찾을 수 없습니다.`
+      }, 400)
+    }
+
+    // 최근 3개월 실거래가 조회
+    const today = new Date()
+    const months = []
+    
+    for (let i = 0; i < 3; i++) {
+      const date = new Date(today.getFullYear(), today.getMonth() - i, 1)
+      const ym = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`
+      months.push(ym)
+    }
+
+    // 1단계: 먼저 필터링 없이 모든 아파트 조회
+    let allApartments: string[] = []
+    for (const month of months) {
+      const trades = await fetchApartmentTrades(lawdCd, month, apiKey)
+      trades.forEach(trade => {
+        if (!allApartments.includes(trade.apartmentName)) {
+          allApartments.push(trade.apartmentName)
+        }
+      })
+    }
+
+    if (allApartments.length === 0) {
+      return c.json({ 
+        success: false,
+        message: '해당 지역에 실거래가 데이터가 없습니다.',
+        lawdCd,
+        months
+      })
+    }
+
+    // 2단계: 자동 매칭으로 최적의 아파트 이름 찾기
+    const { bestMatch, score } = findBestMatchingApartment(property.title as string, allApartments)
+
+    if (!bestMatch || score < 30) {
+      return c.json({ 
+        success: false,
+        message: '매칭되는 아파트를 찾을 수 없습니다.',
+        userInput: property.title,
+        availableApartments: allApartments.slice(0, 10),
+        bestMatch,
+        matchScore: score
+      })
+    }
+
+    // 3단계: 매칭된 아파트의 실거래가 조회
+    let allTrades: any[] = []
+    for (const month of months) {
+      const trades = await fetchApartmentTrades(lawdCd, month, apiKey, bestMatch)
+      allTrades = [...allTrades, ...trades]
+    }
+
+    if (allTrades.length === 0) {
+      return c.json({ 
+        success: false,
+        message: '실거래가 데이터를 찾을 수 없습니다.',
+        matchedApartmentName: bestMatch,
+        lawdCd,
+        months
+      })
+    }
+
+    // 데이터 분석
+    const analysis = analyzeTradeData(allTrades)
+
+    // DB 업데이트
+    await DB.prepare(`
+      UPDATE properties 
+      SET 
+        recent_trade_price = ?,
+        recent_trade_date = ?,
+        last_price_update = datetime('now')
+      WHERE id = ?
+    `).bind(
+      analysis.recentPrice,
+      analysis.recentDate,
+      id
+    ).run()
+
+    return c.json({
+      success: true,
+      propertyId: id,
+      userInputName: property.title,
+      matchedApartmentName: bestMatch,
+      matchScore: score,
+      analysis,
+      tradesFound: allTrades.length,
+      message: '실거래가 정보가 업데이트되었습니다.'
+    })
+
+  } catch (error) {
+    console.error('Error updating trade price:', error)
+    return c.json({ 
+      error: 'Failed to update trade price',
+      details: error instanceof Error ? error.message : String(error)
+    }, 500)
+  }
+})
+
+// API: 모든 unsold 매물의 실거래가 일괄 업데이트
+app.post('/api/properties/batch-update-trade-price', async (c) => {
+  try {
+    const { DB } = c.env
+    const apiKey = c.env.MOLIT_API_KEY
+
+    if (!apiKey) {
+      return c.json({ 
+        error: 'MOLIT_API_KEY not configured'
+      }, 500)
+    }
+
+    // unsold 타입 매물만 조회
+    const properties = await DB.prepare(
+      'SELECT id, title, city FROM properties WHERE type = ?'
+    ).bind('unsold').all()
+
+    const results = []
+
+    for (const property of properties.results as any[]) {
+      try {
+        const lawdCd = LAWD_CD_MAP[property.city]
+        if (!lawdCd) continue
+
+        const today = new Date()
+        const ym = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`
+        
+        const apartmentName = property.title.split(' ')[0]
+        const trades = await fetchApartmentTrades(lawdCd, ym, apiKey, apartmentName)
+
+        if (trades.length > 0) {
+          const analysis = analyzeTradeData(trades)
+          
+          await DB.prepare(`
+            UPDATE properties 
+            SET 
+              recent_trade_price = ?,
+              recent_trade_date = ?,
+              last_price_update = datetime('now')
+            WHERE id = ?
+          `).bind(
+            analysis.recentPrice,
+            analysis.recentDate,
+            property.id
+          ).run()
+
+          results.push({
+            id: property.id,
+            title: property.title,
+            success: true,
+            tradesFound: trades.length
+          })
+        }
+      } catch (error) {
+        results.push({
+          id: property.id,
+          title: property.title,
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        })
+      }
+    }
+
+    return c.json({
+      success: true,
+      totalProperties: properties.results.length,
+      results
+    })
+
+  } catch (error) {
+    console.error('Error batch updating trade prices:', error)
+    return c.json({ 
+      error: 'Failed to batch update',
+      details: error instanceof Error ? error.message : String(error)
+    }, 500)
   }
 })
 
@@ -1618,6 +2004,171 @@ app.post('/api/properties/:id/update-nearby', async (c) => {
   }
 })
 
+// PDF Upload and Parse API
+app.post('/api/properties/:id/upload-pdf', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    
+    // Get PDF text from request body (already extracted by frontend)
+    const body = await c.req.json()
+    const { pdfText, fileName } = body
+    
+    if (!pdfText) {
+      return c.json({ error: 'PDF text is required' }, 400)
+    }
+    
+    // Update property with PDF text
+    await DB.prepare(`
+      UPDATE properties 
+      SET pdf_raw_text = ?,
+          pdf_url = ?,
+          pdf_parsed = 0,
+          pdf_parsed_at = NULL,
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).bind(pdfText, fileName || '', id).run()
+    
+    return c.json({
+      success: true,
+      message: 'PDF text saved successfully. Ready for parsing.',
+      propertyId: id,
+      textLength: pdfText.length
+    })
+  } catch (error) {
+    console.error('Error uploading PDF:', error)
+    return c.json({ error: 'Failed to upload PDF' }, 500)
+  }
+})
+
+// Get PDF text for Claude to analyze
+app.get('/api/properties/:id/pdf-text', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    
+    const property = await DB.prepare(`
+      SELECT id, title, type, pdf_raw_text FROM properties WHERE id = ?
+    `).bind(id).first()
+    
+    if (!property) {
+      return c.json({ error: 'Property not found' }, 404)
+    }
+    
+    return c.json({
+      id: property.id,
+      title: property.title,
+      type: property.type,
+      pdfText: property.pdf_raw_text || '',
+      hasText: !!property.pdf_raw_text
+    })
+  } catch (error) {
+    console.error('Error getting PDF text:', error)
+    return c.json({ error: 'Failed to get PDF text' }, 500)
+  }
+})
+
+// Update property with Claude-parsed data
+app.post('/api/properties/:id/update-parsed', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    
+    const body = await c.req.json()
+    const updates = body.updates
+    
+    if (!updates || Object.keys(updates).length === 0) {
+      return c.json({ error: 'No updates provided' }, 400)
+    }
+    
+    // Convert tags array to JSON string if present
+    if (updates.tags && Array.isArray(updates.tags)) {
+      updates.tags = JSON.stringify(updates.tags)
+    }
+    
+    // Update database
+    const setClause = Object.keys(updates).map(key => `${key} = ?`).join(', ')
+    const values = Object.values(updates)
+    
+    await DB.prepare(`
+      UPDATE properties 
+      SET ${setClause},
+          pdf_parsed = 1,
+          pdf_parsed_at = datetime('now'),
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).bind(...values, id).run()
+    
+    return c.json({
+      success: true,
+      message: 'Property updated successfully',
+      updates: updates,
+      updatedFields: Object.keys(updates).length
+    })
+  } catch (error) {
+    console.error('Error updating property:', error)
+    return c.json({ error: 'Failed to update property' }, 500)
+  }
+})
+
+// Delete property (Admin)
+app.delete('/api/properties/:id', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    
+    await DB.prepare(`DELETE FROM properties WHERE id = ?`).bind(id).run()
+    
+    return c.json({
+      success: true,
+      message: 'Property deleted successfully'
+    })
+  } catch (error) {
+    console.error('Error deleting property:', error)
+    return c.json({ error: 'Failed to delete property' }, 500)
+  }
+})
+
+// Create property (Admin)
+app.post('/api/properties/create', async (c) => {
+  try {
+    const { DB } = c.env
+    const data = await c.req.json()
+    
+    const result = await DB.prepare(`
+      INSERT INTO properties (
+        title, type, location, full_address, deadline, announcement_date,
+        move_in_date, households, area_type, price, constructor, tags,
+        description, extended_data, status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', datetime('now'), datetime('now'))
+    `).bind(
+      data.title,
+      data.type,
+      data.location || '',
+      data.full_address || '',
+      data.deadline || '',
+      data.announcement_date || '',
+      data.move_in_date || '',
+      data.households || '',
+      data.area_type || '',
+      data.price || '',
+      data.constructor || '',
+      data.tags || '[]',
+      data.description || '',
+      data.extended_data || '{}'
+    ).run()
+    
+    return c.json({
+      success: true,
+      message: 'Property created successfully',
+      id: result.meta.last_row_id
+    })
+  } catch (error) {
+    console.error('Error creating property:', error)
+    return c.json({ error: 'Failed to create property' }, 500)
+  }
+})
+
 // Terms of Service page
 app.get('/terms', (c) => {
   return c.html(`
@@ -1972,6 +2523,1542 @@ Sitemap: https://hanchae365.com/sitemap.xml`
   return c.text(robots)
 })
 
+// Admin login API
+app.post('/api/admin/login', async (c) => {
+  try {
+    const { password } = await c.req.json()
+    const ADMIN_PASSWORD = c.env.ADMIN_PASSWORD || 'admin1234'
+    
+    if (password === ADMIN_PASSWORD) {
+      return c.json({ success: true, token: 'admin-session-token' })
+    } else {
+      return c.json({ success: false, message: 'Invalid password' }, 401)
+    }
+  } catch (error) {
+    return c.json({ error: 'Login failed' }, 500)
+  }
+})
+
+// PDF parsing with Google Gemini API
+app.post('/api/admin/parse-pdf', async (c) => {
+  try {
+    const { pdfBase64, filename } = await c.req.json()
+    const GEMINI_API_KEY = c.env.GEMINI_API_KEY
+    
+    if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your_gemini_api_key_here') {
+      return c.json({ 
+        success: false, 
+        error: 'Gemini API 키가 설정되지 않았습니다. .dev.vars 파일에 GEMINI_API_KEY를 추가해주세요.' 
+      }, 500)
+    }
+
+    console.log('PDF 파싱 시작:', filename)
+    
+    const promptText = `Analyze this real estate sales announcement PDF and extract information in STRICT JSON format.
+
+CRITICAL: Your response must be ONLY valid JSON. No explanations, no markdown, no code blocks. Just pure JSON.
+
+Required JSON structure:
+{
+  "projectName": "project name from PDF",
+  "saleType": "rental OR general OR unsold",
+  "supplyType": "supply type",
+  "region": "region name",
+  "fullAddress": "full address",
+  "announcementDate": "YYYY-MM-DD",
+  "moveInDate": "move in date",
+  "constructor": "construction company",
+  "mainImage": "",
+  "hashtags": "comma,separated,tags",
+  "steps": [{"date":"YYYY-MM-DD","title":"step title"}],
+  "supplyInfo": [{"type":"type","area":"area","households":"number","price":"price"}],
+  "details": {
+    "location":"location",
+    "landArea":"land area",
+    "totalHouseholds":"total households",
+    "parking":"parking spaces",
+    "parkingRatio":"parking ratio",
+    "architect":"architect",
+    "constructor":"constructor",
+    "website":"website",
+    "targetTypes":"target types",
+    "incomeLimit":"income limit",
+    "assetLimit":"asset limit",
+    "homelessPeriod":"homeless period",
+    "savingsAccount":"savings account",
+    "selectionMethod":"selection method",
+    "scoringCriteria":"scoring criteria",
+    "notices":"important notices",
+    "applicationMethod":"application method",
+    "applicationUrl":"application URL",
+    "requiredDocs":"required documents",
+    "contactDept":"contact department",
+    "contactPhone":"phone number",
+    "contactEmail":"email",
+    "contactAddress":"contact address",
+    "features":"features",
+    "surroundings":"surroundings",
+    "transportation":"transportation",
+    "education":"education facilities"
+  }
+}
+
+Rules:
+- If information not found, use empty string ""
+- Dates must be YYYY-MM-DD format
+- saleType must be exactly "rental", "general", or "unsold"
+- Response must be valid JSON only`
+    
+    // Gemini API 호출 (gemini-2.5-flash 사용 - PDF 지원)
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: promptText },
+            {
+              inline_data: {
+                mime_type: 'application/pdf',
+                data: pdfBase64
+              }
+            }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 8192,
+          responseMimeType: "application/json"
+        }
+      })
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Gemini API 오류:', errorText)
+      return c.json({ 
+        success: false, 
+        error: `Gemini API 오류: ${response.status} - ${errorText}` 
+      }, 500)
+    }
+
+    const result = await response.json()
+    console.log('Gemini 응답:', result)
+    
+    // Extract JSON from Gemini's response
+    let parsedData
+    try {
+      // Check if response has candidates
+      if (!result.candidates || result.candidates.length === 0) {
+        return c.json({ 
+          success: false, 
+          error: 'AI가 응답을 생성하지 못했습니다.',
+          raw: JSON.stringify(result)
+        }, 500)
+      }
+
+      const candidate = result.candidates[0]
+      
+      // Check finish reason
+      if (candidate.finishReason === 'MAX_TOKENS') {
+        return c.json({ 
+          success: false, 
+          error: 'PDF가 너무 크거나 복잡합니다. 더 짧은 PDF를 시도해주세요.',
+          finishReason: candidate.finishReason
+        }, 500)
+      }
+
+      const content = candidate.content.parts[0].text
+      console.log('AI 원본 응답:', content.substring(0, 500))
+      
+      // Remove markdown code blocks and extra whitespace
+      let jsonText = content
+        .replace(/```json\s*/g, '')
+        .replace(/```\s*/g, '')
+        .replace(/^[^{]*({[\s\S]*})[^}]*$/, '$1')
+        .trim()
+      
+      console.log('정제된 JSON 텍스트 시작:', jsonText.substring(0, 200))
+      parsedData = JSON.parse(jsonText)
+    } catch (e) {
+      console.error('JSON 파싱 오류:', e)
+      console.error('원본 응답:', result.candidates?.[0]?.content?.parts?.[0]?.text)
+      return c.json({ 
+        success: false, 
+        error: 'AI 응답을 JSON으로 파싱하는 데 실패했습니다.',
+        raw: result.candidates?.[0]?.content?.parts?.[0]?.text || JSON.stringify(result),
+        parseError: e.message
+      }, 500)
+    }
+
+    return c.json({
+      success: true,
+      data: parsedData,
+      raw: result.candidates[0].content.parts[0].text
+    })
+  } catch (error) {
+    console.error('PDF 파싱 오류:', error)
+    return c.json({ 
+      success: false, 
+      error: error.message || 'PDF 파싱 중 오류가 발생했습니다.' 
+    }, 500)
+  }
+})
+
+// Image upload API (R2)
+app.post('/api/admin/upload-image', async (c) => {
+  try {
+    const formData = await c.req.formData()
+    const file = formData.get('image') as File
+    
+    if (!file) {
+      return c.json({ success: false, error: '이미지 파일이 없습니다.' }, 400)
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      return c.json({ 
+        success: false, 
+        error: '지원하지 않는 파일 형식입니다. (JPG, PNG, WEBP, GIF만 가능)' 
+      }, 400)
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    if (file.size > maxSize) {
+      return c.json({ 
+        success: false, 
+        error: '파일 크기는 5MB를 초과할 수 없습니다.' 
+      }, 400)
+    }
+
+    // Generate unique filename
+    const timestamp = Date.now()
+    const randomStr = Math.random().toString(36).substring(7)
+    const extension = file.name.split('.').pop()
+    const filename = `properties/${timestamp}-${randomStr}.${extension}`
+
+    // Upload to R2
+    const { IMAGES } = c.env
+    const arrayBuffer = await file.arrayBuffer()
+    
+    await IMAGES.put(filename, arrayBuffer, {
+      httpMetadata: {
+        contentType: file.type
+      }
+    })
+
+    // Generate public URL
+    // Note: R2는 기본적으로 private입니다. Public URL을 위해서는:
+    // 1. Custom Domain 연결 (권장) 또는
+    // 2. R2.dev subdomain 활성화 필요
+    const imageUrl = `https://webapp-images.YOUR_ACCOUNT_ID.r2.cloudflarestorage.com/${filename}`
+    
+    return c.json({
+      success: true,
+      imageUrl: imageUrl,
+      filename: filename,
+      message: '이미지 업로드 완료'
+    })
+  } catch (error) {
+    console.error('이미지 업로드 오류:', error)
+    return c.json({ 
+      success: false, 
+      error: error.message || '이미지 업로드 중 오류가 발생했습니다.' 
+    }, 500)
+  }
+})
+
+// Delete image from R2
+app.delete('/api/admin/delete-image/:filename', async (c) => {
+  try {
+    const filename = c.req.param('filename')
+    const { IMAGES } = c.env
+    
+    await IMAGES.delete(filename)
+    
+    return c.json({
+      success: true,
+      message: '이미지 삭제 완료'
+    })
+  } catch (error) {
+    console.error('이미지 삭제 오류:', error)
+    return c.json({ 
+      success: false, 
+      error: error.message || '이미지 삭제 중 오류가 발생했습니다.' 
+    }, 500)
+  }
+})
+
+// Admin login page
+app.get('/admin/login', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>관리자 로그인 - 한채365</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-100 flex items-center justify-center min-h-screen">
+        <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+            <div class="text-center mb-8">
+                <i class="fas fa-shield-alt text-5xl text-blue-600 mb-4"></i>
+                <h1 class="text-2xl font-bold text-gray-900">관리자 로그인</h1>
+                <p class="text-sm text-gray-500 mt-2">한채365 어드민 시스템</p>
+            </div>
+            
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">비밀번호</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        required 
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="관리자 비밀번호를 입력하세요"
+                        autofocus
+                    >
+                </div>
+                
+                <button 
+                    type="submit" 
+                    class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                >
+                    <i class="fas fa-sign-in-alt mr-2"></i>
+                    로그인
+                </button>
+                
+                <div id="errorMsg" class="hidden text-red-600 text-sm text-center mt-2"></div>
+            </form>
+            
+            <div class="mt-6 text-center">
+                <a href="/" class="text-sm text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-arrow-left mr-1"></i>
+                    메인으로 돌아가기
+                </a>
+            </div>
+        </div>
+        
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script>
+            document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const password = document.getElementById('password').value;
+                const errorMsg = document.getElementById('errorMsg');
+                
+                try {
+                    const response = await axios.post('/api/admin/login', { password });
+                    
+                    if (response.data.success) {
+                        // Save token to localStorage
+                        localStorage.setItem('adminToken', response.data.token);
+                        // Redirect to admin page
+                        window.location.href = '/admin';
+                    } else {
+                        errorMsg.textContent = '비밀번호가 올바르지 않습니다.';
+                        errorMsg.classList.remove('hidden');
+                    }
+                } catch (error) {
+                    errorMsg.textContent = '로그인에 실패했습니다. 다시 시도해주세요.';
+                    errorMsg.classList.remove('hidden');
+                }
+            });
+        </script>
+    </body>
+    </html>
+  `)
+})
+
+// Admin page (protected)
+app.get('/admin', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Admin - 한채365</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <style>
+          .tab-active { border-bottom: 3px solid #007AFF; color: #007AFF; }
+          .modal { display: none; }
+          .modal.active { display: flex; }
+        </style>
+    </head>
+    <body class="bg-gray-50">
+        <!-- Header -->
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">한채365 어드민</h1>
+                    <p class="text-sm text-gray-500">분양 정보 관리 시스템</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="logout()" class="text-sm text-red-600 hover:text-red-800">
+                        <i class="fas fa-sign-out-alt mr-1"></i>로그아웃
+                    </button>
+                    <button onclick="window.location.href='/'" class="text-sm text-gray-600 hover:text-gray-900">
+                        <i class="fas fa-home mr-1"></i>메인으로
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tabs -->
+        <div class="bg-white border-b">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex gap-8">
+                    <button onclick="switchTab('all')" class="tab-btn py-4 font-medium text-gray-600 tab-active" data-tab="all">
+                        전체분양
+                    </button>
+                    <button onclick="switchTab('rental')" class="tab-btn py-4 font-medium text-gray-600" data-tab="rental">
+                        임대분양
+                    </button>
+                    <button onclick="switchTab('general')" class="tab-btn py-4 font-medium text-gray-600" data-tab="general">
+                        청약분양
+                    </button>
+                    <button onclick="switchTab('unsold')" class="tab-btn py-4 font-medium text-gray-600" data-tab="unsold">
+                        줍줍분양
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="max-w-7xl mx-auto px-4 py-6">
+            <!-- Search & Actions -->
+            <div class="bg-white rounded-lg shadow-sm p-4 mb-4 flex gap-3 items-center">
+                <input type="text" id="searchInput" placeholder="단지명, 지역 검색..." 
+                       class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                <button onclick="searchProperties()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+                    <i class="fas fa-search mr-2"></i>검색
+                </button>
+                <button onclick="openAddModal()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                    <i class="fas fa-plus mr-2"></i>신규등록
+                </button>
+            </div>
+
+            <!-- Properties Table -->
+            <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">단지명</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">지역</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">타입</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">마감일</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">작업</th>
+                        </tr>
+                    </thead>
+                    <tbody id="propertiesTable" class="divide-y divide-gray-200">
+                        <!-- Data will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Add/Edit Modal -->
+        <div id="editModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
+            <div class="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
+                    <h2 id="modalTitle" class="text-xl font-bold text-gray-900">신규 등록</h2>
+                    <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                <div class="p-6">
+                    <form id="propertyForm" class="space-y-6">
+                        <input type="hidden" id="propertyId">
+                        
+                        <!-- PDF 업로드 및 자동 파싱 -->
+                        <div class="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-dashed border-purple-300 rounded-xl p-6">
+                            <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                                <span class="bg-purple-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">
+                                    <i class="fas fa-magic text-xs"></i>
+                                </span>
+                                PDF 자동 파싱 (1차 세팅)
+                            </h3>
+                            <p class="text-sm text-gray-600 mb-4">
+                                PDF 파일을 업로드하면 AI가 자동으로 내용을 분석하여 아래 폼을 채워드립니다.
+                            </p>
+                            
+                            <div class="flex gap-4 items-center">
+                                <label class="flex-1 cursor-pointer">
+                                    <div class="border-2 border-gray-300 border-dashed rounded-lg p-4 hover:border-purple-500 hover:bg-white transition-all">
+                                        <div class="flex items-center gap-3">
+                                            <i class="fas fa-file-pdf text-3xl text-red-500"></i>
+                                            <div class="flex-1">
+                                                <p class="text-sm font-medium text-gray-700">
+                                                    <span id="pdfFileName">PDF 파일을 선택하세요</span>
+                                                </p>
+                                                <p class="text-xs text-gray-500">최대 10MB, PDF 형식만 가능</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input type="file" id="pdfFile" accept=".pdf" class="hidden" onchange="handlePdfSelect(event)">
+                                </label>
+                                
+                                <button type="button" onclick="parsePdf()" id="parsePdfBtn" class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
+                                    <i class="fas fa-magic mr-2"></i>
+                                    자동 파싱
+                                </button>
+                            </div>
+                            
+                            <div id="pdfParsingStatus" class="hidden mt-4 p-4 bg-white rounded-lg border">
+                                <div class="flex items-center gap-3">
+                                    <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>
+                                    <p class="text-sm text-gray-700">
+                                        <span id="parsingStatusText">PDF 분석 중...</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 메인카드 입력폼 -->
+                        <div class="border-b pb-6">
+                            <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                                <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">1</span>
+                                메인카드 정보
+                            </h3>
+                            
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">단지명 *</label>
+                                    <input type="text" id="projectName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="엘리프세종 6-3M4 신혼희망타운">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">타입 *</label>
+                                    <select id="saleType" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                        <option value="rental">임대분양</option>
+                                        <option value="general">청약분양</option>
+                                        <option value="unsold">줍줍분양</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">공급유형</label>
+                                    <input type="text" id="supplyType" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="신혼희망타운, 행복주택, 국민임대 등">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">지역</label>
+                                    <input type="text" id="region" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="경기 화성">
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">전체주소</label>
+                                <input type="text" id="fullAddress" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="세종특별자치시 연기면 세종리 6-3블록">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">공고일</label>
+                                    <input type="date" id="announcementDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">입주예정일</label>
+                                    <input type="text" id="moveInDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="2027년 9월">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">시공사</label>
+                                    <input type="text" id="constructor" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="LH, 현대건설 등">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">대표이미지 <span class="text-gray-400 text-xs">(선택)</span></label>
+                                    
+                                    <!-- Image Upload Area -->
+                                    <div class="space-y-3">
+                                        <!-- Preview Area -->
+                                        <div id="imagePreviewArea" class="hidden">
+                                            <div class="relative inline-block">
+                                                <img id="imagePreview" src="" alt="미리보기" class="max-w-xs max-h-48 rounded-lg border-2 border-gray-300">
+                                                <button type="button" onclick="removeImage()" class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Upload Button -->
+                                        <div class="flex gap-2">
+                                            <label class="flex-1 cursor-pointer">
+                                                <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 transition-all text-center">
+                                                    <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                                                    <p class="text-sm text-gray-600">
+                                                        <span class="font-semibold text-blue-600">파일 선택</span> 또는 드래그 앤 드롭
+                                                    </p>
+                                                    <p class="text-xs text-gray-500 mt-1">JPG, PNG, WEBP, GIF (최대 5MB)</p>
+                                                </div>
+                                                <input type="file" id="imageFile" accept="image/jpeg,image/jpg,image/png,image/webp,image/gif" class="hidden" onchange="handleImageSelect(event)">
+                                            </label>
+                                        </div>
+                                        
+                                        <!-- URL Input (Alternative) -->
+                                        <div class="relative">
+                                            <div class="absolute inset-0 flex items-center">
+                                                <div class="w-full border-t border-gray-300"></div>
+                                            </div>
+                                            <div class="relative flex justify-center text-xs">
+                                                <span class="bg-white px-2 text-gray-500">또는 URL 직접 입력</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <input type="text" id="mainImage" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="https://example.com/image.jpg">
+                                        
+                                        <!-- Upload Status -->
+                                        <div id="uploadStatus" class="hidden text-sm"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">해시태그 (쉼표로 구분)</label>
+                                <input type="text" id="hashtags" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="국민임대, 신혼부부, 전북김제">
+                            </div>
+                        </div>
+
+                        <!-- 신청절차(스텝) -->
+                        <div class="border-b pb-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-lg font-bold text-gray-900 flex items-center">
+                                    <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">2</span>
+                                    신청절차
+                                </h3>
+                                <button type="button" onclick="addStep()" class="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+                                    <i class="fas fa-plus mr-1"></i> 스텝 추가
+                                </button>
+                            </div>
+                            <div id="stepsContainer" class="space-y-2">
+                                <!-- 동적으로 추가됨 -->
+                            </div>
+                        </div>
+
+                        <!-- 상세카드 -->
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                                <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">3</span>
+                                상세카드 정보
+                            </h3>
+
+                            <!-- Accordion Sections -->
+                            <div class="space-y-2">
+                                <!-- 1. 단지정보 -->
+                                <div class="border rounded-lg">
+                                    <button type="button" onclick="toggleSection('section1')" class="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between">
+                                        <span class="font-medium text-gray-900">📍 단지정보</span>
+                                        <i class="fas fa-chevron-down text-gray-400"></i>
+                                    </button>
+                                    <div id="section1" class="hidden p-4 space-y-3">
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">위치</label>
+                                                <input type="text" id="detail_location" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">대지면적</label>
+                                                <input type="text" id="detail_landArea" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-3 gap-3">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">건설호수</label>
+                                                <input type="text" id="detail_totalHouseholds" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">주차대수</label>
+                                                <input type="text" id="detail_parking" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">주차비율</label>
+                                                <input type="text" id="detail_parkingRatio" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">건축사</label>
+                                                <input type="text" id="detail_architect" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">시공사</label>
+                                                <input type="text" id="detail_constructor" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">홈페이지 <span class="text-gray-400 text-xs">(선택)</span></label>
+                                            <input type="text" id="detail_website" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="https://example.com">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 2. 신청자격 -->
+                                <div class="border rounded-lg">
+                                    <button type="button" onclick="toggleSection('section2')" class="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between">
+                                        <span class="font-medium text-gray-900">👥 신청자격</span>
+                                        <i class="fas fa-chevron-down text-gray-400"></i>
+                                    </button>
+                                    <div id="section2" class="hidden p-4 space-y-3">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">대상유형 (쉼표로 구분)</label>
+                                            <input type="text" id="detail_targetTypes" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="신혼부부, 생애최초, 다자녀가구">
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">소득기준</label>
+                                                <input type="text" id="detail_incomeLimit" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">자산기준</label>
+                                                <input type="text" id="detail_assetLimit" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">무주택기간</label>
+                                                <input type="text" id="detail_homelessPeriod" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">청약통장</label>
+                                                <input type="text" id="detail_savingsAccount" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 3. 공급세대정보 -->
+                                <div class="border rounded-lg">
+                                    <button type="button" onclick="toggleSection('section3')" class="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between">
+                                        <span class="font-medium text-gray-900">🏠 공급세대정보</span>
+                                        <i class="fas fa-chevron-down text-gray-400"></i>
+                                    </button>
+                                    <div id="section3" class="hidden p-4">
+                                        <div class="mb-2 flex justify-end">
+                                            <button type="button" onclick="addSupplyRow()" class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">
+                                                <i class="fas fa-plus mr-1"></i> 타입 추가
+                                            </button>
+                                        </div>
+                                        <div id="supplyRowsContainer" class="space-y-2">
+                                            <!-- 동적으로 추가됨 -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 4. 입주자선정기준 -->
+                                <div class="border rounded-lg">
+                                    <button type="button" onclick="toggleSection('section4')" class="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between">
+                                        <span class="font-medium text-gray-900">📋 입주자선정기준</span>
+                                        <i class="fas fa-chevron-down text-gray-400"></i>
+                                    </button>
+                                    <div id="section4" class="hidden p-4 space-y-3">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">선정방식</label>
+                                            <input type="text" id="detail_selectionMethod" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">가점항목</label>
+                                            <textarea id="detail_scoringCriteria" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 5. 주의사항 -->
+                                <div class="border rounded-lg">
+                                    <button type="button" onclick="toggleSection('section5')" class="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between">
+                                        <span class="font-medium text-gray-900">⚠️ 주의사항</span>
+                                        <i class="fas fa-chevron-down text-gray-400"></i>
+                                    </button>
+                                    <div id="section5" class="hidden p-4">
+                                        <textarea id="detail_notices" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="주의사항을 입력하세요"></textarea>
+                                    </div>
+                                </div>
+
+                                <!-- 6. 온라인신청 -->
+                                <div class="border rounded-lg">
+                                    <button type="button" onclick="toggleSection('section6')" class="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between">
+                                        <span class="font-medium text-gray-900">💻 온라인신청</span>
+                                        <i class="fas fa-chevron-down text-gray-400"></i>
+                                    </button>
+                                    <div id="section6" class="hidden p-4 space-y-3">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">신청방법</label>
+                                            <input type="text" id="detail_applicationMethod" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">신청URL <span class="text-gray-400 text-xs">(선택)</span></label>
+                                            <input type="text" id="detail_applicationUrl" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="https://apply.example.com">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">필요서류</label>
+                                            <textarea id="detail_requiredDocs" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 7. 문의처 -->
+                                <div class="border rounded-lg">
+                                    <button type="button" onclick="toggleSection('section7')" class="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between">
+                                        <span class="font-medium text-gray-900">📞 문의처</span>
+                                        <i class="fas fa-chevron-down text-gray-400"></i>
+                                    </button>
+                                    <div id="section7" class="hidden p-4 space-y-3">
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">담당부서</label>
+                                                <input type="text" id="detail_contactDept" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">전화번호</label>
+                                                <input type="tel" id="detail_contactPhone" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+                                                <input type="email" id="detail_contactEmail" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">주소</label>
+                                                <input type="text" id="detail_contactAddress" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 8. 단지개요 -->
+                                <div class="border rounded-lg">
+                                    <button type="button" onclick="toggleSection('section8')" class="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between">
+                                        <span class="font-medium text-gray-900">📝 단지개요</span>
+                                        <i class="fas fa-chevron-down text-gray-400"></i>
+                                    </button>
+                                    <div id="section8" class="hidden p-4 space-y-3">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">단지특징</label>
+                                            <textarea id="detail_features" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">주변환경</label>
+                                            <textarea id="detail_surroundings" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">교통여건</label>
+                                            <textarea id="detail_transportation" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">교육시설</label>
+                                            <textarea id="detail_education" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3 pt-4 border-t">
+                            <button type="button" onclick="closeEditModal()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                취소
+                            </button>
+                            <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                                저장
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Modal -->
+        <div id="deleteModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
+            <div class="bg-white rounded-xl max-w-md w-full p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-2">삭제 확인</h2>
+                <p class="text-gray-600 mb-6">정말 이 데이터를 삭제하시겠습니까?</p>
+                <div class="flex gap-3">
+                    <button onclick="closeDeleteModal()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                        취소
+                    </button>
+                    <button onclick="confirmDelete()" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium">
+                        삭제
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script>
+            // Check authentication
+            const adminToken = localStorage.getItem('adminToken');
+            if (!adminToken) {
+                window.location.href = '/admin/login';
+            }
+
+            let currentTab = 'all';
+            let deleteTargetId = null;
+            let stepCounter = 0;
+            let supplyCounter = 0;
+            let selectedPdfFile = null;
+            let selectedImageFile = null;
+            let uploadedImageUrl = null;
+
+            // Handle image file selection
+            function handleImageSelect(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                // Validate file type
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+                if (!allowedTypes.includes(file.type)) {
+                    alert('JPG, PNG, WEBP, GIF 형식만 업로드 가능합니다.');
+                    return;
+                }
+
+                // Validate file size (5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('파일 크기는 5MB를 초과할 수 없습니다.');
+                    return;
+                }
+
+                selectedImageFile = file;
+
+                // Show preview
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.getElementById('imagePreview').src = e.target.result;
+                    document.getElementById('imagePreviewArea').classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+
+                // Auto upload
+                uploadImage();
+            }
+
+            // Upload image to R2
+            async function uploadImage() {
+                if (!selectedImageFile) return;
+
+                const statusDiv = document.getElementById('uploadStatus');
+                statusDiv.classList.remove('hidden');
+                statusDiv.innerHTML = '<span class="text-blue-600"><i class="fas fa-spinner fa-spin mr-2"></i>이미지 업로드 중...</span>';
+
+                try {
+                    const formData = new FormData();
+                    formData.append('image', selectedImageFile);
+
+                    const response = await axios.post('/api/admin/upload-image', formData, {
+                        headers: {
+                            'Content-Type': 'multipart/form-data'
+                        }
+                    });
+
+                    if (response.data.success) {
+                        uploadedImageUrl = response.data.imageUrl;
+                        document.getElementById('mainImage').value = uploadedImageUrl;
+                        statusDiv.innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle mr-2"></i>업로드 완료!</span>';
+                        setTimeout(() => {
+                            statusDiv.classList.add('hidden');
+                        }, 3000);
+                    } else {
+                        throw new Error(response.data.error || '업로드 실패');
+                    }
+                } catch (error) {
+                    console.error('이미지 업로드 오류:', error);
+                    statusDiv.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-2"></i>업로드 실패: ' + (error.response?.data?.error || error.message) + '</span>';
+                    removeImage();
+                }
+            }
+
+            // Remove selected image
+            function removeImage() {
+                selectedImageFile = null;
+                uploadedImageUrl = null;
+                document.getElementById('imageFile').value = '';
+                document.getElementById('imagePreview').src = '';
+                document.getElementById('imagePreviewArea').classList.add('hidden');
+                document.getElementById('uploadStatus').classList.add('hidden');
+                // Don't clear mainImage input - user might have entered URL manually
+            }
+
+            // Logout function
+            function logout() {
+                if (confirm('로그아웃하시겠습니까?')) {
+                    localStorage.removeItem('adminToken');
+                    window.location.href = '/admin/login';
+                }
+            }
+
+            // Handle PDF file selection
+            function handlePdfSelect(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    if (file.type !== 'application/pdf') {
+                        alert('PDF 파일만 업로드 가능합니다.');
+                        return;
+                    }
+                    if (file.size > 10 * 1024 * 1024) {
+                        alert('파일 크기는 10MB를 초과할 수 없습니다.');
+                        return;
+                    }
+                    
+                    selectedPdfFile = file;
+                    document.getElementById('pdfFileName').textContent = file.name;
+                    document.getElementById('parsePdfBtn').disabled = false;
+                }
+            }
+
+            // Parse PDF with Claude
+            async function parsePdf() {
+                if (!selectedPdfFile) {
+                    alert('PDF 파일을 먼저 선택해주세요.');
+                    return;
+                }
+
+                const statusDiv = document.getElementById('pdfParsingStatus');
+                const statusText = document.getElementById('parsingStatusText');
+                const parseBtn = document.getElementById('parsePdfBtn');
+                
+                statusDiv.classList.remove('hidden');
+                parseBtn.disabled = true;
+                statusText.textContent = 'PDF 업로드 중...';
+
+                try {
+                    // Convert PDF to base64
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        const base64 = e.target.result.split(',')[1];
+                        
+                        statusText.textContent = 'AI가 PDF 내용을 분석하고 있습니다... (최대 30초 소요)';
+                        
+                        try {
+                            const response = await axios.post('/api/admin/parse-pdf', {
+                                pdfBase64: base64,
+                                filename: selectedPdfFile.name
+                            }, {
+                                timeout: 60000 // 60 seconds timeout
+                            });
+                            
+                            if (response.data.success) {
+                                statusText.textContent = '✅ 파싱 완료! 폼을 채우고 있습니다...';
+                                
+                                // Fill form with parsed data
+                                fillFormWithParsedData(response.data.data);
+                                
+                                setTimeout(() => {
+                                    statusDiv.classList.add('hidden');
+                                    alert('PDF 파싱이 완료되었습니다! 내용을 확인하고 필요시 수정해주세요.');
+                                }, 1500);
+                            } else {
+                                throw new Error(response.data.error || 'Parsing failed');
+                            }
+                        } catch (error) {
+                            console.error('PDF parsing error:', error);
+                            statusDiv.classList.add('hidden');
+                            alert('PDF 파싱 중 오류가 발생했습니다: ' + (error.response?.data?.error || error.message));
+                        } finally {
+                            parseBtn.disabled = false;
+                        }
+                    };
+                    
+                    reader.readAsDataURL(selectedPdfFile);
+                } catch (error) {
+                    console.error('File reading error:', error);
+                    statusDiv.classList.add('hidden');
+                    parseBtn.disabled = false;
+                    alert('파일 읽기 중 오류가 발생했습니다.');
+                }
+            }
+
+            // Fill form with parsed PDF data
+            function fillFormWithParsedData(data) {
+                // Main fields
+                if (data.projectName) document.getElementById('projectName').value = data.projectName;
+                if (data.saleType) document.getElementById('saleType').value = data.saleType;
+                if (data.supplyType) document.getElementById('supplyType').value = data.supplyType;
+                if (data.region) document.getElementById('region').value = data.region;
+                if (data.fullAddress) document.getElementById('fullAddress').value = data.fullAddress;
+                if (data.announcementDate) document.getElementById('announcementDate').value = data.announcementDate;
+                if (data.moveInDate) document.getElementById('moveInDate').value = data.moveInDate;
+                if (data.constructor) document.getElementById('constructor').value = data.constructor;
+                if (data.mainImage) document.getElementById('mainImage').value = data.mainImage;
+                if (data.hashtags) document.getElementById('hashtags').value = data.hashtags;
+
+                // Steps
+                if (data.steps && Array.isArray(data.steps)) {
+                    document.getElementById('stepsContainer').innerHTML = '';
+                    data.steps.forEach(step => {
+                        const div = document.createElement('div');
+                        div.className = 'flex gap-2 items-center';
+                        div.innerHTML = \`
+                            <input type="text" value="\${step.date || ''}" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <input type="text" value="\${step.title || ''}" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        \`;
+                        document.getElementById('stepsContainer').appendChild(div);
+                    });
+                }
+
+                // Supply info
+                if (data.supplyInfo && Array.isArray(data.supplyInfo)) {
+                    document.getElementById('supplyRowsContainer').innerHTML = '';
+                    data.supplyInfo.forEach(row => {
+                        const div = document.createElement('div');
+                        div.className = 'flex gap-2 items-center p-3 bg-gray-50 rounded';
+                        div.innerHTML = \`
+                            <input type="text" value="\${row.type || ''}" class="supply-type px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
+                            <input type="text" value="\${row.area || ''}" class="supply-area px-2 py-1 border border-gray-300 rounded text-sm" style="width: 100px">
+                            <input type="text" value="\${row.households || ''}" class="supply-households px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
+                            <input type="text" value="\${row.price || ''}" class="supply-price flex-1 px-2 py-1 border border-gray-300 rounded text-sm">
+                            <button type="button" onclick="removeSupplyRow(this)" class="px-2 py-1 bg-red-500 text-white rounded text-sm">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        \`;
+                        document.getElementById('supplyRowsContainer').appendChild(div);
+                    });
+                }
+
+                // Detail fields
+                const details = data.details || {};
+                if (details.location) document.getElementById('detail_location').value = details.location;
+                if (details.landArea) document.getElementById('detail_landArea').value = details.landArea;
+                if (details.totalHouseholds) document.getElementById('detail_totalHouseholds').value = details.totalHouseholds;
+                if (details.parking) document.getElementById('detail_parking').value = details.parking;
+                if (details.parkingRatio) document.getElementById('detail_parkingRatio').value = details.parkingRatio;
+                if (details.architect) document.getElementById('detail_architect').value = details.architect;
+                if (details.constructor) document.getElementById('detail_constructor').value = details.constructor;
+                if (details.website) document.getElementById('detail_website').value = details.website;
+                
+                if (details.targetTypes) document.getElementById('detail_targetTypes').value = details.targetTypes;
+                if (details.incomeLimit) document.getElementById('detail_incomeLimit').value = details.incomeLimit;
+                if (details.assetLimit) document.getElementById('detail_assetLimit').value = details.assetLimit;
+                if (details.homelessPeriod) document.getElementById('detail_homelessPeriod').value = details.homelessPeriod;
+                if (details.savingsAccount) document.getElementById('detail_savingsAccount').value = details.savingsAccount;
+                
+                if (details.selectionMethod) document.getElementById('detail_selectionMethod').value = details.selectionMethod;
+                if (details.scoringCriteria) document.getElementById('detail_scoringCriteria').value = details.scoringCriteria;
+                if (details.notices) document.getElementById('detail_notices').value = details.notices;
+                
+                if (details.applicationMethod) document.getElementById('detail_applicationMethod').value = details.applicationMethod;
+                if (details.applicationUrl) document.getElementById('detail_applicationUrl').value = details.applicationUrl;
+                if (details.requiredDocs) document.getElementById('detail_requiredDocs').value = details.requiredDocs;
+                
+                if (details.contactDept) document.getElementById('detail_contactDept').value = details.contactDept;
+                if (details.contactPhone) document.getElementById('detail_contactPhone').value = details.contactPhone;
+                if (details.contactEmail) document.getElementById('detail_contactEmail').value = details.contactEmail;
+                if (details.contactAddress) document.getElementById('detail_contactAddress').value = details.contactAddress;
+                
+                if (details.features) document.getElementById('detail_features').value = details.features;
+                if (details.surroundings) document.getElementById('detail_surroundings').value = details.surroundings;
+                if (details.transportation) document.getElementById('detail_transportation').value = details.transportation;
+                if (details.education) document.getElementById('detail_education').value = details.education;
+            }
+
+            // Tab switching
+            function switchTab(tab) {
+                currentTab = tab;
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.classList.remove('tab-active');
+                });
+                document.querySelector(\`[data-tab="\${tab}"]\`).classList.add('tab-active');
+                loadProperties();
+            }
+
+            // Toggle accordion section
+            function toggleSection(sectionId) {
+                const section = document.getElementById(sectionId);
+                const button = section.previousElementSibling;
+                const icon = button.querySelector('i');
+                
+                if (section.classList.contains('hidden')) {
+                    section.classList.remove('hidden');
+                    icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+                } else {
+                    section.classList.add('hidden');
+                    icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+                }
+            }
+
+            // Add step
+            function addStep() {
+                stepCounter++;
+                const container = document.getElementById('stepsContainer');
+                const div = document.createElement('div');
+                div.className = 'flex gap-2 items-center';
+                div.innerHTML = \`
+                    <input type="text" placeholder="스텝 날짜 (예: 2025.01.15)" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <input type="text" placeholder="스텝 제목 (예: 서류접수 시작)" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
+                        <i class="fas fa-times"></i>
+                    </button>
+                \`;
+                container.appendChild(div);
+            }
+
+            // Remove step
+            function removeStep(btn) {
+                btn.parentElement.remove();
+            }
+
+            // Add supply row
+            function addSupplyRow() {
+                supplyCounter++;
+                const container = document.getElementById('supplyRowsContainer');
+                const div = document.createElement('div');
+                div.className = 'flex gap-2 items-center p-3 bg-gray-50 rounded';
+                div.innerHTML = \`
+                    <input type="text" placeholder="타입" class="supply-type px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
+                    <input type="text" placeholder="면적" class="supply-area px-2 py-1 border border-gray-300 rounded text-sm" style="width: 100px">
+                    <input type="text" placeholder="세대수" class="supply-households px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
+                    <input type="text" placeholder="가격" class="supply-price flex-1 px-2 py-1 border border-gray-300 rounded text-sm">
+                    <button type="button" onclick="removeSupplyRow(this)" class="px-2 py-1 bg-red-500 text-white rounded text-sm">
+                        <i class="fas fa-times"></i>
+                    </button>
+                \`;
+                container.appendChild(div);
+            }
+
+            // Remove supply row
+            function removeSupplyRow(btn) {
+                btn.parentElement.remove();
+            }
+
+            // Load properties
+            async function loadProperties() {
+                try {
+                    const url = currentTab === 'all' ? '/api/properties' : \`/api/properties?type=\${currentTab}\`;
+                    const response = await axios.get(url);
+                    const properties = response.data;
+                    
+                    const tbody = document.getElementById('propertiesTable');
+                    tbody.innerHTML = properties.map(p => \`
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 text-sm text-gray-900">\${p.id}</td>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900">\${p.title}</td>
+                            <td class="px-6 py-4 text-sm text-gray-600">\${p.location || '-'}</td>
+                            <td class="px-6 py-4 text-sm">
+                                <span class="px-2 py-1 text-xs font-medium rounded \${
+                                    p.type === 'rental' ? 'bg-blue-100 text-blue-700' :
+                                    p.type === 'unsold' ? 'bg-orange-100 text-orange-700' :
+                                    'bg-green-100 text-green-700'
+                                }">\${
+                                    p.type === 'rental' ? '임대' : p.type === 'unsold' ? '줍줍' : '청약'
+                                }</span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-600">\${p.deadline || '-'}</td>
+                            <td class="px-6 py-4 text-sm">
+                                <button onclick="editProperty(\${p.id})" class="text-blue-600 hover:text-blue-800 mr-3">
+                                    <i class="fas fa-edit"></i> 수정
+                                </button>
+                                <button onclick="deleteProperty(\${p.id})" class="text-red-600 hover:text-red-800">
+                                    <i class="fas fa-trash"></i> 삭제
+                                </button>
+                            </td>
+                        </tr>
+                    \`).join('');
+                } catch (error) {
+                    console.error('Failed to load properties:', error);
+                    alert('데이터 로드 실패');
+                }
+            }
+
+            // Open add modal
+            function openAddModal() {
+                document.getElementById('modalTitle').textContent = '신규 등록';
+                document.getElementById('propertyForm').reset();
+                document.getElementById('propertyId').value = '';
+                document.getElementById('stepsContainer').innerHTML = '';
+                document.getElementById('supplyRowsContainer').innerHTML = '';
+                stepCounter = 0;
+                supplyCounter = 0;
+                document.getElementById('editModal').classList.add('active');
+            }
+
+            // Edit property
+            async function editProperty(id) {
+                try {
+                    const response = await axios.get(\`/api/properties?type=all\`);
+                    const property = response.data.find(p => p.id === id);
+                    
+                    if (!property) {
+                        alert('데이터를 찾을 수 없습니다');
+                        return;
+                    }
+
+                    // Parse extended_data JSON
+                    let extData = {};
+                    try {
+                        if (property.extended_data) {
+                            extData = typeof property.extended_data === 'string' 
+                                ? JSON.parse(property.extended_data) 
+                                : property.extended_data;
+                        }
+                    } catch (e) {
+                        console.warn('Failed to parse extended_data:', e);
+                    }
+
+                    document.getElementById('modalTitle').textContent = '수정';
+                    document.getElementById('propertyId').value = property.id;
+                    
+                    // Main fields
+                    document.getElementById('projectName').value = property.title || '';
+                    document.getElementById('saleType').value = property.type || 'rental';
+                    document.getElementById('supplyType').value = extData.supplyType || '';
+                    document.getElementById('region').value = property.location || '';
+                    document.getElementById('fullAddress').value = property.full_address || '';
+                    document.getElementById('announcementDate').value = property.announcement_date || '';
+                    document.getElementById('moveInDate').value = property.move_in_date || '';
+                    document.getElementById('constructor').value = property.constructor || '';
+                    document.getElementById('mainImage').value = extData.mainImage || '';
+                    document.getElementById('hashtags').value = property.tags ? property.tags.join(', ') : '';
+
+                    // Steps
+                    document.getElementById('stepsContainer').innerHTML = '';
+                    if (extData.steps && Array.isArray(extData.steps)) {
+                        extData.steps.forEach(step => {
+                            const div = document.createElement('div');
+                            div.className = 'flex gap-2 items-center';
+                            div.innerHTML = \`
+                                <input type="text" value="\${step.date || ''}" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                <input type="text" value="\${step.title || ''}" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            \`;
+                            document.getElementById('stepsContainer').appendChild(div);
+                        });
+                    }
+
+                    // Supply rows
+                    document.getElementById('supplyRowsContainer').innerHTML = '';
+                    if (extData.supplyInfo && Array.isArray(extData.supplyInfo)) {
+                        extData.supplyInfo.forEach(row => {
+                            const div = document.createElement('div');
+                            div.className = 'flex gap-2 items-center p-3 bg-gray-50 rounded';
+                            div.innerHTML = \`
+                                <input type="text" value="\${row.type || ''}" class="supply-type px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
+                                <input type="text" value="\${row.area || ''}" class="supply-area px-2 py-1 border border-gray-300 rounded text-sm" style="width: 100px">
+                                <input type="text" value="\${row.households || ''}" class="supply-households px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
+                                <input type="text" value="\${row.price || ''}" class="supply-price flex-1 px-2 py-1 border border-gray-300 rounded text-sm">
+                                <button type="button" onclick="removeSupplyRow(this)" class="px-2 py-1 bg-red-500 text-white rounded text-sm">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            \`;
+                            document.getElementById('supplyRowsContainer').appendChild(div);
+                        });
+                    }
+
+                    // Detail fields
+                    const details = extData.details || {};
+                    document.getElementById('detail_location').value = details.location || '';
+                    document.getElementById('detail_landArea').value = details.landArea || '';
+                    document.getElementById('detail_totalHouseholds').value = details.totalHouseholds || '';
+                    document.getElementById('detail_parking').value = details.parking || '';
+                    document.getElementById('detail_parkingRatio').value = details.parkingRatio || '';
+                    document.getElementById('detail_architect').value = details.architect || '';
+                    document.getElementById('detail_constructor').value = details.constructor || '';
+                    document.getElementById('detail_website').value = details.website || '';
+                    
+                    document.getElementById('detail_targetTypes').value = details.targetTypes || '';
+                    document.getElementById('detail_incomeLimit').value = details.incomeLimit || '';
+                    document.getElementById('detail_assetLimit').value = details.assetLimit || '';
+                    document.getElementById('detail_homelessPeriod').value = details.homelessPeriod || '';
+                    document.getElementById('detail_savingsAccount').value = details.savingsAccount || '';
+                    
+                    document.getElementById('detail_selectionMethod').value = details.selectionMethod || '';
+                    document.getElementById('detail_scoringCriteria').value = details.scoringCriteria || '';
+                    document.getElementById('detail_notices').value = details.notices || '';
+                    
+                    document.getElementById('detail_applicationMethod').value = details.applicationMethod || '';
+                    document.getElementById('detail_applicationUrl').value = details.applicationUrl || '';
+                    document.getElementById('detail_requiredDocs').value = details.requiredDocs || '';
+                    
+                    document.getElementById('detail_contactDept').value = details.contactDept || '';
+                    document.getElementById('detail_contactPhone').value = details.contactPhone || '';
+                    document.getElementById('detail_contactEmail').value = details.contactEmail || '';
+                    document.getElementById('detail_contactAddress').value = details.contactAddress || '';
+                    
+                    document.getElementById('detail_features').value = details.features || '';
+                    document.getElementById('detail_surroundings').value = details.surroundings || '';
+                    document.getElementById('detail_transportation').value = details.transportation || '';
+                    document.getElementById('detail_education').value = details.education || '';
+
+                    document.getElementById('editModal').classList.add('active');
+                } catch (error) {
+                    console.error('Failed to load property:', error);
+                    alert('데이터 로드 실패');
+                }
+            }
+
+            // Close edit modal
+            function closeEditModal() {
+                document.getElementById('editModal').classList.remove('active');
+            }
+
+            // Delete property
+            function deleteProperty(id) {
+                deleteTargetId = id;
+                document.getElementById('deleteModal').classList.add('active');
+            }
+
+            // Close delete modal
+            function closeDeleteModal() {
+                document.getElementById('deleteModal').classList.remove('active');
+                deleteTargetId = null;
+            }
+
+            // Confirm delete
+            async function confirmDelete() {
+                if (!deleteTargetId) return;
+                
+                try {
+                    await axios.delete(\`/api/properties/\${deleteTargetId}\`);
+                    alert('삭제되었습니다');
+                    closeDeleteModal();
+                    loadProperties();
+                } catch (error) {
+                    console.error('Failed to delete:', error);
+                    alert('삭제 실패');
+                }
+            }
+
+            // Search properties
+            function searchProperties() {
+                const query = document.getElementById('searchInput').value.toLowerCase();
+                const rows = document.querySelectorAll('#propertiesTable tr');
+                
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(query) ? '' : 'none';
+                });
+            }
+
+            // Collect form data
+            function collectFormData() {
+                // Collect steps
+                const stepElements = document.querySelectorAll('#stepsContainer > div');
+                const steps = Array.from(stepElements).map(el => ({
+                    date: el.querySelector('.step-date').value,
+                    title: el.querySelector('.step-title').value
+                })).filter(s => s.date || s.title);
+
+                // Collect supply info
+                const supplyElements = document.querySelectorAll('#supplyRowsContainer > div');
+                const supplyInfo = Array.from(supplyElements).map(el => ({
+                    type: el.querySelector('.supply-type').value,
+                    area: el.querySelector('.supply-area').value,
+                    households: el.querySelector('.supply-households').value,
+                    price: el.querySelector('.supply-price').value
+                })).filter(s => s.type || s.area);
+
+                // Collect all detail fields
+                const details = {
+                    location: document.getElementById('detail_location').value,
+                    landArea: document.getElementById('detail_landArea').value,
+                    totalHouseholds: document.getElementById('detail_totalHouseholds').value,
+                    parking: document.getElementById('detail_parking').value,
+                    parkingRatio: document.getElementById('detail_parkingRatio').value,
+                    architect: document.getElementById('detail_architect').value,
+                    constructor: document.getElementById('detail_constructor').value,
+                    website: document.getElementById('detail_website').value,
+                    
+                    targetTypes: document.getElementById('detail_targetTypes').value,
+                    incomeLimit: document.getElementById('detail_incomeLimit').value,
+                    assetLimit: document.getElementById('detail_assetLimit').value,
+                    homelessPeriod: document.getElementById('detail_homelessPeriod').value,
+                    savingsAccount: document.getElementById('detail_savingsAccount').value,
+                    
+                    selectionMethod: document.getElementById('detail_selectionMethod').value,
+                    scoringCriteria: document.getElementById('detail_scoringCriteria').value,
+                    notices: document.getElementById('detail_notices').value,
+                    
+                    applicationMethod: document.getElementById('detail_applicationMethod').value,
+                    applicationUrl: document.getElementById('detail_applicationUrl').value,
+                    requiredDocs: document.getElementById('detail_requiredDocs').value,
+                    
+                    contactDept: document.getElementById('detail_contactDept').value,
+                    contactPhone: document.getElementById('detail_contactPhone').value,
+                    contactEmail: document.getElementById('detail_contactEmail').value,
+                    contactAddress: document.getElementById('detail_contactAddress').value,
+                    
+                    features: document.getElementById('detail_features').value,
+                    surroundings: document.getElementById('detail_surroundings').value,
+                    transportation: document.getElementById('detail_transportation').value,
+                    education: document.getElementById('detail_education').value
+                };
+
+                // Extended data object
+                const extendedData = {
+                    supplyType: document.getElementById('supplyType').value,
+                    mainImage: document.getElementById('mainImage').value,
+                    steps: steps,
+                    supplyInfo: supplyInfo,
+                    details: details
+                };
+
+                const tags = document.getElementById('hashtags').value.split(',').map(t => t.trim()).filter(t => t);
+
+                return {
+                    title: document.getElementById('projectName').value,
+                    type: document.getElementById('saleType').value,
+                    location: document.getElementById('region').value,
+                    full_address: document.getElementById('fullAddress').value,
+                    announcement_date: document.getElementById('announcementDate').value,
+                    move_in_date: document.getElementById('moveInDate').value,
+                    constructor: document.getElementById('constructor').value,
+                    deadline: document.getElementById('announcementDate').value || new Date().toISOString().split('T')[0],
+                    households: supplyInfo.reduce((sum, s) => sum + (parseInt(s.households) || 0), 0).toString() || '0',
+                    area_type: supplyInfo.map(s => s.type).join(', ') || '',
+                    price: supplyInfo.length > 0 ? supplyInfo[0].price : '',
+                    description: details.features || '',
+                    tags: JSON.stringify(tags),
+                    extended_data: JSON.stringify(extendedData),
+                    status: 'active'
+                };
+            }
+
+            // Form submit
+            document.getElementById('propertyForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const id = document.getElementById('propertyId').value;
+                const data = collectFormData();
+
+                try {
+                    if (id) {
+                        // Update
+                        await axios.post(\`/api/properties/\${id}/update-parsed\`, { updates: data });
+                        alert('수정되었습니다');
+                    } else {
+                        // Create
+                        await axios.post('/api/properties/create', data);
+                        alert('등록되었습니다');
+                    }
+                    
+                    closeEditModal();
+                    loadProperties();
+                } catch (error) {
+                    console.error('Failed to save:', error);
+                    alert('저장 실패: ' + (error.response?.data?.error || error.message));
+                }
+            });
+
+            // Initial load
+            loadProperties();
+        </script>
+    </body>
+    </html>
+  `)
+})
+
 // Main page
 app.get('/', (c) => {
   return c.html(`
@@ -2007,6 +4094,12 @@ app.get('/', (c) => {
         
         <!-- Naver Search Advisor Verification -->
         <meta name="naver-site-verification" content="84b2705d1e232018634d573e94e05c4e910baa96" />
+        
+        <!-- Cache Control -->
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+        <meta http-equiv="Pragma" content="no-cache">
+        <meta http-equiv="Expires" content="0">
+        
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <style>
@@ -2397,9 +4490,7 @@ app.get('/', (c) => {
                         <button class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-all">
                             <i class="fas fa-bell"></i>
                         </button>
-                        <button id="loginBtn" class="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-all text-sm">
-                            로그인
-                        </button>
+                        <!-- 로그인 버튼만 임시 비활성화 -->
                     </div>
                 </div>
             </div>
@@ -2550,6 +4641,7 @@ app.get('/', (c) => {
                     <div class="flex justify-center gap-6 mb-4">
                         <a href="/terms" class="hover:text-white transition-colors">이용약관</a>
                         <a href="/privacy" class="hover:text-white transition-colors">개인정보처리방침</a>
+                        <a href="/admin" class="hover:text-white transition-colors text-gray-500">Admin</a>
                     </div>
                     <p>© 2025 똑똑한한채. All rights reserved.</p>
                 </div>
@@ -2794,7 +4886,7 @@ app.get('/', (c) => {
         </div>
 
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-        <script src="/static/app.js"></script>
+        <script src="/static/app.js?v=${Date.now()}"></script>
         <script>
           // Filter state
           const filters = {
@@ -2828,6 +4920,83 @@ app.get('/', (c) => {
             }
           }
 
+          // Format price to Korean format (숫자 + 만원)
+          function formatPrice(priceStr) {
+            if (!priceStr || priceStr === '-') return '-';
+            
+            // 이미 올바른 형식이면 그대로 반환
+            if (priceStr.match(/^\d+~\d+만원$/) || priceStr.match(/^\d+만원$/)) {
+              return priceStr;
+            }
+            
+            // "보증금", "분양가" 등 불필요한 단어 제거
+            let cleaned = priceStr.replace(/(보증금|분양가|임대료|월세)/g, '').trim();
+            
+            // 쉼표 제거
+            cleaned = cleaned.replace(/,/g, '');
+            
+            // 구간 처리 (물결 ~)
+            if (cleaned.includes('~')) {
+              const parts = cleaned.split('~');
+              const min = formatSinglePrice(parts[0].trim());
+              const max = formatSinglePrice(parts[1].trim());
+              return \`\${min}~\${max}\`;
+            }
+            
+            return formatSinglePrice(cleaned);
+          }
+          
+          function formatSinglePrice(priceStr) {
+            // 숫자만 추출
+            const numStr = priceStr.replace(/[^0-9.]/g, '');
+            const num = parseFloat(numStr);
+            
+            if (isNaN(num)) return priceStr;
+            
+            // 이미 만원 단위면 그대로
+            if (priceStr.includes('만원') && num < 100000) {
+              return Math.round(num) + '만원';
+            }
+            
+            // 원 단위 → 만원으로 변환
+            if (num >= 10000) {
+              return Math.round(num / 10000) + '만원';
+            }
+            
+            // 이미 만원 단위
+            return Math.round(num) + '만원';
+          }
+
+          // Calculate subscription status (진행예정/진행중/마감)
+          function calculateSubscriptionStatus(startDateStr, endDateStr) {
+            if (!startDateStr && !endDateStr) {
+              return { text: '진행중', class: 'bg-blue-500' };
+            }
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (startDateStr) {
+              const startDate = new Date(startDateStr);
+              startDate.setHours(0, 0, 0, 0);
+              
+              if (today < startDate) {
+                return { text: '진행예정', class: 'bg-gray-500' };
+              }
+            }
+
+            if (endDateStr) {
+              const endDate = new Date(endDateStr);
+              endDate.setHours(0, 0, 0, 0);
+              
+              if (today > endDate) {
+                return { text: '마감', class: 'bg-gray-400' };
+              }
+            }
+
+            return { text: '진행중', class: 'bg-blue-500' };
+          }
+
           // Open map
           function openMap(address, lat, lng) {
             if (lat && lng && lat !== 0 && lng !== 0) {
@@ -2855,6 +5024,16 @@ app.get('/', (c) => {
             try {
               const response = await axios.get(\`/api/properties/detail/\${id}\`);
               const property = response.data;
+              
+              // Parse extended_data
+              let extendedData = {};
+              try {
+                if (property.extended_data && property.extended_data !== '{}') {
+                  extendedData = JSON.parse(property.extended_data);
+                }
+              } catch (e) {
+                console.warn('Failed to parse extended_data:', e);
+              }
               
               const dday = calculateDDay(property.deadline);
               const margin = formatMargin(property.expected_margin, property.margin_rate);
@@ -2928,10 +5107,10 @@ app.get('/', (c) => {
                           <span class="text-sm font-semibold text-gray-900">\${property.move_in_date}</span>
                         </div>
                       \` : ''}
-                      \${property.parking ? \`
+                      \${property.parking || extendedData.details?.parking ? \`
                         <div class="flex justify-between items-center py-2 border-b border-gray-200">
                           <span class="text-sm text-gray-600">주차</span>
-                          <span class="text-sm font-semibold text-gray-900">\${property.parking}</span>
+                          <span class="text-sm font-semibold text-gray-900">\${property.parking || extendedData.details.parking}</span>
                         </div>
                       \` : ''}
                       \${property.heating ? \`
@@ -2940,14 +5119,61 @@ app.get('/', (c) => {
                           <span class="text-sm font-semibold text-gray-900">\${property.heating}</span>
                         </div>
                       \` : ''}
-                      \${property.builder ? \`
-                        <div class="flex justify-between items-center py-2">
+                      \${property.builder || property.constructor || extendedData.details?.constructor ? \`
+                        <div class="flex justify-between items-center py-2 border-b border-gray-200">
                           <span class="text-sm text-gray-600">시공사</span>
-                          <span class="text-sm font-semibold text-gray-900">\${property.builder}</span>
+                          <span class="text-sm font-semibold text-gray-900">\${property.builder || property.constructor || extendedData.details.constructor}</span>
+                        </div>
+                      \` : ''}
+                      \${extendedData.details?.landArea ? \`
+                        <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                          <span class="text-sm text-gray-600">대지면적</span>
+                          <span class="text-sm font-semibold text-gray-900">\${extendedData.details.landArea}</span>
+                        </div>
+                      \` : ''}
+                      \${extendedData.details?.totalHouseholds ? \`
+                        <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                          <span class="text-sm text-gray-600">총 세대수</span>
+                          <span class="text-sm font-semibold text-gray-900">\${extendedData.details.totalHouseholds}</span>
+                        </div>
+                      \` : ''}
+                      \${extendedData.details?.website ? \`
+                        <div class="flex justify-between items-center py-2">
+                          <span class="text-sm text-gray-600">홈페이지</span>
+                          <a href="\${extendedData.details.website}" target="_blank" class="text-sm font-semibold text-primary hover:underline">\${extendedData.details.website}</a>
                         </div>
                       \` : ''}
                     </div>
                   </div>
+                  
+                  <!-- Supply Info from extended_data -->
+                  \${extendedData.supplyInfo && extendedData.supplyInfo.length > 0 ? \`
+                    <div class="bg-gray-50 rounded-lg p-5">
+                      <h3 class="text-base font-bold text-gray-900 mb-4">공급 세대 정보</h3>
+                      <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                          <thead class="bg-white">
+                            <tr>
+                              <th class="px-3 py-2 text-left font-semibold text-gray-700 border-b">타입</th>
+                              <th class="px-3 py-2 text-left font-semibold text-gray-700 border-b">면적</th>
+                              <th class="px-3 py-2 text-left font-semibold text-gray-700 border-b">세대수</th>
+                              <th class="px-3 py-2 text-left font-semibold text-gray-700 border-b">가격</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            \${extendedData.supplyInfo.map(info => \`
+                              <tr class="border-b border-gray-200">
+                                <td class="px-3 py-2 text-gray-900">\${info.type || '-'}</td>
+                                <td class="px-3 py-2 text-gray-900">\${info.area || '-'}</td>
+                                <td class="px-3 py-2 text-gray-900">\${info.households || '-'}</td>
+                                <td class="px-3 py-2 text-gray-900">\${info.price || '-'}</td>
+                              </tr>
+                            \`).join('')}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  \` : ''}
 
                   <!-- Selection Timeline (6 Steps) -->
                   \${property.application_start_date || property.no_rank_date || property.first_rank_date || property.special_subscription_date ? \`
@@ -3056,6 +5282,99 @@ app.get('/', (c) => {
                       </div>
                     </div>
                   \` : ''}
+                  
+                  <!-- Steps from extended_data -->
+                  \${extendedData.steps && extendedData.steps.length > 0 ? \`
+                    <div class="bg-gray-50 rounded-lg p-5">
+                      <h3 class="text-base font-bold text-gray-900 mb-4">📋 신청 절차</h3>
+                      <div class="space-y-3">
+                        \${extendedData.steps.map((step, idx) => \`
+                          <div class="flex items-start gap-3 bg-white p-3 rounded-lg">
+                            <div class="flex-shrink-0 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center text-sm font-bold">
+                              \${idx + 1}
+                            </div>
+                            <div class="flex-1">
+                              <div class="flex justify-between items-start">
+                                <span class="text-sm font-semibold text-gray-900">\${step.title}</span>
+                                <span class="text-xs text-gray-600">\${step.date}</span>
+                              </div>
+                            </div>
+                          </div>
+                        \`).join('')}
+                      </div>
+                    </div>
+                  \` : ''}
+
+                  <!-- 신청자격 from extended_data -->
+                  \${extendedData.details?.targetTypes || extendedData.details?.incomeLimit || extendedData.details?.assetLimit ? \`
+                    <div class="bg-gray-50 rounded-lg p-5">
+                      <h3 class="text-base font-bold text-gray-900 mb-4">🎯 신청자격</h3>
+                      <div class="text-sm text-gray-700 space-y-2">
+                        \${extendedData.details.targetTypes ? \`<p><strong>대상:</strong> \${extendedData.details.targetTypes}</p>\` : ''}
+                        \${extendedData.details.incomeLimit ? \`<p><strong>소득기준:</strong> \${extendedData.details.incomeLimit}</p>\` : ''}
+                        \${extendedData.details.assetLimit ? \`<p><strong>자산기준:</strong> \${extendedData.details.assetLimit}</p>\` : ''}
+                        \${extendedData.details.homelessPeriod ? \`<p><strong>무주택기간:</strong> \${extendedData.details.homelessPeriod}</p>\` : ''}
+                        \${extendedData.details.savingsAccount ? \`<p><strong>청약통장:</strong> \${extendedData.details.savingsAccount}</p>\` : ''}
+                      </div>
+                    </div>
+                  \` : ''}
+                  
+                  <!-- 입주자 선정 기준 -->
+                  \${extendedData.details?.selectionMethod || extendedData.details?.scoringCriteria ? \`
+                    <div class="bg-gray-50 rounded-lg p-5">
+                      <h3 class="text-base font-bold text-gray-900 mb-4">📊 입주자 선정 기준</h3>
+                      <div class="text-sm text-gray-700 space-y-2">
+                        \${extendedData.details.selectionMethod ? \`<p><strong>선정방식:</strong> \${extendedData.details.selectionMethod}</p>\` : ''}
+                        \${extendedData.details.scoringCriteria ? \`<p><strong>가점항목:</strong> \${extendedData.details.scoringCriteria}</p>\` : ''}
+                      </div>
+                    </div>
+                  \` : ''}
+                  
+                  <!-- 주의사항 -->
+                  \${extendedData.details?.notices ? \`
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-5">
+                      <h3 class="text-base font-bold text-gray-900 mb-4">⚠️ 주의사항</h3>
+                      <div class="text-sm text-gray-700 whitespace-pre-wrap">\${extendedData.details.notices}</div>
+                    </div>
+                  \` : ''}
+                  
+                  <!-- 온라인 신청 -->
+                  \${extendedData.details?.applicationMethod || extendedData.details?.applicationUrl ? \`
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-5">
+                      <h3 class="text-base font-bold text-gray-900 mb-4">💻 온라인 신청</h3>
+                      <div class="text-sm text-gray-700 space-y-2">
+                        \${extendedData.details.applicationMethod ? \`<p><strong>신청방법:</strong> \${extendedData.details.applicationMethod}</p>\` : ''}
+                        \${extendedData.details.applicationUrl ? \`<p><strong>신청URL:</strong> <a href="\${extendedData.details.applicationUrl}" target="_blank" class="text-primary hover:underline">\${extendedData.details.applicationUrl}</a></p>\` : ''}
+                        \${extendedData.details.requiredDocs ? \`<p><strong>필요서류:</strong> \${extendedData.details.requiredDocs}</p>\` : ''}
+                      </div>
+                    </div>
+                  \` : ''}
+                  
+                  <!-- 문의처 -->
+                  \${extendedData.details?.contactDept || extendedData.details?.contactPhone ? \`
+                    <div class="bg-gray-50 rounded-lg p-5">
+                      <h3 class="text-base font-bold text-gray-900 mb-4">📞 문의처</h3>
+                      <div class="text-sm text-gray-700 space-y-2">
+                        \${extendedData.details.contactDept ? \`<p><strong>담당부서:</strong> \${extendedData.details.contactDept}</p>\` : ''}
+                        \${extendedData.details.contactPhone ? \`<p><strong>전화번호:</strong> <a href="tel:\${extendedData.details.contactPhone}" class="text-primary hover:underline">\${extendedData.details.contactPhone}</a></p>\` : ''}
+                        \${extendedData.details.contactEmail ? \`<p><strong>이메일:</strong> <a href="mailto:\${extendedData.details.contactEmail}" class="text-primary hover:underline">\${extendedData.details.contactEmail}</a></p>\` : ''}
+                        \${extendedData.details.contactAddress ? \`<p><strong>주소:</strong> \${extendedData.details.contactAddress}</p>\` : ''}
+                      </div>
+                    </div>
+                  \` : ''}
+                  
+                  <!-- 단지 개요 -->
+                  \${extendedData.details?.features || extendedData.details?.surroundings || extendedData.details?.transportation ? \`
+                    <div class="bg-gray-50 rounded-lg p-5">
+                      <h3 class="text-base font-bold text-gray-900 mb-4">🏢 단지 개요</h3>
+                      <div class="text-sm text-gray-700 space-y-2">
+                        \${extendedData.details.features ? \`<p><strong>단지특징:</strong> \${extendedData.details.features}</p>\` : ''}
+                        \${extendedData.details.surroundings ? \`<p><strong>주변환경:</strong> \${extendedData.details.surroundings}</p>\` : ''}
+                        \${extendedData.details.transportation ? \`<p><strong>교통여건:</strong> \${extendedData.details.transportation}</p>\` : ''}
+                        \${extendedData.details.education ? \`<p><strong>교육시설:</strong> \${extendedData.details.education}</p>\` : ''}
+                      </div>
+                    </div>
+                  \` : ''}
 
                   <!-- Detailed Description (Simple Style) -->
                   \${property.description ? \`
@@ -3076,34 +5395,88 @@ app.get('/', (c) => {
                         }
                         
                         // 임대 조건 추출
-                        const rentalMatch = desc.match(/💰 임대 조건([\\s\\S]*?)(?=🏡|🎯|✨|📞|⚠️|💻|🔗|👍|$)/);
+                        const rentalMatch = desc.match(/💰 임대 조건([\\s\\S]*?)(?=🎯|📐|🏡|✨|📞|⚠️|💻|🔗|👍|$)/);
                         if (rentalMatch) {
                           sections.push(\`
                             <div class="bg-gray-50 rounded-lg p-5">
-                              <h3 class="text-base font-bold text-gray-900 mb-3">임대 조건</h3>
+                              <h3 class="text-base font-bold text-gray-900 mb-3">💰 임대 조건</h3>
                               <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">\${rentalMatch[1].trim()}</div>
                             </div>
                           \`);
                         }
                         
+                        // 신청자격 추출
+                        const qualificationMatch = desc.match(/🎯 신청자격([\\s\\S]*?)(?=📐|🏡|⚠️|💻|📞|🔗|👍|$)/);
+                        if (qualificationMatch) {
+                          sections.push(\`
+                            <div class="bg-gray-50 rounded-lg p-5">
+                              <h3 class="text-base font-bold text-gray-900 mb-3">🎯 신청자격</h3>
+                              <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">\${qualificationMatch[1].trim()}</div>
+                            </div>
+                          \`);
+                        }
+                        
+                        // 공급 세대수 및 면적 추출
+                        const supplyMatch = desc.match(/📐 공급 세대수 및 면적([\\s\\S]*?)(?=🏡|⚠️|💻|📞|🔗|👍|$)/);
+                        if (supplyMatch) {
+                          sections.push(\`
+                            <div class="bg-gray-50 rounded-lg p-5">
+                              <h3 class="text-base font-bold text-gray-900 mb-3">📐 공급 세대수 및 면적</h3>
+                              <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">\${supplyMatch[1].trim()}</div>
+                            </div>
+                          \`);
+                        }
+                        
+                        // 입주자 선정 기준 추출
+                        const selectionMatch = desc.match(/🏡 입주자 선정 기준([\\s\\S]*?)(?=⚠️|💻|📞|🔗|👍|$)/);
+                        if (selectionMatch) {
+                          sections.push(\`
+                            <div class="bg-gray-50 rounded-lg p-5">
+                              <h3 class="text-base font-bold text-gray-900 mb-3">🏡 입주자 선정 기준</h3>
+                              <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">\${selectionMatch[1].trim()}</div>
+                            </div>
+                          \`);
+                        }
+                        
                         // 주의사항 추출
-                        const warningMatch = desc.match(/⚠️ 주의사항([\\s\\S]*?)(?=💻|🔗|👍|$)/);
+                        const warningMatch = desc.match(/⚠️ 주의사항([\\s\\S]*?)(?=💻|📞|🔗|👍|$)/);
                         if (warningMatch) {
                           sections.push(\`
                             <div class="bg-gray-50 rounded-lg p-5">
-                              <h3 class="text-base font-bold text-gray-900 mb-3">주의사항</h3>
+                              <h3 class="text-base font-bold text-gray-900 mb-3">⚠️ 주의사항</h3>
                               <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">\${warningMatch[1].trim()}</div>
                             </div>
                           \`);
                         }
                         
                         // 온라인 신청 추출
-                        const onlineMatch = desc.match(/💻 온라인 신청([\\s\\S]*?)(?=🔗|👍|$)/);
+                        const onlineMatch = desc.match(/💻 온라인 신청([\\s\\S]*?)(?=📞|🔗|👍|$)/);
                         if (onlineMatch) {
                           sections.push(\`
                             <div class="bg-gray-50 rounded-lg p-5">
-                              <h3 class="text-base font-bold text-gray-900 mb-3">온라인 신청</h3>
+                              <h3 class="text-base font-bold text-gray-900 mb-3">💻 온라인 신청</h3>
                               <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">\${onlineMatch[1].trim()}</div>
+                            </div>
+                          \`);
+                        }
+                        
+                        // 문의처 추출
+                        const contactMatch = desc.match(/📞 문의처([\\s\\S]*?)(?=🔗|👍|$)/);
+                        if (contactMatch) {
+                          sections.push(\`
+                            <div class="bg-gray-50 rounded-lg p-5">
+                              <h3 class="text-base font-bold text-gray-900 mb-3">📞 문의처</h3>
+                              <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">\${contactMatch[1].trim()}</div>
+                            </div>
+                          \`);
+                        }
+                        
+                        // 특정 섹션이 없으면 전체 description을 그대로 표시 (PDF 파싱된 내용)
+                        if (sections.length === 0) {
+                          sections.push(\`
+                            <div class="bg-gray-50 rounded-lg p-5">
+                              <h3 class="text-base font-bold text-gray-900 mb-3">상세 정보</h3>
+                              <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">\${desc}</div>
                             </div>
                           \`);
                         }
@@ -3177,38 +5550,35 @@ app.get('/', (c) => {
               
               const statsContainer = document.getElementById('statsContainer');
               statsContainer.innerHTML = \`
-                <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="all">
+                <div class="stat-card bg-white rounded-xl shadow-sm p-5 active" data-type="all">
                   <div class="text-xs text-gray-500 mb-2 font-medium">전체분양</div>
-                  <div class="text-3xl font-bold text-gray-900">\${stats.unsold + stats.johab + stats.next}</div>
+                  <div class="text-3xl font-bold text-gray-900">\${stats.rental + stats.general + stats.unsold}</div>
                 </div>
-                <div class="stat-card bg-white rounded-xl shadow-sm p-5 active" data-type="unsold">
+                <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="rental">
+                  <div class="text-xs text-gray-500 mb-2 font-medium">임대분양</div>
+                  <div class="text-3xl font-bold text-gray-900">\${stats.rental || 0}</div>
+                </div>
+                <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="general">
+                  <div class="text-xs text-gray-500 mb-2 font-medium">청약분양</div>
+                  <div class="text-3xl font-bold text-gray-900">\${stats.general || 0}</div>
+                </div>
+                <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="unsold">
                   <div class="text-xs text-gray-500 mb-2 font-medium">줍줍분양</div>
-                  <div class="text-3xl font-bold">\${stats.unsold}</div>
-                </div>
-                <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="today">
-                  <div class="text-xs text-gray-500 mb-2 font-medium">오늘청약</div>
-                  <div class="text-3xl font-bold text-gray-900">0</div>
-                </div>
-                <div class="stat-card bg-white rounded-xl shadow-sm p-5 cursor-pointer" onclick="openJohapInquiry()">
-                  <div class="text-xs text-gray-500 mb-2 font-medium">조합원</div>
-                  <div class="text-3xl font-bold text-gray-900">0</div>
+                  <div class="text-3xl font-bold text-gray-900">\${stats.unsold}</div>
                 </div>
               \`;
               
               // Add click handlers
               document.querySelectorAll('.stat-card').forEach(card => {
                 const type = card.dataset.type;
-                // 조합원 카드는 onclick으로 처리되므로 제외
-                if (!card.hasAttribute('onclick')) {
-                  card.addEventListener('click', () => {
-                    filters.type = type;
-                    loadProperties();
-                    
-                    // Update active state
-                    document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
-                    card.classList.add('active');
-                  });
-                }
+                card.addEventListener('click', () => {
+                  filters.type = type;
+                  loadProperties();
+                  
+                  // Update active state
+                  document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+                  card.classList.add('active');
+                });
               });
             } catch (error) {
               console.error('Failed to load stats:', error);
@@ -3217,34 +5587,44 @@ app.get('/', (c) => {
 
           // Load properties
           async function loadProperties() {
+            console.time('⏱️ Total Load Time');
             const container = document.getElementById('propertiesContainer');
             container.classList.add('loading');
             
             try {
+              console.time('⏱️ API Request');
               const params = new URLSearchParams(filters);
               const response = await axios.get(\`/api/properties?\${params}\`);
               const properties = response.data;
+              console.timeEnd('⏱️ API Request');
+              console.log('✅ Loaded', properties.length, 'properties');
               
               if (properties.length === 0) {
-                // 조합원 탭일 경우 다른 메시지 표시
-                if (filters.type === 'next') {
-                  container.innerHTML = \`
-                    <div class="col-span-2 text-center py-12">
-                      <div class="text-6xl mb-4">👥</div>
-                      <h3 class="text-xl font-bold text-gray-900 mb-2">등록되어 있는 조합원이 없습니다</h3>
-                    </div>
-                  \`;
-                } else {
-                  container.innerHTML = \`
-                    <div class="col-span-2 text-center py-12">
-                      <div class="text-6xl mb-4">🏠</div>
-                      <h3 class="text-xl font-bold text-gray-900 mb-2">분양 정보가 없습니다</h3>
-                      <p class="text-gray-600">필터를 조정해보세요!</p>
-                    </div>
-                  \`;
-                }
+                container.innerHTML = \`
+                  <div class="col-span-2 text-center py-12">
+                    <div class="text-6xl mb-4">🏠</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2">분양 정보가 없습니다</h3>
+                    <p class="text-gray-600">필터를 조정해보세요!</p>
+                  </div>
+                \`;
               } else {
+                console.time('⏱️ Render Cards');
                 container.innerHTML = properties.map(property => {
+                  // Parse extended_data
+                  let extendedData = {};
+                  try {
+                    if (property.extended_data && property.extended_data !== '{}') {
+                      extendedData = JSON.parse(property.extended_data);
+                    }
+                  } catch (e) {
+                    console.warn('Failed to parse extended_data for property', property.id);
+                  }
+
+                  // Calculate subscription status if dates are available
+                  const subscriptionStatus = extendedData.subscriptionStartDate || extendedData.subscriptionEndDate
+                    ? calculateSubscriptionStatus(extendedData.subscriptionStartDate, extendedData.subscriptionEndDate)
+                    : null;
+
                   const dday = calculateDDay(property.deadline);
                   const margin = formatMargin(property.expected_margin, property.margin_rate);
                   
@@ -3254,9 +5634,26 @@ app.get('/', (c) => {
                       <!-- Header -->
                       <div class="flex items-start justify-between mb-3">
                         <div class="flex-1">
-                          <h3 class="text-lg font-bold text-gray-900 mb-2">\${property.title}</h3>
+                          <div class="flex items-center gap-2 mb-2">
+                            \${(() => {
+                              const typeConfig = {
+                                'rental': { label: '임대분양', color: 'bg-blue-100 text-blue-700' },
+                                'general': { label: '청약분양', color: 'bg-green-100 text-green-700' },
+                                'unsold': { label: '줍줍분양', color: 'bg-orange-100 text-orange-700' },
+                                'johab': { label: '조합원모집', color: 'bg-purple-100 text-purple-700' }
+                              };
+                              const config = typeConfig[property.type] || { label: property.type, color: 'bg-gray-100 text-gray-700' };
+                              return \`<span class="\${config.color} text-xs font-bold px-2 py-1 rounded">\${config.label}</span>\`;
+                            })()}
+                            <h3 class="text-lg font-bold text-gray-900">\${property.title}</h3>
+                          </div>
                         </div>
                         <div class="flex items-center gap-2">
+                          \${subscriptionStatus ? \`
+                            <span class="\${subscriptionStatus.class} text-white text-xs font-bold px-2 py-1 rounded">
+                              \${subscriptionStatus.text}
+                            </span>
+                          \` : ''}
                           <span class="\${dday.class} text-white text-xs font-bold px-2 py-1 rounded">
                             \${dday.text}
                           </span>
@@ -3282,16 +5679,36 @@ app.get('/', (c) => {
                       <div class="bg-gray-50 rounded-lg p-4 mb-3">
                         <div class="grid grid-cols-2 gap-3 text-sm">
                           <div>
-                            <div class="text-xs text-gray-500 mb-1">📅 줍줍일</div>
+                            <div class="text-xs text-gray-500 mb-1">\${
+                              (() => {
+                                switch(property.type) {
+                                  case 'unsold': return '📅 줍줍일';
+                                  case 'general': return '📅 청약일';
+                                  case 'rental': return '📅 신청마감';
+                                  case 'johab': return '📅 모집마감';
+                                  default: return '📅 마감일';
+                                }
+                              })()
+                            }</div>
                             <div class="font-bold text-gray-900">\${property.deadline}</div>
                           </div>
                           <div>
-                            <div class="text-xs text-gray-500 mb-1">🏠 분양세대</div>
+                            <div class="text-xs text-gray-500 mb-1">\${
+                              (() => {
+                                switch(property.type) {
+                                  case 'unsold': return '🏠 매물세대';
+                                  case 'general': return '🏠 분양세대';
+                                  case 'rental': return '🏠 모집세대';
+                                  case 'johab': return '🏠 조합세대';
+                                  default: return '🏠 세대수';
+                                }
+                              })()
+                            }</div>
                             <div class="font-bold text-gray-900">\${property.household_count ? property.household_count + '세대' : property.households}</div>
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">📏 전용면적</div>
-                            <div class="font-bold text-gray-900">\${property.exclusive_area_range || property.exclusive_area || '-'}</div>
+                            <div class="font-bold text-gray-900">\${property.area_type || property.exclusive_area_range || property.exclusive_area || '-'}</div>
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">📐 공급면적</div>
@@ -3315,32 +5732,92 @@ app.get('/', (c) => {
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">\${
-                              property.title && (property.title.includes('행복주택') || property.title.includes('희망타운') || property.title.includes('임대'))
+                              property.type === 'rental'
                                 ? '💰 임대보증금'
+                                : property.type === 'johab'
+                                ? '💰 조합가격'
                                 : '💰 분양가격'
                             }</div>
                             <div class="font-bold text-gray-900 text-xs">\${
                               (() => {
-                                // 임대주택인 경우 rental_deposit_range 우선 표시
-                                if (property.title && (property.title.includes('행복주택') || property.title.includes('희망타운') || property.title.includes('임대'))) {
+                                // rental 타입인 경우 rental_deposit_min/max를 만원 단위로 표시
+                                if (property.type === 'rental') {
                                   if (property.rental_deposit_range) {
-                                    return property.rental_deposit_range;
+                                    return formatPrice(property.rental_deposit_range);
                                   } else if (property.rental_deposit_min && property.rental_deposit_max) {
-                                    return property.rental_deposit_min.toFixed(1) + '억~' + property.rental_deposit_max.toFixed(1) + '억';
+                                    return property.rental_deposit_min + '~' + property.rental_deposit_max + '만원';
                                   }
                                 }
-                                // 분양주택인 경우 기존 로직
+                                // 분양주택인 경우
                                 if (property.sale_price_min && property.sale_price_max) {
-                                  return property.sale_price_min.toFixed(1) + '억~' + property.sale_price_max.toFixed(1) + '억';
+                                  return property.sale_price_min.toFixed(1) + '~' + property.sale_price_max.toFixed(1) + '억';
                                 }
-                                return property.price;
+                                return formatPrice(property.price);
                               })()
                             }</div>
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">🏗️ 시공사</div>
-                            <div class="font-bold text-gray-900 text-xs">\${property.builder || '-'}</div>
+                            <div class="font-bold text-gray-900 text-xs">\${property.constructor || property.builder || extendedData.details?.constructor || '-'}</div>
                           </div>
+                        </div>
+                      </div>
+
+                      <!-- Investment Info for Unsold (줍줍분양) -->
+                      \${property.type === 'unsold' ? \`
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-3">
+                          <div class="text-xs font-bold text-gray-700 mb-3">
+                            <i class="fas fa-chart-line text-blue-600 mr-2"></i>
+                            💰 투자 정보
+                          </div>
+                          \${property.original_price && property.recent_trade_price ? \`
+                            <div class="grid grid-cols-3 gap-3 text-center">
+                              <div>
+                                <div class="text-xs text-gray-500 mb-1">기존 분양가</div>
+                                <div class="font-bold text-gray-900 text-sm">\${property.original_price.toFixed(2)}억</div>
+                                <div class="text-xs text-gray-400 mt-1">(\${property.sale_price_date ? (() => {
+                                  const dateStr = String(property.sale_price_date);
+                                  const [year, month] = dateStr.split('.');
+                                  return year + '. ' + (month || '1') + '.';
+                                })() : '-'})</div>
+                              </div>
+                              <div>
+                                <div class="text-xs text-gray-500 mb-1">최근 실거래가</div>
+                                <div class="font-bold text-blue-600 text-sm">\${property.recent_trade_price.toFixed(2)}억</div>
+                                <div class="text-xs text-gray-400 mt-1">(\${property.recent_trade_date ? (() => {
+                                  const dateStr = String(property.recent_trade_date);
+                                  const [year, month] = dateStr.split('.');
+                                  return year + '. ' + (month || '1') + '.';
+                                })() : '-'})</div>
+                              </div>
+                              <div>
+                                <div class="text-xs text-gray-500 mb-1">분양가 대비</div>
+                                \${(() => {
+                                  const priceIncrease = property.recent_trade_price - property.original_price;
+                                  const increaseRate = (priceIncrease / property.original_price) * 100;
+                                  return \`
+                                    <div class="font-bold \${increaseRate >= 0 ? 'text-red-600' : 'text-blue-600'} text-sm">
+                                      \${increaseRate >= 0 ? '+' : ''}\${increaseRate.toFixed(1)}%
+                                    </div>
+                                    <div class="text-xs text-gray-400 mt-1">(\${priceIncrease >= 0 ? '+' : ''}\${priceIncrease.toFixed(2)}억)</div>
+                                  \`;
+                                })()}
+                              </div>
+                            </div>
+                          \` : \`
+                            <div class="text-center py-3">
+                              <div class="text-xs text-gray-500">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                실거래가 정보 준비 중
+                              </div>
+                            </div>
+                          \`}
+                        </div>
+                      \` : ''}
+
+                      <!-- Timeline Section -->
+                      <div>
+                        <div class="bg-gray-50 rounded-lg p-4">
                           \${(() => {
                             // 현재 날짜와 가장 가까운 다음 단계만 표시
                             const today = new Date();
@@ -3357,48 +5834,42 @@ app.get('/', (c) => {
                               }
                             };
                             
+                            // 5단계 타임라인: 공고 → 접수 → 당첨자발표 → 서류제출 → 계약
                             const steps = [
+                              { 
+                                date: property.announcement_date,
+                                icon: '📢',
+                                label: '공고',
+                                subtitle: '',
+                                dateDisplay: property.announcement_date
+                              },
                               { 
                                 date: property.application_end_date || property.application_start_date,
                                 icon: '📝',
-                                label: getFirstStepLabel(),
+                                label: '접수',
                                 subtitle: '현장·인터넷·모바일',
-                                dateDisplay: property.application_start_date + (property.application_end_date && property.application_end_date !== property.application_start_date ? '~' + property.application_end_date : '')
+                                dateDisplay: property.application_start_date + (property.application_end_date && property.application_end_date !== property.application_start_date ? ' ~ ' + property.application_end_date : '')
+                              },
+                              { 
+                                date: property.winner_announcement,
+                                icon: '🎉',
+                                label: '당첨자발표',
+                                subtitle: '',
+                                dateDisplay: property.winner_announcement
                               },
                               { 
                                 date: property.document_submission_date,
                                 icon: '📄',
-                                label: '서류제출 대상자 발표',
-                                subtitle: '인터넷·모바일 신청자 한함',
+                                label: '당첨자(예비입주자) 서류제출',
+                                subtitle: '',
                                 dateDisplay: property.document_submission_date
                               },
                               { 
-                                date: property.document_acceptance_end_date || property.document_acceptance_start_date,
-                                icon: '📋',
-                                label: '사업주체 대상자 서류접수',
-                                subtitle: '인터넷 신청자',
-                                dateDisplay: property.document_acceptance_start_date + (property.document_acceptance_end_date && property.document_acceptance_end_date !== property.document_acceptance_start_date ? '~' + property.document_acceptance_end_date : '')
-                              },
-                              { 
-                                date: property.qualification_verification_date,
-                                icon: '✅',
-                                label: '입주자격 검증 및 부적격자 소명',
+                                date: property.contract_date,
+                                icon: '✍️',
+                                label: '계약',
                                 subtitle: '',
-                                dateDisplay: property.qualification_verification_date
-                              },
-                              { 
-                                date: property.appeal_review_date,
-                                icon: '📊',
-                                label: '소명 절차 및 심사',
-                                subtitle: '',
-                                dateDisplay: property.appeal_review_date
-                              },
-                              { 
-                                date: property.final_announcement_date,
-                                icon: '🎉',
-                                label: '예비입주자 당첨자 발표',
-                                subtitle: '',
-                                dateDisplay: property.final_announcement_date
+                                dateDisplay: property.contract_date
                               }
                             ];
                             
@@ -3466,71 +5937,6 @@ app.get('/', (c) => {
                         \` : ''}
                       </div>
                       
-                      <!-- 💰 투자 정보 (투자형만 표시) -->
-                      \${property.type === 'unsold' && (property.sale_price_min >= 0.1 || property.sale_price_max >= 0.1 || property.recent_trade_price >= 0.1) ? \`
-                      <div class="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-400 rounded-xl p-4 mb-3">
-                        <div class="text-sm font-bold text-gray-800 mb-3">💰 투자 정보</div>
-                        <div class="space-y-3">
-                          <!-- 기존 분양가 (0.1억 이상만 표시) -->
-                          \${(property.sale_price_min >= 0.1 || property.sale_price_max >= 0.1) ? \`
-                            <div class="flex justify-between items-center">
-                              <div class="flex flex-col">
-                                <span class="text-sm text-gray-700 font-semibold">기존 분양가</span>
-                                \${property.sale_price_date ? \`
-                                  <span class="text-xs text-gray-500 mt-0.5">(\${property.sale_price_date})</span>
-                                \` : ''}
-                              </div>
-                              <div class="text-right">
-                                <div class="text-base font-semibold text-gray-900">
-                                  \${property.sale_price_min >= 0.1 && property.sale_price_max >= 0.1
-                                    ? \`\${property.sale_price_min.toFixed(2)}억 ~ \${property.sale_price_max.toFixed(2)}억\`
-                                    : property.sale_price_min >= 0.1
-                                      ? \`\${property.sale_price_min.toFixed(2)}억\`
-                                      : \`\${property.sale_price_max.toFixed(2)}억\`
-                                  }
-                                </div>
-                              </div>
-                            </div>
-                          \` : ''}
-                          
-                          <!-- 최근 실거래가 (0.1억 이상만 표시) -->
-                          \${property.recent_trade_price >= 0.1 ? \`
-                            <div class="flex justify-between items-center \${(property.sale_price_min >= 0.1 || property.sale_price_max >= 0.1) ? 'border-t border-red-200 pt-3' : ''}">
-                              <div class="flex flex-col">
-                                <span class="text-sm text-gray-700 font-semibold">최근 실거래가</span>
-                                \${property.recent_trade_date ? \`
-                                  <span class="text-xs text-gray-500 mt-0.5">(\${property.recent_trade_date})</span>
-                                \` : ''}
-                              </div>
-                              <div class="text-base font-semibold text-gray-900">
-                                \${property.recent_trade_price.toFixed(1)}억
-                              </div>
-                            </div>
-                          \` : ''}
-                          
-                          <!-- 상승률 표시 -->
-                          \${(property.sale_price_min >= 0.1 || property.sale_price_max >= 0.1) && property.recent_trade_price >= 0.1 ? \`
-                            <div class="border-t border-red-200 pt-3">
-                              <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-600">기존 분양가 대비</span>
-                                <span class="text-base font-bold \${(() => {
-                                  const basePrice = property.sale_price_max || property.sale_price_min;
-                                  const rate = ((property.recent_trade_price - basePrice) / basePrice * 100);
-                                  return rate > 0 ? 'text-red-600' : 'text-blue-600';
-                                })()}">
-                                  \${(() => {
-                                    const basePrice = property.sale_price_max || property.sale_price_min;
-                                    const rate = ((property.recent_trade_price - basePrice) / basePrice * 100);
-                                    return (rate > 0 ? '+' : '') + rate.toFixed(1) + '%';
-                                  })()}
-                                </span>
-                              </div>
-                            </div>
-                          \` : ''}
-                        </div>
-                      </div>
-                      \` : ''}
-                      
                       <!-- Tags -->
                       <div class="flex flex-wrap gap-1.5 mb-3">
                         \${property.tags.map(tag => \`
@@ -3592,9 +5998,10 @@ app.get('/', (c) => {
                   </div>
                 \`;
                 }).join('');
+                console.timeEnd('⏱️ Render Cards');
               }
             } catch (error) {
-              console.error('Failed to load properties:', error);
+              console.error('❌ Failed to load properties:', error);
               container.innerHTML = \`
                 <div class="col-span-2 text-center py-12">
                   <div class="text-6xl mb-4">😢</div>
@@ -3604,6 +6011,7 @@ app.get('/', (c) => {
               \`;
             } finally {
               container.classList.remove('loading');
+              console.timeEnd('⏱️ Total Load Time');
             }
           }
 
@@ -3623,25 +6031,25 @@ app.get('/', (c) => {
             }
           });
 
-          // Login modal handlers
-          const loginModal = document.getElementById('loginModal');
-          const loginBtn = document.getElementById('loginBtn');
-          const closeLoginModal = document.getElementById('closeLoginModal');
-          const signupBtn = document.getElementById('signupBtn');
+          // Login modal handlers - 로그인 기능 임시 비활성화
+          // const loginModal = document.getElementById('loginModal');
+          // const loginBtn = document.getElementById('loginBtn');
+          // const closeLoginModal = document.getElementById('closeLoginModal');
+          // const signupBtn = document.getElementById('signupBtn');
 
-          loginBtn.addEventListener('click', () => {
-            loginModal.classList.add('show');
-          });
+          // loginBtn.addEventListener('click', () => {
+          //   loginModal.classList.add('show');
+          // });
 
-          closeLoginModal.addEventListener('click', () => {
-            loginModal.classList.remove('show');
-          });
+          // closeLoginModal.addEventListener('click', () => {
+          //   loginModal.classList.remove('show');
+          // });
 
-          loginModal.addEventListener('click', (e) => {
-            if (e.target === loginModal) {
-              loginModal.classList.remove('show');
-            }
-          });
+          // loginModal.addEventListener('click', (e) => {
+          //   if (e.target === loginModal) {
+          //     loginModal.classList.remove('show');
+          //   }
+          // });
 
           // 조합원 문의 modal handlers
           const johapModal = document.getElementById('johapInquiryModal');
@@ -4209,32 +6617,32 @@ app.get('/', (c) => {
           
           // 로그인 상태 확인 및 UI 업데이트
           function checkLoginStatus() {
-            const userStr = localStorage.getItem('user');
+            // ⚠️ TEST MODE: 로그인 체크 완전 비활성화
             const loginBtn = document.getElementById('loginBtn');
             
-            if (userStr) {
-              try {
-                const user = JSON.parse(userStr);
-                // 로그인 상태: 프로필 이미지 + 닉네임 표시
-                loginBtn.innerHTML = \`
-                  <div class="flex items-center gap-2">
-                    <img src="\${user.profileImage || 'https://via.placeholder.com/32'}" 
-                         class="w-8 h-8 rounded-full" 
-                         onerror="this.src='https://via.placeholder.com/32'">
-                    <span class="hidden sm:inline">\${user.nickname}</span>
-                    <i class="fas fa-chevron-down text-xs"></i>
-                  </div>
-                \`;
-                loginBtn.onclick = showUserMenu;
-              } catch (e) {
-                console.error('Failed to parse user data:', e);
-                localStorage.removeItem('user');
-              }
-            } else {
-              // 로그아웃 상태: 로그인 버튼 - 모달 열기
-              loginBtn.innerHTML = '로그인';
-              loginBtn.onclick = openLoginModal;
-            }
+            // 테스트 사용자로 자동 로그인 처리
+            const testUser = {
+              id: 999,
+              nickname: '테스트사용자',
+              email: 'test@test.com',
+              profileImage: 'https://via.placeholder.com/32',
+              provider: 'email'
+            };
+            
+            // 테스트 사용자를 localStorage에 저장
+            localStorage.setItem('user', JSON.stringify(testUser));
+            
+            // 로그인 상태로 UI 표시
+            loginBtn.innerHTML = \`
+              <div class="flex items-center gap-2">
+                <img src="\${testUser.profileImage}" 
+                     class="w-8 h-8 rounded-full" 
+                     onerror="this.src='https://via.placeholder.com/32'">
+                <span class="hidden sm:inline">\${testUser.nickname}</span>
+                <i class="fas fa-chevron-down text-xs"></i>
+              </div>
+            \`;
+            loginBtn.onclick = showUserMenu;
           }
           
           // ==================== 마이페이지 드롭다운 (사람인 스타일) ====================
@@ -4386,8 +6794,64 @@ app.get('/', (c) => {
             }
           }
 
+          // 실거래가 업데이트 버튼 핸들러
+          document.addEventListener('click', async function(e) {
+            const target = e.target.closest('.update-trade-price-btn');
+            if (!target) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const propertyId = target.dataset.propertyId;
+            const propertyTitle = target.dataset.propertyTitle;
+            
+            if (!confirm(\`"\${propertyTitle}"의 실거래가를 조회하시겠습니까?\\n\\n국토교통부 API를 통해 최근 3개월 실거래가를 조회합니다.\`)) {
+              return;
+            }
+            
+            // 버튼 비활성화 및 로딩 표시
+            const originalHtml = target.innerHTML;
+            target.disabled = true;
+            target.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> 조회중...';
+            
+            try {
+              const response = await fetch(\`/api/properties/\${propertyId}/update-trade-price\`, {
+                method: 'POST'
+              });
+              
+              const data = await response.json();
+              
+              if (data.success) {
+                const message = '✅ 실거래가 조회 완료!\\n\\n' +
+                  '입력한 이름: ' + data.userInputName + '\\n' +
+                  '매칭된 아파트: ' + data.matchedApartmentName + '\\n' +
+                  '매칭 점수: ' + Math.round(data.matchScore) + '점\\n\\n' +
+                  '최근 실거래가: ' + data.analysis.recentPrice + '억원\\n' +
+                  '거래일: ' + data.analysis.recentDate + '\\n' +
+                  '조회된 거래: ' + data.tradesFound + '건\\n\\n' +
+                  '페이지를 새로고침합니다.';
+                alert(message);
+                window.location.reload();
+              } else {
+                let errorMsg = '❌ 실거래가 조회 실패\\n\\n' + (data.message || data.error);
+                if (data.availableApartments && data.availableApartments.length > 0) {
+                  errorMsg += '\\n\\n📋 해당 지역의 아파트 목록 (일부):\\n' + 
+                    data.availableApartments.slice(0, 5).join('\\n');
+                }
+                alert(errorMsg);
+                target.disabled = false;
+                target.innerHTML = originalHtml;
+              }
+            } catch (error) {
+              console.error('Trade price update error:', error);
+              alert('실거래가 조회 중 오류가 발생했습니다.');
+              target.disabled = false;
+              target.innerHTML = originalHtml;
+            }
+          });
+
           // Initialize
-          checkLoginStatus();
+          // checkLoginStatus(); // 로그인 기능 임시 비활성화
           loadStats();
           loadProperties();
           setupNewFilters();
@@ -4395,6 +6859,11 @@ app.get('/', (c) => {
     </body>
     </html>
   `)
+})
+
+// Favicon route
+app.get('/favicon.ico', (c) => {
+  return c.text('', 204)
 })
 
 export default app
