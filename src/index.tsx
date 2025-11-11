@@ -5644,10 +5644,10 @@ app.get('/', (c) => {
                           <span class="text-sm font-semibold text-gray-900">\${property.heating}</span>
                         </div>
                       \` : ''}
-                      \${property.builder || property.constructor || extendedData.details?.constructor ? \`
+                      \${property.builder || extendedData.details?.constructor ? \`
                         <div class="flex justify-between items-center py-2 border-b border-gray-200">
                           <span class="text-sm text-gray-600">시공사</span>
-                          <span class="text-sm font-semibold text-gray-900">\${property.builder || property.constructor || extendedData.details.constructor}</span>
+                          <span class="text-sm font-semibold text-gray-900">\${property.builder || extendedData.details.constructor}</span>
                         </div>
                       \` : ''}
                       \${extendedData.details?.landArea ? \`
@@ -6325,7 +6325,7 @@ app.get('/', (c) => {
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">🏗️ 시공사</div>
-                            <div class="font-bold text-gray-900 text-xs">\${property.constructor || property.builder || extendedData.details?.constructor || '-'}</div>
+                            <div class="font-bold text-gray-900 text-xs">\${property.builder || extendedData.details?.constructor || '-'}</div>
                           </div>
                         </div>
                       </div>
