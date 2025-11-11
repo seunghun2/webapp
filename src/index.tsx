@@ -682,7 +682,8 @@ app.get('/api/properties', async (c) => {
     const properties = result.results.map((prop: any) => {
       let parsedTags = []
       try {
-        parsedTags = typeof prop.tags === 'string' ? JSON.parse(prop.tags) : (prop.tags || [])
+        // tags는 쉼표로 구분된 문자열 (예: "📦 줍줍분양,🏙️ 세종,💰 3억대")
+        parsedTags = typeof prop.tags === 'string' ? prop.tags.split(',').map((t: string) => t.trim()) : (prop.tags || [])
       } catch (e) {
         console.warn('Failed to parse tags:', e)
       }
@@ -716,7 +717,7 @@ app.get('/api/properties/detail/:id', async (c) => {
     
     const property = {
       ...result,
-      tags: JSON.parse(result.tags as string)
+      tags: typeof result.tags === 'string' ? result.tags.split(',').map((t: string) => t.trim()) : (result.tags || [])
     }
     
     return c.json(property)
