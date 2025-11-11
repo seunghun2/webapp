@@ -2793,6 +2793,182 @@ app.delete('/api/admin/delete-image/:filename', async (c) => {
   }
 })
 
+// Real Estate Transaction Price API (국토교통부 실거래가 API)
+app.post('/api/admin/fetch-trade-price', async (c) => {
+  try {
+    const { address, exclusiveArea } = await c.req.json()
+    const MOLIT_API_KEY = c.env.MOLIT_API_KEY // 국토교통부 API 키
+    
+    if (!MOLIT_API_KEY || MOLIT_API_KEY === 'your_molit_api_key_here') {
+      return c.json({ 
+        success: false, 
+        error: '국토교통부 API 키가 설정되지 않았습니다. .dev.vars 파일에 MOLIT_API_KEY를 추가해주세요.' 
+      }, 500)
+    }
+
+    // 주소에서 시/군/구 정보 추출
+    const addressParts = address.split(' ')
+    let sigunguCode = ''
+    let sigunguName = ''
+    
+    // 주요 지역 코드 매핑
+    const regionCodes = {
+      '세종특별자치시': '36110',
+      '세종': '36110',
+      '전북특별자치도 김제시': '45210',
+      '전북 김제': '45210',
+      '경기도 평택시': '41220',
+      '경기 평택': '41220',
+      '경기도 화성시': '41590',
+      '경기 화성': '41590',
+      '서울특별시 강남구': '11680',
+      '서울 강남구': '11680',
+      '서울특별시 서초구': '11650',
+      '서울 서초구': '11650',
+    }
+    
+    // 시/도 또는 시/도+시/군/구 조합으로 코드 찾기
+    if (addressParts.length >= 2) {
+      const sido = addressParts[0]
+      const sigungu = addressParts[1]
+      sigunguName = `${sido} ${sigungu}`
+      
+      // 1. 시/도 + 시/군/구 조합으로 찾기
+      sigunguCode = regionCodes[sigunguName] || ''
+      
+      // 2. 찾지 못하면 시/도만으로 찾기 (세종시, 제주시 등)
+      if (!sigunguCode) {
+        sigunguCode = regionCodes[sido] || ''
+        sigunguName = sido
+      }
+    } else if (addressParts.length === 1) {
+      // 주소가 하나만 있는 경우 (예: "세종특별자치시")
+      sigunguName = addressParts[0]
+      sigunguCode = regionCodes[sigunguName] || ''
+    }
+    
+    if (!sigunguCode) {
+      return c.json({ 
+        success: false, 
+        error: `지역 코드를 찾을 수 없습니다: ${sigunguName}. 지원 지역: 세종, 전북 김제, 경기 평택/화성, 서울 강남/서초` 
+      }, 400)
+    }
+
+    // 현재 년월 (YYYYMM)
+    const now = new Date()
+    const dealYmd = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0')
+    
+    // 국토교통부 아파트 실거래가 API 호출
+    const apiUrl = `http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev`
+    const params = new URLSearchParams({
+      serviceKey: MOLIT_API_KEY,
+      LAWD_CD: sigunguCode,
+      DEAL_YMD: dealYmd,
+      numOfRows: '100'
+    })
+
+    console.log('실거래가 API 호출:', apiUrl + '?' + params.toString())
+
+    const response = await fetch(`${apiUrl}?${params}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/xml'
+      }
+    })
+
+    if (!response.ok) {
+      return c.json({ 
+        success: false, 
+        error: `API 호출 실패: ${response.status}` 
+      }, 500)
+    }
+
+    const xmlText = await response.text()
+    console.log('API 응답 샘플:', xmlText.substring(0, 500))
+
+    // XML 파싱 (간단한 정규식 사용)
+    const items = []
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g
+    let match
+
+    while ((match = itemRegex.exec(xmlText)) !== null) {
+      const itemXml = match[1]
+      
+      const getXmlValue = (tag) => {
+        const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\/${tag}>`)
+        const m = itemXml.match(regex)
+        return m ? m[1].trim() : ''
+      }
+
+      const item = {
+        apartmentName: getXmlValue('아파트'),
+        exclusiveArea: parseFloat(getXmlValue('전용면적')),
+        dealAmount: getXmlValue('거래금액'),
+        dealYear: getXmlValue('년'),
+        dealMonth: getXmlValue('월'),
+        dealDay: getXmlValue('일'),
+        dong: getXmlValue('법정동'),
+        jibun: getXmlValue('지번')
+      }
+
+      items.push(item)
+    }
+
+    console.log(`총 ${items.length}개의 실거래 데이터 파싱 완료`)
+
+    // 주소 기반으로 필터링 (아파트명 매칭)
+    const filteredItems = items.filter(item => {
+      // 전용면적 기준으로 필터링 (±5㎡ 오차 허용)
+      const areaMatch = exclusiveArea ? Math.abs(item.exclusiveArea - exclusiveArea) <= 5 : true
+      return areaMatch
+    })
+
+    if (filteredItems.length === 0) {
+      return c.json({
+        success: true,
+        data: {
+          found: false,
+          message: '해당 지역의 최근 실거래가 정보를 찾을 수 없습니다.',
+          totalResults: items.length
+        }
+      })
+    }
+
+    // 가장 최근 거래 찾기
+    const latestTrade = filteredItems.reduce((latest, current) => {
+      const latestDate = new Date(latest.dealYear, latest.dealMonth - 1, latest.dealDay)
+      const currentDate = new Date(current.dealYear, current.dealMonth - 1, current.dealDay)
+      return currentDate > latestDate ? current : latest
+    })
+
+    // 거래금액 파싱 (예: "60,000" -> 6.0억)
+    const dealAmountStr = latestTrade.dealAmount.replace(/,/g, '').trim()
+    const dealAmountInEok = parseFloat(dealAmountStr) / 10000
+
+    return c.json({
+      success: true,
+      data: {
+        found: true,
+        apartmentName: latestTrade.apartmentName,
+        exclusiveArea: latestTrade.exclusiveArea,
+        recentTradePrice: dealAmountInEok,
+        recentTradeDate: `${latestTrade.dealYear}.${latestTrade.dealMonth}`,
+        dealYear: latestTrade.dealYear,
+        dealMonth: latestTrade.dealMonth,
+        dealDay: latestTrade.dealDay,
+        location: `${latestTrade.dong} ${latestTrade.jibun}`,
+        totalResults: filteredItems.length
+      }
+    })
+  } catch (error) {
+    console.error('실거래가 조회 오류:', error)
+    return c.json({ 
+      success: false, 
+      error: error.message || '실거래가 조회 중 오류가 발생했습니다.' 
+    }, 500)
+  }
+})
+
 // Admin login page
 app.get('/admin/login', (c) => {
   return c.html(`
@@ -2896,36 +3072,36 @@ app.get('/admin', (c) => {
     <body class="bg-gray-50">
         <!-- Header -->
         <header class="bg-white shadow-sm">
-            <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-                <div>
-                    <h1 class="text-2xl font-bold text-gray-900">한채365 어드민</h1>
-                    <p class="text-sm text-gray-500">분양 정보 관리 시스템</p>
+            <div class="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between">
+                <div class="flex-1 min-w-0">
+                    <h1 class="text-lg sm:text-2xl font-bold text-gray-900 truncate">한채365 어드민</h1>
+                    <p class="text-xs sm:text-sm text-gray-500 hidden sm:block">분양 정보 관리 시스템</p>
                 </div>
-                <div class="flex gap-3">
-                    <button onclick="logout()" class="text-sm text-red-600 hover:text-red-800">
-                        <i class="fas fa-sign-out-alt mr-1"></i>로그아웃
+                <div class="flex gap-2 sm:gap-3 flex-shrink-0">
+                    <button onclick="logout()" class="text-xs sm:text-sm text-red-600 hover:text-red-800 whitespace-nowrap">
+                        <i class="fas fa-sign-out-alt sm:mr-1"></i><span class="hidden sm:inline">로그아웃</span>
                     </button>
-                    <button onclick="window.location.href='/'" class="text-sm text-gray-600 hover:text-gray-900">
-                        <i class="fas fa-home mr-1"></i>메인으로
+                    <button onclick="window.location.href='/'" class="text-xs sm:text-sm text-gray-600 hover:text-gray-900 whitespace-nowrap">
+                        <i class="fas fa-home sm:mr-1"></i><span class="hidden sm:inline">메인으로</span>
                     </button>
                 </div>
             </div>
         </header>
 
         <!-- Tabs -->
-        <div class="bg-white border-b">
-            <div class="max-w-7xl mx-auto px-4">
-                <div class="flex gap-8">
-                    <button onclick="switchTab('all')" class="tab-btn py-4 font-medium text-gray-600 tab-active" data-tab="all">
+        <div class="bg-white border-b overflow-x-auto">
+            <div class="max-w-7xl mx-auto px-3 sm:px-4">
+                <div class="flex gap-4 sm:gap-8 min-w-max">
+                    <button onclick="switchTab('all')" class="tab-btn py-3 sm:py-4 font-medium text-sm sm:text-base text-gray-600 tab-active whitespace-nowrap" data-tab="all">
                         전체분양
                     </button>
-                    <button onclick="switchTab('rental')" class="tab-btn py-4 font-medium text-gray-600" data-tab="rental">
+                    <button onclick="switchTab('rental')" class="tab-btn py-3 sm:py-4 font-medium text-sm sm:text-base text-gray-600 whitespace-nowrap" data-tab="rental">
                         임대분양
                     </button>
-                    <button onclick="switchTab('general')" class="tab-btn py-4 font-medium text-gray-600" data-tab="general">
+                    <button onclick="switchTab('general')" class="tab-btn py-3 sm:py-4 font-medium text-sm sm:text-base text-gray-600 whitespace-nowrap" data-tab="general">
                         청약분양
                     </button>
-                    <button onclick="switchTab('unsold')" class="tab-btn py-4 font-medium text-gray-600" data-tab="unsold">
+                    <button onclick="switchTab('unsold')" class="tab-btn py-3 sm:py-4 font-medium text-sm sm:text-base text-gray-600 whitespace-nowrap" data-tab="unsold">
                         줍줍분양
                     </button>
                 </div>
@@ -2933,72 +3109,76 @@ app.get('/admin', (c) => {
         </div>
 
         <!-- Main Content -->
-        <div class="max-w-7xl mx-auto px-4 py-6">
+        <div class="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
             <!-- Search & Actions -->
-            <div class="bg-white rounded-lg shadow-sm p-4 mb-4 flex gap-3 items-center">
+            <div class="bg-white rounded-lg shadow-sm p-3 sm:p-4 mb-3 sm:mb-4 flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <input type="text" id="searchInput" placeholder="단지명, 지역 검색..." 
-                       class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
-                <button onclick="searchProperties()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
-                    <i class="fas fa-search mr-2"></i>검색
-                </button>
-                <button onclick="openAddModal()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
-                    <i class="fas fa-plus mr-2"></i>신규등록
-                </button>
+                       class="flex-1 px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                <div class="flex gap-2 sm:gap-3">
+                    <button onclick="searchProperties()" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm sm:text-base">
+                        <i class="fas fa-search sm:mr-2"></i><span class="hidden sm:inline">검색</span>
+                    </button>
+                    <button onclick="openAddModal()" class="flex-1 sm:flex-none px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm sm:text-base">
+                        <i class="fas fa-plus sm:mr-2"></i>신규등록
+                    </button>
+                </div>
             </div>
 
             <!-- Properties Table -->
             <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-                <table class="w-full">
-                    <thead class="bg-gray-50 border-b">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">단지명</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">지역</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">타입</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">마감일</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">작업</th>
-                        </tr>
-                    </thead>
-                    <tbody id="propertiesTable" class="divide-y divide-gray-200">
-                        <!-- Data will be loaded here -->
-                    </tbody>
-                </table>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[640px]">
+                        <thead class="bg-gray-50 border-b">
+                            <tr>
+                                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">단지명</th>
+                                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">지역</th>
+                                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">타입</th>
+                                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">마감일</th>
+                                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="propertiesTable" class="divide-y divide-gray-200">
+                            <!-- Data will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
         <!-- Add/Edit Modal -->
-        <div id="editModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
-            <div class="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-                <div class="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
-                    <h2 id="modalTitle" class="text-xl font-bold text-gray-900">신규 등록</h2>
-                    <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600">
-                        <i class="fas fa-times text-2xl"></i>
+        <div id="editModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-2 sm:p-4">
+            <div class="bg-white rounded-xl max-w-6xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 bg-white border-b px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between z-10">
+                    <h2 id="modalTitle" class="text-lg sm:text-xl font-bold text-gray-900">신규 등록</h2>
+                    <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600 p-2 -m-2">
+                        <i class="fas fa-times text-xl sm:text-2xl"></i>
                     </button>
                 </div>
-                <div class="p-6">
-                    <form id="propertyForm" class="space-y-6">
+                <div class="p-4 sm:p-6">
+                    <form id="propertyForm" class="space-y-4 sm:space-y-6">
                         <input type="hidden" id="propertyId">
                         
                         <!-- PDF 업로드 및 자동 파싱 -->
-                        <div class="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-dashed border-purple-300 rounded-xl p-6">
-                            <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                                <span class="bg-purple-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">
+                        <div class="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-dashed border-purple-300 rounded-xl p-4 sm:p-6">
+                            <h3 class="text-base sm:text-lg font-bold text-gray-900 mb-3 sm:mb-4 flex items-center">
+                                <span class="bg-purple-600 text-white w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs sm:text-sm mr-2">
                                     <i class="fas fa-magic text-xs"></i>
                                 </span>
                                 PDF 자동 파싱 (1차 세팅)
                             </h3>
-                            <p class="text-sm text-gray-600 mb-4">
+                            <p class="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
                                 PDF 파일을 업로드하면 AI가 자동으로 내용을 분석하여 아래 폼을 채워드립니다.
                             </p>
                             
-                            <div class="flex gap-4 items-center">
+                            <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
                                 <label class="flex-1 cursor-pointer">
-                                    <div class="border-2 border-gray-300 border-dashed rounded-lg p-4 hover:border-purple-500 hover:bg-white transition-all">
-                                        <div class="flex items-center gap-3">
-                                            <i class="fas fa-file-pdf text-3xl text-red-500"></i>
-                                            <div class="flex-1">
-                                                <p class="text-sm font-medium text-gray-700">
-                                                    <span id="pdfFileName">PDF 파일을 선택하세요</span>
+                                    <div class="border-2 border-gray-300 border-dashed rounded-lg p-3 sm:p-4 hover:border-purple-500 hover:bg-white transition-all">
+                                        <div class="flex items-center gap-2 sm:gap-3">
+                                            <i class="fas fa-file-pdf text-2xl sm:text-3xl text-red-500 flex-shrink-0"></i>
+                                            <div class="flex-1 min-w-0">
+                                                <p class="text-xs sm:text-sm font-medium text-gray-700">
+                                                    <span id="pdfFileName" class="truncate block">PDF 파일을 선택하세요</span>
                                                 </p>
                                                 <p class="text-xs text-gray-500">최대 10MB, PDF 형식만 가능</p>
                                             </div>
@@ -3007,8 +3187,8 @@ app.get('/admin', (c) => {
                                     <input type="file" id="pdfFile" accept=".pdf" class="hidden" onchange="handlePdfSelect(event)">
                                 </label>
                                 
-                                <button type="button" onclick="parsePdf()" id="parsePdfBtn" class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
-                                    <i class="fas fa-magic mr-2"></i>
+                                <button type="button" onclick="parsePdf()" id="parsePdfBtn" class="px-4 sm:px-6 py-2.5 sm:py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium text-sm sm:text-base disabled:bg-gray-300 disabled:cursor-not-allowed whitespace-nowrap" disabled>
+                                    <i class="fas fa-magic mr-1 sm:mr-2"></i>
                                     자동 파싱
                                 </button>
                             </div>
@@ -3024,20 +3204,20 @@ app.get('/admin', (c) => {
                         </div>
                         
                         <!-- 메인카드 입력폼 -->
-                        <div class="border-b pb-6">
-                            <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                                <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">1</span>
+                        <div class="border-b pb-4 sm:pb-6">
+                            <h3 class="text-base sm:text-lg font-bold text-gray-900 mb-3 sm:mb-4 flex items-center">
+                                <span class="bg-blue-600 text-white w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs sm:text-sm mr-2">1</span>
                                 메인카드 정보
                             </h3>
                             
-                            <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">단지명 *</label>
-                                    <input type="text" id="projectName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="엘리프세종 6-3M4 신혼희망타운">
+                                    <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">단지명 *</label>
+                                    <input type="text" id="projectName" required class="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg" placeholder="엘리프세종 6-3M4 신혼희망타운">
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">타입 *</label>
-                                    <select id="saleType" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                    <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">타입 *</label>
+                                    <select id="saleType" required class="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg">
                                         <option value="rental">임대분양</option>
                                         <option value="general">청약분양</option>
                                         <option value="unsold">줍줍분양</option>
@@ -3156,6 +3336,48 @@ app.get('/admin', (c) => {
                                         <label class="block text-xs font-medium text-gray-600 mb-1">3줄: 추가 조건/혜택</label>
                                         <input type="text" id="targetAudience3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="예: 소득·자산 제한 없는 공공분야 희망자">
                                     </div>
+                                </div>
+                            </div>
+
+                            <!-- 줍줍분양 실거래가 정보 (타입이 unsold일 때만 표시) -->
+                            <div id="tradePriceSection" class="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg" style="display: none;">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-sm font-bold text-gray-900">📊 실거래가 정보 (줍줍분양 전용)</h4>
+                                    <button type="button" onclick="fetchTradePrice()" id="fetchTradePriceBtn" class="px-3 py-1 bg-orange-600 text-white text-xs rounded-lg hover:bg-orange-700">
+                                        <i class="fas fa-sync-alt mr-1"></i> 실거래가 조회
+                                    </button>
+                                </div>
+                                
+                                <div id="tradePriceResult" class="hidden space-y-3">
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">최근 실거래가</label>
+                                            <input type="number" id="recentTradePrice" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="3.5">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">거래 년월</label>
+                                            <input type="text" id="recentTradeDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="2024.11">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">기존 분양가</label>
+                                            <input type="number" id="originalPrice" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="3.0">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">분양가 날짜</label>
+                                            <input type="text" id="salePriceDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="2023.5">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div id="tradePriceLoading" class="hidden text-center py-4">
+                                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
+                                    <p class="text-sm text-gray-600 mt-2">실거래가 조회 중...</p>
+                                </div>
+                                
+                                <div id="tradePriceMessage" class="text-xs text-gray-500 mt-2">
+                                    실거래가 조회 버튼을 클릭하면 국토교통부 API에서 자동으로 최근 실거래가를 가져옵니다.
                                 </div>
                             </div>
                         </div>
@@ -3517,6 +3739,69 @@ app.get('/admin', (c) => {
                 // Don't clear mainImage input - user might have entered URL manually
             }
 
+            // Toggle trade price section based on sale type
+            document.getElementById('saleType').addEventListener('change', function() {
+                const tradePriceSection = document.getElementById('tradePriceSection');
+                if (this.value === 'unsold') {
+                    tradePriceSection.style.display = 'block';
+                } else {
+                    tradePriceSection.style.display = 'none';
+                }
+            });
+
+            // Fetch trade price from MOLIT API
+            async function fetchTradePrice() {
+                const address = document.getElementById('fullAddress').value;
+                const exclusiveArea = document.getElementById('detail_exclusiveArea')?.value;
+                
+                if (!address) {
+                    alert('주소를 먼저 입력해주세요.');
+                    return;
+                }
+
+                const loadingDiv = document.getElementById('tradePriceLoading');
+                const resultDiv = document.getElementById('tradePriceResult');
+                const messageDiv = document.getElementById('tradePriceMessage');
+                const btn = document.getElementById('fetchTradePriceBtn');
+
+                // Show loading
+                loadingDiv.classList.remove('hidden');
+                resultDiv.classList.add('hidden');
+                messageDiv.classList.add('hidden');
+                btn.disabled = true;
+
+                try {
+                    const response = await axios.post('/api/admin/fetch-trade-price', {
+                        address: address,
+                        exclusiveArea: exclusiveArea ? parseFloat(exclusiveArea) : null
+                    });
+
+                    if (response.data.success && response.data.data.found) {
+                        const data = response.data.data;
+                        
+                        // Fill form fields
+                        document.getElementById('recentTradePrice').value = data.recentTradePrice.toFixed(2);
+                        document.getElementById('recentTradeDate').value = data.recentTradeDate;
+                        
+                        // Show result
+                        resultDiv.classList.remove('hidden');
+                        messageDiv.innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>실거래가 정보를 가져왔습니다. (총 ' + data.totalResults + '건 중 최신)</span>';
+                        messageDiv.classList.remove('hidden');
+                    } else {
+                        const message = response.data.data?.message || '실거래가 정보를 찾을 수 없습니다.';
+                        messageDiv.innerHTML = '<span class="text-yellow-600"><i class="fas fa-info-circle mr-1"></i>' + message + '</span>';
+                        messageDiv.classList.remove('hidden');
+                    }
+                } catch (error) {
+                    console.error('실거래가 조회 오류:', error);
+                    messageDiv.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>오류: ' + (error.response?.data?.error || error.message) + '</span>';
+                    messageDiv.classList.remove('hidden');
+                } finally {
+                    loadingDiv.classList.add('hidden');
+                    btn.disabled = false;
+                }
+            }
+
             // Logout function
             function logout() {
                 if (confirm('로그아웃하시겠습니까?')) {
@@ -3841,6 +4126,29 @@ app.get('/admin', (c) => {
                     // Main fields
                     document.getElementById('projectName').value = property.title || '';
                     document.getElementById('saleType').value = property.type || 'rental';
+                    
+                    // Show/hide trade price section based on type
+                    const tradePriceSection = document.getElementById('tradePriceSection');
+                    if (property.type === 'unsold') {
+                        tradePriceSection.style.display = 'block';
+                        
+                        // Fill trade price fields
+                        if (property.original_price) {
+                            document.getElementById('originalPrice').value = property.original_price;
+                        }
+                        if (property.recent_trade_price) {
+                            document.getElementById('recentTradePrice').value = property.recent_trade_price;
+                        }
+                        if (property.sale_price_date) {
+                            document.getElementById('salePriceDate').value = property.sale_price_date;
+                        }
+                        if (property.recent_trade_date) {
+                            document.getElementById('recentTradeDate').value = property.recent_trade_date;
+                        }
+                    } else {
+                        tradePriceSection.style.display = 'none';
+                    }
+                    
                     document.getElementById('supplyType').value = extData.supplyType || '';
                     document.getElementById('region').value = property.location || '';
                     document.getElementById('fullAddress').value = property.full_address || '';
@@ -4059,9 +4367,25 @@ app.get('/admin', (c) => {
 
                 const tags = document.getElementById('hashtags').value.split(',').map(t => t.trim()).filter(t => t);
 
+                // Collect trade price data for unsold type
+                const saleType = document.getElementById('saleType').value;
+                let tradePriceData = {};
+                
+                if (saleType === 'unsold') {
+                    const recentTradePrice = document.getElementById('recentTradePrice')?.value;
+                    const recentTradeDate = document.getElementById('recentTradeDate')?.value;
+                    const originalPrice = document.getElementById('originalPrice')?.value;
+                    const salePriceDate = document.getElementById('salePriceDate')?.value;
+                    
+                    if (recentTradePrice) tradePriceData.recent_trade_price = parseFloat(recentTradePrice);
+                    if (recentTradeDate) tradePriceData.recent_trade_date = recentTradeDate;
+                    if (originalPrice) tradePriceData.original_price = parseFloat(originalPrice);
+                    if (salePriceDate) tradePriceData.sale_price_date = salePriceDate;
+                }
+
                 return {
                     title: document.getElementById('projectName').value,
-                    type: document.getElementById('saleType').value,
+                    type: saleType,
                     location: document.getElementById('region').value,
                     full_address: document.getElementById('fullAddress').value,
                     announcement_date: document.getElementById('announcementDate').value,
@@ -4074,7 +4398,8 @@ app.get('/admin', (c) => {
                     description: details.features || '',
                     tags: JSON.stringify(tags),
                     extended_data: JSON.stringify(extendedData),
-                    status: 'active'
+                    status: 'active',
+                    ...tradePriceData
                 };
             }
 
@@ -4361,6 +4686,138 @@ app.get('/', (c) => {
             display: inline-block;
             margin-left: 8px;
           }
+          
+          /* ===== 모바일 터치 개선 CSS ===== */
+          
+          /* 터치 타겟 최소 크기 보장 (44x44px) */
+          .touch-target {
+            min-width: 44px;
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+          }
+          
+          /* 터치 피드백 효과 */
+          .touch-feedback {
+            position: relative;
+            overflow: hidden;
+          }
+          
+          .touch-feedback::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.1);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+          }
+          
+          .touch-feedback:active::after {
+            width: 200px;
+            height: 200px;
+          }
+          
+          /* 스크롤 영역 부드러운 터치 */
+          .smooth-scroll {
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+          }
+          
+          /* 버튼 터치 반응성 */
+          button, a, .clickable {
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+            touch-action: manipulation;
+          }
+          
+          /* 모바일에서 호버 효과 비활성화, 터치 효과로 대체 */
+          @media (hover: none) {
+            .toss-card:hover {
+              transform: none;
+            }
+            
+            .toss-card:active {
+              transform: scale(0.98);
+              transition: transform 0.1s;
+            }
+            
+            .stat-card:hover {
+              transform: none;
+            }
+            
+            .stat-card:active {
+              transform: scale(0.95);
+              transition: transform 0.1s;
+            }
+          }
+          
+          /* 스와이프 제스처 지원 준비 */
+          .swipeable {
+            touch-action: pan-y;
+            user-select: none;
+          }
+          
+          /* 풀다운 새로고침 방지 (필요시) */
+          body {
+            overscroll-behavior-y: contain;
+          }
+          
+          /* 입력 필드 줌 방지 (16px 이상) */
+          input[type="text"],
+          input[type="email"],
+          input[type="password"],
+          input[type="tel"],
+          input[type="number"],
+          textarea,
+          select {
+            font-size: 16px;
+          }
+          
+          @media (min-width: 640px) {
+            input[type="text"],
+            input[type="email"],
+            input[type="password"],
+            input[type="tel"],
+            input[type="number"],
+            textarea,
+            select {
+              font-size: 14px;
+            }
+          }
+          
+          /* 모바일 모달 개선 */
+          @media (max-width: 640px) {
+            .modal {
+              padding: 0.5rem;
+            }
+            
+            .modal > div {
+              max-height: 95vh;
+              border-radius: 1rem;
+            }
+          }
+          
+          /* 가로 스크롤 영역 스크롤바 숨기기 (모바일) */
+          .overflow-x-auto::-webkit-scrollbar {
+            display: none;
+          }
+          
+          .overflow-x-auto {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+          
+          /* 텍스트 선택 방지 (필요한 곳에만) */
+          .no-select {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+          }
         </style>
     </head>
     <body class="bg-gray-50">
@@ -4533,15 +4990,15 @@ app.get('/', (c) => {
         
         <!-- Header -->
         <header class="bg-white sticky top-0 z-50 shadow-sm border-b border-gray-200">
-            <div class="max-w-6xl mx-auto px-4 py-3">
+            <div class="max-w-6xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3">
                 <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <h1 class="text-xl font-bold text-gray-900">똑똑한한채</h1>
+                    <div class="flex items-center gap-1.5 sm:gap-2">
+                        <h1 class="text-lg sm:text-xl font-bold text-gray-900">똑똑한한채</h1>
                         <span class="text-xs text-gray-500 hidden sm:inline">스마트 부동산 분양 정보</span>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <button class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-all">
-                            <i class="fas fa-bell"></i>
+                    <div class="flex items-center gap-1 sm:gap-2">
+                        <button class="text-gray-600 hover:text-gray-900 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
+                            <i class="fas fa-bell text-base sm:text-lg"></i>
                         </button>
                         <!-- 로그인 버튼만 임시 비활성화 -->
                     </div>
@@ -4550,14 +5007,14 @@ app.get('/', (c) => {
         </header>
 
         <!-- Stats Cards -->
-        <section class="max-w-6xl mx-auto px-4 py-6">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="statsContainer">
+        <section class="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3" id="statsContainer">
                 <!-- Stats will be loaded here -->
             </div>
         </section>
 
         <!-- Main Content -->
-        <main class="max-w-6xl mx-auto px-4 pb-12">
+        <main class="max-w-6xl mx-auto px-3 sm:px-4 pb-8 sm:pb-12">
             
             <!-- 호갱노노 스타일 필터 -->
             <div class="bg-white px-4 py-3 mb-2 relative">
@@ -4628,7 +5085,7 @@ app.get('/', (c) => {
             </div>
 
             <!-- Properties Grid -->
-            <div id="propertiesContainer" class="grid md:grid-cols-2 gap-6">
+            <div id="propertiesContainer" class="grid md:grid-cols-2 gap-4 sm:gap-6">
                 <!-- Properties will be loaded here -->
             </div>
 
@@ -4702,13 +5159,13 @@ app.get('/', (c) => {
         </footer>
 
         <!-- Detail Modal -->
-        <div id="detailModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
-            <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto relative">
-                <button id="closeDetailModal" class="sticky top-4 right-4 float-right text-gray-400 hover:text-gray-600 text-2xl z-10 bg-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg">
+        <div id="detailModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-2 sm:p-4">
+            <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto relative">
+                <button id="closeDetailModal" class="sticky top-2 sm:top-4 right-2 sm:right-4 float-right text-gray-400 hover:text-gray-600 text-2xl z-10 bg-white rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center shadow-lg">
                     <i class="fas fa-times"></i>
                 </button>
                 
-                <div id="modalContent" class="p-8">
+                <div id="modalContent" class="p-4 sm:p-6 md:p-8">
                     <!-- Modal content will be loaded here -->
                 </div>
             </div>
@@ -5106,11 +5563,11 @@ app.get('/', (c) => {
               
               const modalContent = document.getElementById('modalContent');
               modalContent.innerHTML = \`
-                <div class="space-y-6">
+                <div class="space-y-4 sm:space-y-6">
                   <!-- Header -->
                   <div>
-                    <div class="flex items-start justify-between mb-2">
-                      <h2 class="text-2xl font-bold text-gray-900">\${property.title}</h2>
+                    <div class="flex items-start justify-between mb-2 gap-3">
+                      <h2 class="text-xl sm:text-2xl font-bold text-gray-900 flex-1 min-w-0 break-words leading-tight">\${property.title}</h2>
                       \${property.badge ? \`
                         <span class="badge-\${property.badge.toLowerCase()} text-white text-xs font-bold px-3 py-1 rounded-full">
                           \${property.badge}
@@ -5118,12 +5575,14 @@ app.get('/', (c) => {
                       \` : ''}
                     </div>
                     
-                    <div class="flex items-center gap-2 text-gray-600 mb-2">
-                      <i class="fas fa-map-marker-alt text-primary"></i>
-                      <span class="text-sm">\${property.full_address || property.location}</span>
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-2 text-gray-600 mb-2">
+                      <div class="flex items-center gap-2 min-w-0 flex-1">
+                        <i class="fas fa-map-marker-alt text-primary flex-shrink-0"></i>
+                        <span class="text-xs sm:text-sm truncate">\${property.full_address || property.location}</span>
+                      </div>
                       <button onclick="openMap('\${property.full_address || property.location}', \${property.lat}, \${property.lng})" 
-                              class="text-primary text-sm font-medium hover:underline ml-2">
-                        <i class="fas fa-map-marked-alt mr-1"></i>지도에서 보기
+                              class="text-primary text-xs sm:text-sm font-medium hover:underline active:text-primary-dark flex items-center gap-1 whitespace-nowrap">
+                        <i class="fas fa-map-marked-alt"></i><span>지도에서 보기</span>
                       </button>
                     </div>
                     
@@ -5136,22 +5595,22 @@ app.get('/', (c) => {
                   </div>
 
                   <!-- Basic Info (Toss Simple Style) -->
-                  <div class="bg-gray-50 rounded-lg p-5">
-                    <h3 class="text-base font-bold text-gray-900 mb-4">단지 정보</h3>
-                    <div class="space-y-3">
+                  <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+                    <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">단지 정보</h3>
+                    <div class="space-y-2 sm:space-y-3">
                       \${property.exclusive_area_range || property.area_type ? \`
-                        <div class="flex justify-between items-center py-2 border-b border-gray-200">
-                          <span class="text-sm text-gray-600">전용면적</span>
-                          <span class="text-sm font-semibold text-gray-900">\${property.exclusive_area_range || property.area_type}</span>
+                        <div class="flex justify-between items-center py-2 border-b border-gray-200 gap-3">
+                          <span class="text-xs sm:text-sm text-gray-600 flex-shrink-0">전용면적</span>
+                          <span class="text-xs sm:text-sm font-semibold text-gray-900 text-right">\${property.exclusive_area_range || property.area_type}</span>
                         </div>
                       \` : ''}
-                      <div class="flex justify-between items-center py-2 border-b border-gray-200">
-                        <span class="text-sm text-gray-600">\${
+                      <div class="flex justify-between items-center py-2 border-b border-gray-200 gap-3">
+                        <span class="text-xs sm:text-sm text-gray-600 flex-shrink-0">\${
                           property.title && (property.title.includes('행복주택') || property.title.includes('희망타운') || property.title.includes('임대'))
                             ? '임대보증금'
                             : '분양가'
                         }</span>
-                        <span class="text-sm font-semibold text-gray-900">\${
+                        <span class="text-xs sm:text-sm font-semibold text-gray-900 text-right">\${
                           (() => {
                             if (property.title && (property.title.includes('행복주택') || property.title.includes('희망타운') || property.title.includes('임대'))) {
                               if (property.rental_deposit_range) return property.rental_deposit_range;
@@ -5163,9 +5622,9 @@ app.get('/', (c) => {
                           })()
                         }</span>
                       </div>
-                      <div class="flex justify-between items-center py-2 border-b border-gray-200">
-                        <span class="text-sm text-gray-600">모집세대</span>
-                        <span class="text-sm font-semibold text-gray-900">\${property.households}</span>
+                      <div class="flex justify-between items-center py-2 border-b border-gray-200 gap-3">
+                        <span class="text-xs sm:text-sm text-gray-600 flex-shrink-0">모집세대</span>
+                        <span class="text-xs sm:text-sm font-semibold text-gray-900 text-right">\${property.households}</span>
                       </div>
                       \${property.move_in_date ? \`
                         <div class="flex justify-between items-center py-2 border-b border-gray-200">
@@ -5214,25 +5673,25 @@ app.get('/', (c) => {
                   
                   <!-- Supply Info from extended_data -->
                   \${extendedData.supplyInfo && extendedData.supplyInfo.length > 0 ? \`
-                    <div class="bg-gray-50 rounded-lg p-5">
-                      <h3 class="text-base font-bold text-gray-900 mb-4">공급 세대 정보</h3>
-                      <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
+                    <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+                      <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">공급 세대 정보</h3>
+                      <div class="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                        <table class="w-full text-xs sm:text-sm">
                           <thead class="bg-white">
                             <tr>
-                              <th class="px-3 py-2 text-left font-semibold text-gray-700 border-b">타입</th>
-                              <th class="px-3 py-2 text-left font-semibold text-gray-700 border-b">면적</th>
-                              <th class="px-3 py-2 text-left font-semibold text-gray-700 border-b">세대수</th>
-                              <th class="px-3 py-2 text-left font-semibold text-gray-700 border-b">가격</th>
+                              <th class="px-2 sm:px-3 py-2 text-left font-semibold text-gray-700 border-b whitespace-nowrap">타입</th>
+                              <th class="px-2 sm:px-3 py-2 text-left font-semibold text-gray-700 border-b whitespace-nowrap">면적</th>
+                              <th class="px-2 sm:px-3 py-2 text-left font-semibold text-gray-700 border-b whitespace-nowrap">세대수</th>
+                              <th class="px-2 sm:px-3 py-2 text-left font-semibold text-gray-700 border-b whitespace-nowrap">가격</th>
                             </tr>
                           </thead>
                           <tbody>
                             \${extendedData.supplyInfo.map(info => \`
                               <tr class="border-b border-gray-200">
-                                <td class="px-3 py-2 text-gray-900">\${info.type || '-'}</td>
-                                <td class="px-3 py-2 text-gray-900">\${info.area || '-'}</td>
-                                <td class="px-3 py-2 text-gray-900">\${info.households || '-'}</td>
-                                <td class="px-3 py-2 text-gray-900">\${info.price || '-'}</td>
+                                <td class="px-2 sm:px-3 py-2 text-gray-900 whitespace-nowrap">\${info.type || '-'}</td>
+                                <td class="px-2 sm:px-3 py-2 text-gray-900 whitespace-nowrap">\${info.area || '-'}</td>
+                                <td class="px-2 sm:px-3 py-2 text-gray-900 whitespace-nowrap">\${info.households || '-'}</td>
+                                <td class="px-2 sm:px-3 py-2 text-gray-900">\${info.price || '-'}</td>
                               </tr>
                             \`).join('')}
                           </tbody>
@@ -5243,8 +5702,8 @@ app.get('/', (c) => {
 
                   <!-- Selection Timeline (6 Steps) -->
                   \${property.application_start_date || property.no_rank_date || property.first_rank_date || property.special_subscription_date ? \`
-                    <div class="bg-gray-50 rounded-lg p-5">
-                      <h3 class="text-base font-bold text-gray-900 mb-4">📋 선정 절차</h3>
+                    <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+                      <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">📅 입주자 선정 일정</h3>
                       
                       <!-- Timeline Container -->
                       <div class="relative">
@@ -5252,7 +5711,7 @@ app.get('/', (c) => {
                         <div class="absolute left-4 top-3 bottom-3 w-0.5 bg-gray-300"></div>
                         
                         <!-- Timeline Steps -->
-                        <div class="space-y-4">
+                        <div class="space-y-3 sm:space-y-4">
                           \${(() => {
                             // 오늘 날짜
                             const today = new Date();
@@ -5326,16 +5785,16 @@ app.get('/', (c) => {
                               const dateColor = isCurrent ? 'text-primary font-bold' : 'text-gray-600';
                               
                               return \`
-                                <div class="relative pl-10">
-                                  <div class="absolute left-2.5 top-1.5 w-3 h-3 \${dotColor} rounded-full border-2 border-white"></div>
-                                  <div class="bg-white rounded-lg p-3 shadow-sm">
-                                    <div class="flex justify-between items-start mb-1">
-                                      <div>
+                                <div class="relative pl-8 sm:pl-10">
+                                  <div class="absolute left-2 sm:left-2.5 top-1.5 w-2.5 sm:w-3 h-2.5 sm:h-3 \${dotColor} rounded-full border-2 border-white"></div>
+                                  <div class="bg-white rounded-lg p-2.5 sm:p-3 shadow-sm">
+                                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 mb-1">
+                                      <div class="flex-1 min-w-0">
                                         <span class="text-xs \${labelColor}">STEP \${s.step}</span>
-                                        <h4 class="text-sm \${titleColor}">\${s.title}</h4>
-                                        \${s.subtitle ? \`<p class="text-xs text-gray-500 mt-1">\${s.subtitle}</p>\` : ''}
+                                        <h4 class="text-xs sm:text-sm \${titleColor} break-words">\${s.title}</h4>
+                                        \${s.subtitle ? \`<p class="text-xs text-gray-500 mt-0.5 sm:mt-1">\${s.subtitle}</p>\` : ''}
                                       </div>
-                                      <span class="text-xs \${dateColor}">\${s.dateDisplay}</span>
+                                      <span class="text-xs \${dateColor} whitespace-nowrap flex-shrink-0">\${s.dateDisplay}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -5349,34 +5808,39 @@ app.get('/', (c) => {
                     </div>
                   \` : ''}
                   
-                  <!-- Steps from extended_data -->
-                  \${extendedData.steps && extendedData.steps.length > 0 ? \`
-                    <div class="bg-gray-50 rounded-lg p-5">
-                      <h3 class="text-base font-bold text-gray-900 mb-4">📋 신청 절차</h3>
-                      <div class="space-y-3">
-                        \${extendedData.steps.map((step, idx) => \`
-                          <div class="flex items-start gap-3 bg-white p-3 rounded-lg">
-                            <div class="flex-shrink-0 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center text-sm font-bold">
-                              \${idx + 1}
-                            </div>
-                            <div class="flex-1">
-                              <div class="flex justify-between items-start">
-                                <span class="text-sm font-semibold text-gray-900">\${step.title}</span>
-                                <span class="text-xs text-gray-600">\${step.date}</span>
-                              </div>
+                  <!-- Steps from extended_data (Always shown) -->
+                  <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+                    <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">📋 신청 절차</h3>
+                    <div class="space-y-2.5 sm:space-y-3">
+                      \${extendedData.steps && extendedData.steps.length > 0 ? extendedData.steps.map((step, idx) => \`
+                        <div class="flex items-start gap-2.5 sm:gap-3 bg-white p-2.5 sm:p-3 rounded-lg">
+                          <div class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-primary text-white rounded-full flex items-center justify-center text-xs sm:text-sm font-bold">
+                            \${idx + 1}
+                          </div>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-0.5 sm:gap-2">
+                              <span class="text-xs sm:text-sm font-semibold text-gray-900 break-words">\${step.title}</span>
+                              <span class="text-xs text-gray-600 whitespace-nowrap flex-shrink-0">\${step.date}</span>
                             </div>
                           </div>
-                        \`).join('')}
-                      </div>
+                        </div>
+                      \`).join('') : \`
+                        <div class="bg-white p-4 rounded-lg text-center">
+                          <p class="text-xs sm:text-sm text-gray-500">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            신청 절차 정보가 아직 등록되지 않았습니다.
+                          </p>
+                        </div>
+                      \`}
                     </div>
-                  \` : ''}
+                  </div>
 
                   <!-- Toggle Button for Additional Details -->
-                  <div class="text-center my-6">
+                  <div class="text-center my-5 sm:my-6">
                     <button id="toggleDetailsBtn" onclick="toggleAdditionalDetails()" 
-                            class="inline-flex items-center gap-1 text-gray-700 hover:text-gray-900 transition-colors group">
-                      <span id="toggleDetailsText" class="text-sm font-medium border-b-2 border-gray-700 pb-0.5">더보기</span>
-                      <i id="toggleDetailsIcon" class="fas fa-chevron-down text-xs group-hover:translate-y-0.5 transition-transform"></i>
+                            class="inline-flex items-center gap-1 text-gray-700 hover:text-gray-900 active:text-gray-900 transition-colors group p-2 -m-2">
+                      <span id="toggleDetailsText" class="text-xs sm:text-sm font-medium border-b-2 border-gray-700 pb-0.5">더보기</span>
+                      <i id="toggleDetailsIcon" class="fas fa-chevron-down text-xs group-hover:translate-y-0.5 group-active:translate-y-0.5 transition-transform"></i>
                     </button>
                   </div>
 
@@ -5385,9 +5849,9 @@ app.get('/', (c) => {
                   
                   <!-- 신청자격 from extended_data -->
                   \${extendedData.details?.targetTypes || extendedData.details?.incomeLimit || extendedData.details?.assetLimit ? \`
-                    <div class="bg-gray-50 rounded-lg p-5">
-                      <h3 class="text-base font-bold text-gray-900 mb-4">🎯 신청자격</h3>
-                      <div class="text-sm text-gray-700 space-y-2">
+                    <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+                      <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">🎯 신청자격</h3>
+                      <div class="text-xs sm:text-sm text-gray-700 space-y-1.5 sm:space-y-2">
                         \${extendedData.details.targetTypes ? \`<p><strong>대상:</strong> \${extendedData.details.targetTypes}</p>\` : ''}
                         \${extendedData.details.incomeLimit ? \`<p><strong>소득기준:</strong> \${extendedData.details.incomeLimit}</p>\` : ''}
                         \${extendedData.details.assetLimit ? \`<p><strong>자산기준:</strong> \${extendedData.details.assetLimit}</p>\` : ''}
@@ -5399,9 +5863,9 @@ app.get('/', (c) => {
                   
                   <!-- 입주자 선정 기준 -->
                   \${extendedData.details?.selectionMethod || extendedData.details?.scoringCriteria ? \`
-                    <div class="bg-gray-50 rounded-lg p-5">
-                      <h3 class="text-base font-bold text-gray-900 mb-4">📊 입주자 선정 기준</h3>
-                      <div class="text-sm text-gray-700 space-y-2">
+                    <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+                      <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">📊 입주자 선정 기준</h3>
+                      <div class="text-xs sm:text-sm text-gray-700 space-y-1.5 sm:space-y-2">
                         \${extendedData.details.selectionMethod ? \`<p><strong>선정방식:</strong> \${extendedData.details.selectionMethod}</p>\` : ''}
                         \${extendedData.details.scoringCriteria ? \`<p><strong>가점항목:</strong> \${extendedData.details.scoringCriteria}</p>\` : ''}
                       </div>
@@ -5410,17 +5874,17 @@ app.get('/', (c) => {
                   
                   <!-- 주의사항 -->
                   \${extendedData.details?.notices ? \`
-                    <div class="bg-gray-50 rounded-lg p-5">
-                      <h3 class="text-base font-bold text-gray-900 mb-4">⚠️ 주의사항</h3>
-                      <div class="text-sm text-gray-700 whitespace-pre-wrap">\${extendedData.details.notices}</div>
+                    <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+                      <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">⚠️ 주의사항</h3>
+                      <div class="text-xs sm:text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">\${extendedData.details.notices}</div>
                     </div>
                   \` : ''}
                   
                   <!-- 온라인 신청 -->
                   \${extendedData.details?.applicationMethod || extendedData.details?.applicationUrl ? \`
-                    <div class="bg-gray-50 rounded-lg p-5">
-                      <h3 class="text-base font-bold text-gray-900 mb-4">💻 온라인 신청</h3>
-                      <div class="text-sm text-gray-700 space-y-2">
+                    <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+                      <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">💻 온라인 신청</h3>
+                      <div class="text-xs sm:text-sm text-gray-700 space-y-1.5 sm:space-y-2 break-words">
                         \${extendedData.details.applicationMethod ? \`<p><strong>신청방법:</strong> \${extendedData.details.applicationMethod}</p>\` : ''}
                         \${extendedData.details.applicationUrl ? \`<p><strong>신청URL:</strong> <a href="\${extendedData.details.applicationUrl}" target="_blank" class="text-primary hover:underline">\${extendedData.details.applicationUrl}</a></p>\` : ''}
                         \${extendedData.details.requiredDocs ? \`<p><strong>필요서류:</strong> \${extendedData.details.requiredDocs}</p>\` : ''}
@@ -5430,9 +5894,9 @@ app.get('/', (c) => {
                   
                   <!-- 문의처 -->
                   \${extendedData.details?.contactDept || extendedData.details?.contactPhone ? \`
-                    <div class="bg-gray-50 rounded-lg p-5">
-                      <h3 class="text-base font-bold text-gray-900 mb-4">📞 문의처</h3>
-                      <div class="text-sm text-gray-700 space-y-2">
+                    <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+                      <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">📞 문의처</h3>
+                      <div class="text-xs sm:text-sm text-gray-700 space-y-1.5 sm:space-y-2">
                         \${extendedData.details.contactDept ? \`<p><strong>담당부서:</strong> \${extendedData.details.contactDept}</p>\` : ''}
                         \${extendedData.details.contactPhone ? \`<p><strong>전화번호:</strong> <a href="tel:\${extendedData.details.contactPhone}" class="text-primary hover:underline">\${extendedData.details.contactPhone}</a></p>\` : ''}
                         \${extendedData.details.contactEmail ? \`<p><strong>이메일:</strong> <a href="mailto:\${extendedData.details.contactEmail}" class="text-primary hover:underline">\${extendedData.details.contactEmail}</a></p>\` : ''}
@@ -5443,9 +5907,9 @@ app.get('/', (c) => {
                   
                   <!-- 단지 개요 -->
                   \${extendedData.details?.features || extendedData.details?.surroundings || extendedData.details?.transportation ? \`
-                    <div class="bg-gray-50 rounded-lg p-5">
-                      <h3 class="text-base font-bold text-gray-900 mb-4">🏢 단지 개요</h3>
-                      <div class="text-sm text-gray-700 space-y-2">
+                    <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+                      <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">🏢 단지 개요</h3>
+                      <div class="text-xs sm:text-sm text-gray-700 space-y-1.5 sm:space-y-2">
                         \${extendedData.details.features ? \`<p><strong>단지특징:</strong> \${extendedData.details.features}</p>\` : ''}
                         \${extendedData.details.surroundings ? \`<p><strong>주변환경:</strong> \${extendedData.details.surroundings}</p>\` : ''}
                         \${extendedData.details.transportation ? \`<p><strong>교통여건:</strong> \${extendedData.details.transportation}</p>\` : ''}
@@ -5651,21 +6115,21 @@ app.get('/', (c) => {
               
               const statsContainer = document.getElementById('statsContainer');
               statsContainer.innerHTML = \`
-                <div class="stat-card bg-white rounded-xl shadow-sm p-5 active" data-type="all">
-                  <div class="text-xs text-gray-500 mb-2 font-medium">전체분양</div>
-                  <div class="text-3xl font-bold text-gray-900">\${stats.rental + stats.general + stats.unsold}</div>
+                <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 active cursor-pointer hover:shadow-md transition-shadow" data-type="all">
+                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">전체분양</div>
+                  <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${stats.rental + stats.general + stats.unsold}</div>
                 </div>
-                <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="rental">
-                  <div class="text-xs text-gray-500 mb-2 font-medium">임대분양</div>
-                  <div class="text-3xl font-bold text-gray-900">\${stats.rental || 0}</div>
+                <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 cursor-pointer hover:shadow-md transition-shadow" data-type="rental">
+                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">임대분양</div>
+                  <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${stats.rental || 0}</div>
                 </div>
-                <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="general">
-                  <div class="text-xs text-gray-500 mb-2 font-medium">청약분양</div>
-                  <div class="text-3xl font-bold text-gray-900">\${stats.general || 0}</div>
+                <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 cursor-pointer hover:shadow-md transition-shadow" data-type="general">
+                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">청약분양</div>
+                  <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${stats.general || 0}</div>
                 </div>
-                <div class="stat-card bg-white rounded-xl shadow-sm p-5" data-type="unsold">
-                  <div class="text-xs text-gray-500 mb-2 font-medium">줍줍분양</div>
-                  <div class="text-3xl font-bold text-gray-900">\${stats.unsold}</div>
+                <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 cursor-pointer hover:shadow-md transition-shadow" data-type="unsold">
+                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">줍줍분양</div>
+                  <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${stats.unsold}</div>
                 </div>
               \`;
               
@@ -5731,54 +6195,56 @@ app.get('/', (c) => {
                   
                   return \`
                   <div class="toss-card bg-white rounded-xl shadow-sm overflow-hidden fade-in">
-                    <div class="p-5">
+                    <div class="p-4 sm:p-5">
                       <!-- Header -->
-                      <div class="flex items-start justify-between mb-3">
-                        <div class="flex-1">
-                          <div class="flex items-center gap-2 mb-2">
-                            \${(() => {
-                              const typeConfig = {
-                                'rental': { label: '임대분양', color: 'bg-blue-100 text-blue-700' },
-                                'general': { label: '청약분양', color: 'bg-green-100 text-green-700' },
-                                'unsold': { label: '줍줍분양', color: 'bg-orange-100 text-orange-700' },
-                                'johab': { label: '조합원모집', color: 'bg-purple-100 text-purple-700' }
-                              };
-                              const config = typeConfig[property.type] || { label: property.type, color: 'bg-gray-100 text-gray-700' };
-                              return \`<span class="\${config.color} text-xs font-bold px-2 py-1 rounded">\${config.label}</span>\`;
-                            })()}
-                            <h3 class="text-lg font-bold text-gray-900">\${property.title}</h3>
+                      <div class="flex items-start justify-between mb-2.5 sm:mb-3 gap-2">
+                        <div class="flex-1 min-w-0">
+                          <div class="flex flex-col gap-1.5 mb-1.5 sm:mb-2">
+                            <div class="flex items-center gap-2">
+                              \${(() => {
+                                const typeConfig = {
+                                  'rental': { label: '임대분양', color: 'bg-blue-100 text-blue-700' },
+                                  'general': { label: '청약분양', color: 'bg-green-100 text-green-700' },
+                                  'unsold': { label: '줍줍분양', color: 'bg-orange-100 text-orange-700' },
+                                  'johab': { label: '조합원모집', color: 'bg-purple-100 text-purple-700' }
+                                };
+                                const config = typeConfig[property.type] || { label: property.type, color: 'bg-gray-100 text-gray-700' };
+                                return \`<span class="\${config.color} text-xs font-bold px-2 py-1 rounded whitespace-nowrap">\${config.label}</span>\`;
+                              })()}
+                            </div>
+                            <h3 class="text-base sm:text-lg font-bold text-gray-900 break-words leading-tight">\${property.title}</h3>
                           </div>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
                           \${subscriptionStatus ? \`
-                            <span class="\${subscriptionStatus.class} text-white text-xs font-bold px-2 py-1 rounded">
+                            <span class="\${subscriptionStatus.class} text-white text-xs font-bold px-2 py-0.5 sm:py-1 rounded whitespace-nowrap">
                               \${subscriptionStatus.text}
                             </span>
                           \` : ''}
-                          <span class="\${dday.class} text-white text-xs font-bold px-2 py-1 rounded">
+                          <span class="\${dday.class} text-white text-xs font-bold px-2 py-0.5 sm:py-1 rounded whitespace-nowrap">
                             \${dday.text}
                           </span>
                         </div>
                       </div>
                       
                       <!-- Location & Map Button -->
-                      <div class="mb-3 flex items-center justify-between">
-                        <div class="flex items-center gap-2 text-sm text-gray-600">
-                          <i class="fas fa-map-marker-alt text-gray-400 text-xs"></i>
-                          <span>\${property.full_address || property.location}</span>
+                      <div class="mb-2.5 sm:mb-3 flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-600 min-w-0 flex-1">
+                          <i class="fas fa-map-marker-alt text-gray-400 text-xs flex-shrink-0"></i>
+                          <span class="truncate">\${property.full_address || property.location}</span>
                         </div>
                         \${property.full_address ? \`
                           <button onclick="openMap('\${property.full_address.replace(/'/g, "\\\\'")}', \${property.lat}, \${property.lng})" 
-                                  class="text-gray-400 hover:text-gray-600 transition-colors"
+                                  class="text-gray-400 hover:text-gray-600 active:text-gray-800 transition-colors p-2 -m-2 flex-shrink-0"
                                   title="지도에서 보기">
-                            <i class="fas fa-map-marker-alt text-lg"></i>
+                            <i class="fas fa-map-marker-alt text-base sm:text-lg"></i>
                           </button>
                         \` : ''}
                       </div>
                       
                       <!-- Key Info Grid -->
-                      <div class="bg-gray-50 rounded-lg p-4 mb-3">
-                        <div class="grid grid-cols-2 gap-3 text-sm">
+                      <div class="bg-gray-50 rounded-lg p-3 sm:p-4 mb-2.5 sm:mb-3">
+                        <div class="grid grid-cols-2 gap-2.5 sm:gap-3 text-xs sm:text-sm">
                           <div>
                             <div class="text-xs text-gray-500 mb-1">\${
                               (() => {
@@ -5871,7 +6337,7 @@ app.get('/', (c) => {
                             <i class="fas fa-chart-line text-blue-600 mr-2"></i>
                             💰 투자 정보
                           </div>
-                          \${property.original_price && property.recent_trade_price ? \`
+                          \${property.original_price > 0 && property.recent_trade_price > 0 ? \`
                             <div class="grid grid-cols-3 gap-3 text-center">
                               <div>
                                 <div class="text-xs text-gray-500 mb-1">기존 분양가</div>
@@ -6099,7 +6565,7 @@ app.get('/', (c) => {
                       <div class="flex gap-2">
                         <!-- 상세 정보 버튼 (모든 타입 공통) -->
                         <button onclick="showDetail(\${property.id})" 
-                                class="w-full bg-white border border-gray-200 text-gray-600 font-medium py-2.5 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all text-sm">
+                                class="w-full bg-white border border-gray-200 text-gray-600 font-medium py-3 sm:py-2.5 rounded-lg hover:border-gray-300 hover:bg-gray-50 active:bg-gray-100 transition-all text-sm touch-manipulation">
                           상세정보 보기
                         </button>
                       </div>
