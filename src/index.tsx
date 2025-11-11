@@ -5815,8 +5815,10 @@ app.get('/', (c) => {
                     <div class="space-y-2.5 sm:space-y-3">
                       \${extendedData.steps && extendedData.steps.length > 0 ? extendedData.steps.map((step, idx) => \`
                         <div class="flex items-start gap-2.5 sm:gap-3 bg-white p-2.5 sm:p-3 rounded-lg">
-                          <div class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-primary text-white rounded-full flex items-center justify-center text-xs sm:text-sm font-bold">
-                            \${idx + 1}
+                          <div class="flex-shrink-0 min-w-[60px] sm:min-w-[70px]">
+                            <div class="bg-primary text-white rounded-full px-2 py-1 text-xs sm:text-sm font-bold text-center whitespace-nowrap">
+                              STEP \${idx + 1}
+                            </div>
                           </div>
                           <div class="flex-1 min-w-0">
                             <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-0.5 sm:gap-2">
