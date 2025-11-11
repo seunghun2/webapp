@@ -5006,12 +5006,25 @@ app.get('/', (c) => {
             
             if (isNaN(num)) return priceStr;
             
-            // 이미 만원 단위면 그대로
-            if (priceStr.includes('만원') && num < 100000) {
-              return Math.round(num) + '만원';
+            // 이미 올바른 형식이면 그대로 (예: 6억230만원)
+            if (priceStr.match(/\d+억\d+만원/)) {
+              return priceStr;
             }
             
-            // 원 단위 → 만원으로 변환
+            // 원 단위인 경우 (예: 602300000)
+            if (num >= 100000000) {
+              // 억 단위로 변환
+              const eok = Math.floor(num / 100000000);
+              const man = Math.round((num % 100000000) / 10000);
+              
+              if (man === 0) {
+                return eok + '억';
+              } else {
+                return eok + '억' + man + '만원';
+              }
+            }
+            
+            // 만원 단위 (10000 이상 1억 미만)
             if (num >= 10000) {
               return Math.round(num / 10000) + '만원';
             }
