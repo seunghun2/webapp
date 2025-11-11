@@ -4157,7 +4157,7 @@ app.get('/admin', (c) => {
                     document.getElementById('moveInDate').value = property.move_in_date || '';
                     document.getElementById('subscriptionStartDate').value = extData.subscriptionStartDate || '';
                     document.getElementById('subscriptionEndDate').value = extData.subscriptionEndDate || '';
-                    document.getElementById('constructor').value = property.constructor || '';
+                    document.getElementById('constructor').value = property.builder || '';
                     document.getElementById('mainImage').value = extData.mainImage || '';
                     document.getElementById('hashtags').value = property.tags ? property.tags.join(', ') : '';
                     
