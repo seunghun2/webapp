@@ -5332,7 +5332,7 @@ app.get('/', (c) => {
                   
                   <!-- 주의사항 -->
                   \${extendedData.details?.notices ? \`
-                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-5">
+                    <div class="bg-gray-50 rounded-lg p-5">
                       <h3 class="text-base font-bold text-gray-900 mb-4">⚠️ 주의사항</h3>
                       <div class="text-sm text-gray-700 whitespace-pre-wrap">\${extendedData.details.notices}</div>
                     </div>
@@ -5340,7 +5340,7 @@ app.get('/', (c) => {
                   
                   <!-- 온라인 신청 -->
                   \${extendedData.details?.applicationMethod || extendedData.details?.applicationUrl ? \`
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-5">
+                    <div class="bg-gray-50 rounded-lg p-5">
                       <h3 class="text-base font-bold text-gray-900 mb-4">💻 온라인 신청</h3>
                       <div class="text-sm text-gray-700 space-y-2">
                         \${extendedData.details.applicationMethod ? \`<p><strong>신청방법:</strong> \${extendedData.details.applicationMethod}</p>\` : ''}
@@ -5908,17 +5908,25 @@ app.get('/', (c) => {
                             \`;
                           })()}
                         </div>
-                        \${property.description ? \`
+                        \${(extendedData.targetAudienceLines && extendedData.targetAudienceLines.length > 0) || property.description ? \`
                           <div class="mt-3 pt-3 border-t border-gray-200">
                             <div class="text-xs font-medium text-gray-500 mb-1">👍 추천 대상</div>
                             <div class="text-xs text-gray-600 leading-relaxed">\${
                               (() => {
-                                // 추천 대상 섹션에서 최대 3줄 추출
+                                // extended_data에서 먼저 확인
+                                if (extendedData.targetAudienceLines && extendedData.targetAudienceLines.length > 0) {
+                                  return extendedData.targetAudienceLines
+                                    .slice(0, 3)
+                                    .map(line => '- ' + line.trim())
+                                    .join('<br>');
+                                }
+                                
+                                // description에서 추출 (기존 방식)
                                 const match = property.description.match(/👍 추천 대상[:\\s]*([^📢🏢📐💰🏡🎯✨📞⚠️💻🔗]*)/);
                                 if (match && match[1]) {
                                   const lines = match[1].trim().split('\\n')
                                     .filter(line => line.trim() && line.trim() !== '👍 추천 대상')
-                                    .slice(0, 3);  // 최대 3줄
+                                    .slice(0, 3);
                                   
                                   return lines.map(line => line.trim()).join('<br>');
                                 }
