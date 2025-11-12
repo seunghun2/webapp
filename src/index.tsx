@@ -4047,9 +4047,6 @@ app.get('/admin', (c) => {
                 }
             }
             
-            // Call exposeFunctions immediately to make functions available
-            exposeFunctions();
-            
             // Toggle Sidebar
             function toggleSidebar() {
                 const sidebar = document.getElementById('sidebar');
@@ -4939,6 +4936,9 @@ app.get('/admin', (c) => {
 
             // Initial load
             loadProperties();
+            
+            // Expose all functions to global scope AFTER they are defined
+            exposeFunctions();
         </script>
     </body>
     </html>
