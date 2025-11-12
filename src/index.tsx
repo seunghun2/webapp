@@ -4847,7 +4847,7 @@ app.get('/admin', (c) => {
                     area_type: supplyInfo.map(s => s.type).join(', ') || '',
                     price: supplyInfo.length > 0 ? supplyInfo[0].price : '',
                     description: details.features || '',
-                    tags: JSON.stringify(tags),
+                    tags: tags.join(', '),
                     extended_data: JSON.stringify(extendedData),
                     status: 'active',
                     ...tradePriceData
@@ -6335,10 +6335,10 @@ app.get('/', (c) => {
                     </div>
                   \` : ''}
                   
-                  <!-- Steps from extended_data (Always shown) -->
+                  <!-- Steps from extended_data (입주자 선정 일정으로 표시) -->
+                  \${extendedData.steps && extendedData.steps.length > 0 ? \`
                   <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
-                    <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">📋 신청 절차</h3>
-                    \${extendedData.steps && extendedData.steps.length > 0 ? \`
+                    <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">📅 입주자 선정 일정</h3>
                       <!-- Timeline Container -->
                       <div class="relative">
                         <!-- Vertical Line -->
@@ -6362,16 +6362,8 @@ app.get('/', (c) => {
                           \`).join('')}
                         </div>
                       </div>
-                    \` : \`
-                        <div class="bg-white p-4 rounded-lg text-center">
-                          <p class="text-xs sm:text-sm text-gray-500">
-                            <i class="fas fa-info-circle mr-2"></i>
-                            신청 절차 정보가 아직 등록되지 않았습니다.
-                          </p>
-                        </div>
-                      \`}
                     </div>
-                  </div>
+                  \` : ''}
 
                   <!-- Toggle Button for Additional Details -->
                   <div class="text-center my-5 sm:my-6">
