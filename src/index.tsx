@@ -4022,7 +4022,7 @@ app.get('/admin', (c) => {
                 document.querySelectorAll('.sidebar-link').forEach(link => {
                     link.classList.remove('active');
                 });
-                const activeLink = document.querySelector(\`.sidebar-link[data-section="\${sectionName}"]\`);
+                const activeLink = document.querySelector('.sidebar-link[data-section="' + sectionName + '"]');
                 if (activeLink) {
                     activeLink.classList.add('active');
                 }
