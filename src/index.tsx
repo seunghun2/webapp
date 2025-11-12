@@ -4997,14 +4997,64 @@ app.get('/', (c) => {
             </div>
         </div>
         
+        <!-- Mobile Menu Sidebar -->
+        <div id="mobileMenu" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+            <div class="fixed left-0 top-0 bottom-0 w-72 bg-white transform transition-transform duration-300 -translate-x-full" id="mobileMenuPanel">
+                <!-- Menu Header -->
+                <div class="flex items-center justify-between p-4 border-b">
+                    <h2 class="text-lg font-bold text-gray-900">메뉴</h2>
+                    <button onclick="closeMobileMenu()" class="text-gray-600 hover:text-gray-900 p-2">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <!-- Menu Items -->
+                <nav class="p-4 space-y-1">
+                    <a href="/" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                        <i class="fas fa-home text-lg"></i>
+                        <span>홈</span>
+                    </a>
+                    <a href="/admin" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                        <i class="fas fa-cog text-lg"></i>
+                        <span>관리자</span>
+                    </a>
+                    <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                        <i class="fas fa-heart text-lg"></i>
+                        <span>찜한 매물</span>
+                    </a>
+                    <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                        <i class="fas fa-bell text-lg"></i>
+                        <span>알림 설정</span>
+                    </a>
+                </nav>
+                
+                <!-- Menu Footer -->
+                <div class="absolute bottom-0 left-0 right-0 p-4 border-t bg-gray-50">
+                    <p class="text-xs text-gray-500 text-center">똑똑한한채 v1.0</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Header -->
         <header class="bg-white sticky top-0 z-50 shadow-sm border-b border-gray-200">
             <div class="max-w-6xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3">
                 <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-1.5 sm:gap-2">
+                    <div class="flex items-center gap-1.5 sm:gap-3">
+                        <!-- Hamburger Menu Button (Mobile Only) -->
+                        <button onclick="openMobileMenu()" class="lg:hidden text-gray-600 hover:text-gray-900 px-2 py-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
+                            <i class="fas fa-bars text-lg"></i>
+                        </button>
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900">똑똑한한채</h1>
-                        <span class="text-xs text-gray-500 hidden sm:inline">스마트 부동산 분양 정보</span>
+                        <span class="text-xs text-gray-500 hidden md:inline">스마트 부동산 분양 정보</span>
                     </div>
+                    
+                    <!-- Desktop Navigation -->
+                    <nav class="hidden lg:flex items-center gap-1">
+                        <a href="/" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">홈</a>
+                        <a href="/admin" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">관리자</a>
+                        <a href="#" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">찜한 매물</a>
+                    </nav>
+                    
                     <div class="flex items-center gap-1 sm:gap-2">
                         <button class="text-gray-600 hover:text-gray-900 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
                             <i class="fas fa-bell text-base sm:text-lg"></i>
@@ -5094,7 +5144,7 @@ app.get('/', (c) => {
             </div>
 
             <!-- Properties Grid -->
-            <div id="propertiesContainer" class="grid md:grid-cols-2 gap-4 sm:gap-6">
+            <div id="propertiesContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
                 <!-- Properties will be loaded here -->
             </div>
 
@@ -5106,14 +5156,14 @@ app.get('/', (c) => {
         </main>
 
         <!-- Event Banner -->
-        <section class="max-w-6xl mx-auto px-4 pb-12">
-            <div class="bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl shadow-xl p-8 text-white fade-in">
-                <div class="flex items-center justify-between flex-wrap gap-4">
+        <section class="max-w-6xl mx-auto px-3 sm:px-4 pb-8 sm:pb-12">
+            <div class="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl sm:rounded-2xl shadow-xl p-5 sm:p-8 text-white fade-in">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
-                        <h3 class="text-2xl font-bold mb-2">🎉 1월 관심등록 이벤트</h3>
-                        <p class="text-purple-100">시흥센트럴 푸르지오 관심등록하고 상품권 받아가세요!</p>
+                        <h3 class="text-xl sm:text-2xl font-bold mb-2">🎉 1월 관심등록 이벤트</h3>
+                        <p class="text-sm sm:text-base text-purple-100">시흥센트럴 푸르지오 관심등록하고 상품권 받아가세요!</p>
                     </div>
-                    <button class="bg-white text-purple-600 px-8 py-3 rounded-xl font-bold hover:bg-purple-50 transition-all">
+                    <button class="bg-white text-purple-600 px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-bold hover:bg-purple-50 transition-all text-sm sm:text-base w-full sm:w-auto">
                         자세히 보기
                     </button>
                 </div>
@@ -5121,13 +5171,13 @@ app.get('/', (c) => {
         </section>
 
         <!-- Notice Section -->
-        <section class="max-w-6xl mx-auto px-4 pb-12">
-            <div class="bg-gray-100 border-l-4 border-gray-400 p-6 rounded-xl">
-                <div class="flex items-start gap-3">
-                    <i class="fas fa-info-circle text-gray-500 text-lg mt-1"></i>
+        <section class="max-w-6xl mx-auto px-3 sm:px-4 pb-8 sm:pb-12">
+            <div class="bg-gray-100 border-l-4 border-gray-400 p-4 sm:p-6 rounded-lg sm:rounded-xl">
+                <div class="flex items-start gap-2 sm:gap-3">
+                    <i class="fas fa-info-circle text-gray-500 text-base sm:text-lg mt-1 flex-shrink-0"></i>
                     <div>
-                        <h3 class="font-bold text-gray-900 mb-3 text-sm">공지사항</h3>
-                        <ul class="text-xs text-gray-600 space-y-2">
+                        <h3 class="font-bold text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base">공지사항</h3>
+                        <ul class="text-xs sm:text-sm text-gray-600 space-y-1.5 sm:space-y-2">
                             <li>• 줍줍분양에 게시된 분양공고 내용을 외부에 등록 할 경우 반드시 출처에 "줍줍분양"를 표시하셔야 합니다.</li>
                             <li>• 분양공고 상세문의는 각 공고처(LH공사, SH공사)로 연락하세요.</li>
                             <li>• LH주택공사 고객센터: <strong>1600-1004</strong></li>
@@ -5138,31 +5188,31 @@ app.get('/', (c) => {
         </section>
 
         <!-- Footer -->
-        <footer class="bg-gray-900 text-gray-400 py-12">
-            <div class="max-w-6xl mx-auto px-4">
-                <div class="grid md:grid-cols-3 gap-8">
+        <footer class="bg-gray-900 text-gray-400 py-8 sm:py-12">
+            <div class="max-w-6xl mx-auto px-3 sm:px-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                     <div>
-                        <h4 class="text-white font-bold mb-4">똑똑한한채</h4>
-                        <p class="text-sm">실전 투자 정보를 한눈에</p>
+                        <h4 class="text-white font-bold mb-3 sm:mb-4 text-sm sm:text-base">똑똑한한채</h4>
+                        <p class="text-xs sm:text-sm">실전 투자 정보를 한눈에</p>
                     </div>
                     <div>
-                        <h4 class="text-white font-bold mb-4">고객센터</h4>
-                        <p class="text-sm">0505-321-8000</p>
-                        <p class="text-sm">평일 09:00 - 18:00</p>
+                        <h4 class="text-white font-bold mb-3 sm:mb-4 text-sm sm:text-base">고객센터</h4>
+                        <p class="text-xs sm:text-sm">0505-321-8000</p>
+                        <p class="text-xs sm:text-sm">평일 09:00 - 18:00</p>
                     </div>
-                    <div>
-                        <h4 class="text-white font-bold mb-4">협력사</h4>
-                        <p class="text-sm">LH주택공사: 1600-1004</p>
-                        <p class="text-sm">SH공사: 1600-3456</p>
+                    <div class="sm:col-span-2 lg:col-span-1">
+                        <h4 class="text-white font-bold mb-3 sm:mb-4 text-sm sm:text-base">협력사</h4>
+                        <p class="text-xs sm:text-sm">LH주택공사: 1600-1004</p>
+                        <p class="text-xs sm:text-sm">SH공사: 1600-3456</p>
                     </div>
                 </div>
-                <div class="border-t border-gray-800 mt-8 pt-8 text-center text-sm">
-                    <div class="flex justify-center gap-6 mb-4">
+                <div class="border-t border-gray-800 mt-6 sm:mt-8 pt-6 sm:pt-8 text-center text-xs sm:text-sm">
+                    <div class="flex flex-wrap justify-center gap-4 sm:gap-6 mb-3 sm:mb-4">
                         <a href="/terms" class="hover:text-white transition-colors">이용약관</a>
                         <a href="/privacy" class="hover:text-white transition-colors">개인정보처리방침</a>
                         <a href="/admin" class="hover:text-white transition-colors text-gray-500">Admin</a>
                     </div>
-                    <p>© 2025 똑똑한한채. All rights reserved.</p>
+                    <p class="text-xs sm:text-sm">© 2025 똑똑한한채. All rights reserved.</p>
                 </div>
             </div>
         </footer>
@@ -5407,6 +5457,32 @@ app.get('/', (c) => {
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script src="/static/app.js?v=${Date.now()}"></script>
         <script>
+          // Mobile Menu Functions
+          function openMobileMenu() {
+            const menu = document.getElementById('mobileMenu');
+            const panel = document.getElementById('mobileMenuPanel');
+            menu.classList.remove('hidden');
+            setTimeout(() => {
+              panel.classList.remove('-translate-x-full');
+            }, 10);
+          }
+          
+          function closeMobileMenu() {
+            const menu = document.getElementById('mobileMenu');
+            const panel = document.getElementById('mobileMenuPanel');
+            panel.classList.add('-translate-x-full');
+            setTimeout(() => {
+              menu.classList.add('hidden');
+            }, 300);
+          }
+          
+          // Close menu when clicking backdrop
+          document.getElementById('mobileMenu')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+              closeMobileMenu();
+            }
+          });
+
           // Filter state
           const filters = {
             region: 'all',
