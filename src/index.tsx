@@ -3671,19 +3671,79 @@ app.get('/admin', (c) => {
                             </div>
                         </div>
 
-                        <!-- 신청절차(스텝) -->
+                        <!-- 입주자 선정 일정 (6 Steps) -->
                         <div class="border-b pb-6">
-                            <div class="flex items-center justify-between mb-4">
-                                <h3 class="text-lg font-bold text-gray-900 flex items-center">
-                                    <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">2</span>
-                                    신청절차
-                                </h3>
-                                <button type="button" onclick="addStep()" class="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
-                                    <i class="fas fa-plus mr-1"></i> 스텝 추가
-                                </button>
-                            </div>
-                            <div id="stepsContainer" class="space-y-2">
-                                <!-- 동적으로 추가됨 -->
+                            <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                                <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">2</span>
+                                📅 입주자 선정 일정
+                            </h3>
+                            
+                            <div class="space-y-4">
+                                <!-- STEP 1: 청약신청 -->
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <h4 class="text-sm font-bold text-gray-900 mb-3">STEP 1: 청약신청</h4>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">접수 시작일</label>
+                                            <input type="date" id="application_start_date" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">접수 마감일</label>
+                                            <input type="date" id="application_end_date" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- STEP 2: 서류제출 대상자 발표 -->
+                                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                    <h4 class="text-sm font-bold text-gray-900 mb-3">STEP 2: 서류제출 대상자 발표</h4>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">발표일</label>
+                                        <input type="date" id="document_submission_date" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                    </div>
+                                </div>
+
+                                <!-- STEP 3: 사업주체 대상자 서류접수 -->
+                                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                    <h4 class="text-sm font-bold text-gray-900 mb-3">STEP 3: 사업주체 대상자 서류접수</h4>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">접수 시작일</label>
+                                            <input type="date" id="document_acceptance_start_date" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">접수 마감일</label>
+                                            <input type="date" id="document_acceptance_end_date" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- STEP 4: 입주자격 검증 -->
+                                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                    <h4 class="text-sm font-bold text-gray-900 mb-3">STEP 4: 입주자격 검증 및 부적격자 소명</h4>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">검증일</label>
+                                        <input type="date" id="qualification_verification_date" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                    </div>
+                                </div>
+
+                                <!-- STEP 5: 소명 절차 및 심사 -->
+                                <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                    <h4 class="text-sm font-bold text-gray-900 mb-3">STEP 5: 소명 절차 및 심사</h4>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">심사일</label>
+                                        <input type="date" id="appeal_review_date" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                    </div>
+                                </div>
+
+                                <!-- STEP 6: 예비입주자 당첨자 발표 -->
+                                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                    <h4 class="text-sm font-bold text-gray-900 mb-3">STEP 6: 예비입주자 당첨자 발표</h4>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">최종 발표일</label>
+                                        <input type="date" id="final_announcement_date" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -4408,27 +4468,7 @@ app.get('/admin', (c) => {
             }
 
             // Add step
-            function addStep() {
-                stepCounter++;
-                const container = document.getElementById('stepsContainer');
-                const div = document.createElement('div');
-                div.className = 'flex gap-2 items-center';
-                // 오늘 날짜를 YYYY-MM-DD 형식으로 가져오기
-                const today = new Date().toISOString().split('T')[0];
-                div.innerHTML = \`
-                    <input type="date" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <input type="text" placeholder="스텝 제목 (예: 일반공급 2순위 접수일)" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
-                        <i class="fas fa-times"></i>
-                    </button>
-                \`;
-                container.appendChild(div);
-            }
 
-            // Remove step
-            function removeStep(btn) {
-                btn.parentElement.remove();
-            }
 
             // Add supply row
             function addSupplyRow() {
@@ -4589,22 +4629,15 @@ app.get('/admin', (c) => {
                         document.getElementById('targetAudience3').value = '';
                     }
 
-                    // Steps
-                    document.getElementById('stepsContainer').innerHTML = '';
-                    if (extData.steps && Array.isArray(extData.steps)) {
-                        extData.steps.forEach(step => {
-                            const div = document.createElement('div');
-                            div.className = 'flex gap-2 items-center';
-                            div.innerHTML = \`
-                                <input type="date" value="\${step.date || ''}" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                                <input type="text" value="\${step.title || ''}" placeholder="스텝 제목" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                                <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            \`;
-                            document.getElementById('stepsContainer').appendChild(div);
-                        });
-                    }
+                    // 입주자 선정 일정 날짜 필드
+                    document.getElementById('application_start_date').value = property.application_start_date || '';
+                    document.getElementById('application_end_date').value = property.application_end_date || '';
+                    document.getElementById('document_submission_date').value = property.document_submission_date || '';
+                    document.getElementById('document_acceptance_start_date').value = property.document_acceptance_start_date || '';
+                    document.getElementById('document_acceptance_end_date').value = property.document_acceptance_end_date || '';
+                    document.getElementById('qualification_verification_date').value = property.qualification_verification_date || '';
+                    document.getElementById('appeal_review_date').value = property.appeal_review_date || '';
+                    document.getElementById('final_announcement_date').value = property.final_announcement_date || '';
 
                     // Supply rows
                     document.getElementById('supplyRowsContainer').innerHTML = '';
@@ -4712,13 +4745,6 @@ app.get('/admin', (c) => {
 
             // Collect form data
             function collectFormData() {
-                // Collect steps
-                const stepElements = document.querySelectorAll('#stepsContainer > div');
-                const steps = Array.from(stepElements).map(el => ({
-                    date: el.querySelector('.step-date').value,
-                    title: el.querySelector('.step-title').value
-                })).filter(s => s.date || s.title);
-
                 // Collect supply info
                 const supplyElements = document.querySelectorAll('#supplyRowsContainer > div');
                 const supplyInfo = Array.from(supplyElements).map(el => ({
@@ -4778,7 +4804,6 @@ app.get('/admin', (c) => {
                     subscriptionStartDate: document.getElementById('subscriptionStartDate').value,
                     subscriptionEndDate: document.getElementById('subscriptionEndDate').value,
                     targetAudienceLines: targetAudienceLines,
-                    steps: steps,
                     supplyInfo: supplyInfo,
                     details: details
                 };
@@ -4817,6 +4842,15 @@ app.get('/admin', (c) => {
                     tags: JSON.stringify(tags),
                     extended_data: JSON.stringify(extendedData),
                     status: 'active',
+                    // 입주자 선정 일정 필드 추가
+                    application_start_date: document.getElementById('application_start_date').value,
+                    application_end_date: document.getElementById('application_end_date').value,
+                    document_submission_date: document.getElementById('document_submission_date').value,
+                    document_acceptance_start_date: document.getElementById('document_acceptance_start_date').value,
+                    document_acceptance_end_date: document.getElementById('document_acceptance_end_date').value,
+                    qualification_verification_date: document.getElementById('qualification_verification_date').value,
+                    appeal_review_date: document.getElementById('appeal_review_date').value,
+                    final_announcement_date: document.getElementById('final_announcement_date').value,
                     ...tradePriceData
                 };
             }
