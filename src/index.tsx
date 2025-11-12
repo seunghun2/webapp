@@ -2615,15 +2615,15 @@ Rules:
 - Extract ALL schedule dates into steps array
 - Use newline \\n for multi-line text in notices`
     
-    // Gemini API 호출 with exponential backoff retry for 503 errors
-    const maxRetries = 5
+    // Gemini API 호출 with retry for 503 errors (reduced retries to avoid timeout)
+    const maxRetries = 3
     let response
     let lastError
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        // Exponential backoff: 2s, 4s, 8s, 16s
-        const retryDelay = Math.min(2000 * Math.pow(2, attempt - 1), 16000)
+        // Faster retry: 1s, 2s (total max ~45s for PDF parsing)
+        const retryDelay = attempt > 1 ? 1000 * attempt : 0
         
         if (attempt > 1) {
           console.log(`재시도 ${attempt}/${maxRetries} (${retryDelay/1000}초 대기 후)`)
@@ -4290,7 +4290,7 @@ app.get('/admin', (c) => {
                                 pdfBase64: base64,
                                 filename: selectedPdfFile.name
                             }, {
-                                timeout: 60000 // 60 seconds timeout
+                                timeout: 120000 // 120 seconds timeout (2 minutes)
                             });
                             
                             if (response.data.success) {
