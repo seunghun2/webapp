@@ -2615,15 +2615,22 @@ Rules:
 - Extract ALL schedule dates into steps array
 - Use newline \\n for multi-line text in notices`
     
-    // Gemini API 호출 with retry for 503 errors
-    const maxRetries = 3
-    const retryDelay = 2000 // 2 seconds
+    // Gemini API 호출 with exponential backoff retry for 503 errors
+    const maxRetries = 5
     let response
     let lastError
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`Gemini API 호출 시도 ${attempt}/${maxRetries}`)
+        // Exponential backoff: 2s, 4s, 8s, 16s
+        const retryDelay = Math.min(2000 * Math.pow(2, attempt - 1), 16000)
+        
+        if (attempt > 1) {
+          console.log(`재시도 ${attempt}/${maxRetries} (${retryDelay/1000}초 대기 후)`)
+          await new Promise(resolve => setTimeout(resolve, retryDelay))
+        } else {
+          console.log(`Gemini API 호출 시도 ${attempt}/${maxRetries}`)
+        }
         
         response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
           method: 'POST',
@@ -2650,10 +2657,9 @@ Rules:
           })
         })
         
-        // 503 에러면 재시도
-        if (response.status === 503 && attempt < maxRetries) {
-          console.log(`503 에러 발생, ${retryDelay}ms 후 재시도...`)
-          await new Promise(resolve => setTimeout(resolve, retryDelay))
+        // 503 또는 429 에러면 재시도
+        if ((response.status === 503 || response.status === 429) && attempt < maxRetries) {
+          console.log(`${response.status} 에러 발생, 재시도 예정...`)
           continue
         }
         
@@ -2663,8 +2669,7 @@ Rules:
       } catch (error) {
         lastError = error
         if (attempt < maxRetries) {
-          console.log(`네트워크 에러, ${retryDelay}ms 후 재시도...`)
-          await new Promise(resolve => setTimeout(resolve, retryDelay))
+          console.log(`네트워크 에러, 재시도 예정...`)
         }
       }
     }
