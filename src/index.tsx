@@ -2615,77 +2615,38 @@ Rules:
 - Extract ALL schedule dates into steps array
 - Use newline \\n for multi-line text in notices`
     
-    // Gemini API 호출 with retry (gemini-2.5-flash 사용 - PDF 지원)
-    let response
-    let lastError
-    const maxRetries = 3
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        console.log(`Gemini API 호출 시도 ${attempt}/${maxRetries}`)
-        
-        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: promptText },
-                {
-                  inline_data: {
-                    mime_type: 'application/pdf',
-                    data: pdfBase64
-                  }
-                }
-              ]
-            }],
-            generationConfig: {
-              temperature: 0.1,
-              maxOutputTokens: 8192,
-              responseMimeType: "application/json"
+    // Gemini API 호출 (gemini-2.5-flash 사용 - PDF 지원)
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: promptText },
+            {
+              inline_data: {
+                mime_type: 'application/pdf',
+                data: pdfBase64
+              }
             }
-          })
-        })
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 8192,
+          responseMimeType: "application/json"
+        }
+      })
+    })
 
-        if (response.ok) {
-          break // 성공하면 루프 탈출
-        }
-        
-        const errorText = await response.text()
-        lastError = `${response.status} - ${errorText}`
-        console.error(`시도 ${attempt} 실패:`, lastError)
-        
-        // 503 (과부하) 또는 429 (Rate limit)인 경우 재시도
-        if (response.status === 503 || response.status === 429) {
-          if (attempt < maxRetries) {
-            const waitTime = Math.min(1000 * Math.pow(2, attempt), 10000) // 지수 백오프 (최대 10초)
-            console.log(`${waitTime}ms 후 재시도...`)
-            await new Promise(resolve => setTimeout(resolve, waitTime))
-            continue
-          }
-        }
-        
-        // 다른 오류는 즉시 반환
-        break
-        
-      } catch (fetchError) {
-        lastError = fetchError.message
-        console.error(`시도 ${attempt} 네트워크 오류:`, fetchError)
-        
-        if (attempt < maxRetries) {
-          const waitTime = 2000 * attempt
-          console.log(`${waitTime}ms 후 재시도...`)
-          await new Promise(resolve => setTimeout(resolve, waitTime))
-        }
-      }
-    }
-
-    if (!response || !response.ok) {
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Gemini API 오류:', errorText)
       return c.json({ 
         success: false, 
-        error: `Gemini API 오류 (${maxRetries}회 시도 후 실패): ${lastError}` 
+        error: `Gemini API 오류: ${response.status} - ${errorText}` 
       }, 500)
     }
 
@@ -3710,12 +3671,12 @@ app.get('/admin', (c) => {
                             </div>
                         </div>
 
-                        <!-- 입주자 선정 일정 (동적) -->
+                        <!-- 신청절차(스텝) -->
                         <div class="border-b pb-6">
                             <div class="flex items-center justify-between mb-4">
                                 <h3 class="text-lg font-bold text-gray-900 flex items-center">
                                     <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">2</span>
-                                    입주자 선정 일정
+                                    신청절차
                                 </h3>
                                 <button type="button" onclick="addStep()" class="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
                                     <i class="fas fa-plus mr-1"></i> 스텝 추가
@@ -3981,32 +3942,6 @@ app.get('/admin', (c) => {
                 window.location.href = '/admin/login';
             }
 
-            // Expose functions to global scope for onclick handlers
-            const exposeFunctions = () => {
-                window.showSection = showSection;
-                window.toggleSidebar = toggleSidebar;
-                window.exportData = exportData;
-                window.handleImageSelect = handleImageSelect;
-                window.removeImage = removeImage;
-                window.fetchTradePrice = fetchTradePrice;
-                window.logout = logout;
-                window.handlePdfSelect = handlePdfSelect;
-                window.parsePdf = parsePdf;
-                window.switchTab = switchTab;
-                window.toggleSection = toggleSection;
-                window.addSupplyRow = addSupplyRow;
-                window.removeSupplyRow = removeSupplyRow;
-                window.addStep = addStep;
-                window.removeStep = removeStep;
-                window.openAddModal = openAddModal;
-                window.editProperty = editProperty;
-                window.closeEditModal = closeEditModal;
-                window.deleteProperty = deleteProperty;
-                window.closeDeleteModal = closeDeleteModal;
-                window.confirmDelete = confirmDelete;
-                window.searchProperties = searchProperties;
-            };
-
             // Section Management
             function showSection(sectionName) {
                 // Hide all sections
@@ -4022,7 +3957,7 @@ app.get('/admin', (c) => {
                 document.querySelectorAll('.sidebar-link').forEach(link => {
                     link.classList.remove('active');
                 });
-                const activeLink = document.querySelector('.sidebar-link[data-section="' + sectionName + '"]');
+                const activeLink = document.querySelector(\`.sidebar-link[data-section="\${sectionName}"]\`);
                 if (activeLink) {
                     activeLink.classList.add('active');
                 }
@@ -4341,28 +4276,7 @@ app.get('/admin', (c) => {
                         } catch (error) {
                             console.error('PDF parsing error:', error);
                             statusDiv.classList.add('hidden');
-                            
-                            let errorMessage = 'PDF 파싱 중 오류가 발생했습니다.';
-                            const apiError = error.response?.data?.error || error.message;
-                            
-                            // 503 오류 (과부하) 처리
-                            if (apiError.includes('503') || apiError.includes('overloaded')) {
-                                errorMessage = '🔄 AI 서버가 일시적으로 과부하 상태입니다.\n\n잠시 후(1-2분) 다시 시도해주세요.\n또는 PDF를 수동으로 입력해주세요.';
-                            } 
-                            // 429 오류 (Rate limit) 처리
-                            else if (apiError.includes('429') || apiError.includes('quota')) {
-                                errorMessage = '⏰ API 호출 한도를 초과했습니다.\n\n잠시 후 다시 시도하거나 수동으로 입력해주세요.';
-                            }
-                            // API 키 오류
-                            else if (apiError.includes('API 키')) {
-                                errorMessage = '🔑 API 키 설정이 필요합니다.\n\n관리자에게 문의하거나 수동으로 입력해주세요.';
-                            }
-                            // 기타 오류
-                            else {
-                                errorMessage = 'PDF 파싱 오류:\n\n' + apiError + '\n\n수동으로 입력해주세요.';
-                            }
-                            
-                            alert(errorMessage);
+                            alert('PDF 파싱 중 오류가 발생했습니다: ' + (error.response?.data?.error || error.message));
                         } finally {
                             parseBtn.disabled = false;
                         }
@@ -4402,9 +4316,13 @@ app.get('/admin', (c) => {
                     data.steps.forEach(step => {
                         const div = document.createElement('div');
                         div.className = 'flex gap-2 items-center';
-                        div.innerHTML = '<input type="date" value="' + (step.date || '') + '" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">' +
-                            '<input type="text" value="' + (step.title || '') + '" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">' +
-                            '<button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm"><i class="fas fa-times"></i></button>';
+                        div.innerHTML = \`
+                            <input type="date" value="\${step.date || ''}" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <input type="text" value="\${step.title || ''}" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        \`;
                         document.getElementById('stepsContainer').appendChild(div);
                     });
                 }
@@ -4415,11 +4333,15 @@ app.get('/admin', (c) => {
                     data.supplyInfo.forEach(row => {
                         const div = document.createElement('div');
                         div.className = 'flex gap-2 items-center p-3 bg-gray-50 rounded';
-                        div.innerHTML = '<input type="text" value="' + (row.type || '') + '" class="supply-type px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">' +
-                            '<input type="text" value="' + (row.area || '') + '" class="supply-area px-2 py-1 border border-gray-300 rounded text-sm" style="width: 100px">' +
-                            '<input type="text" value="' + (row.households || '') + '" class="supply-households px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">' +
-                            '<input type="text" value="' + (row.price || '') + '" class="supply-price flex-1 px-2 py-1 border border-gray-300 rounded text-sm">' +
-                            '<button type="button" onclick="removeSupplyRow(this)" class="px-2 py-1 bg-red-500 text-white rounded text-sm"><i class="fas fa-times"></i></button>';
+                        div.innerHTML = \`
+                            <input type="text" value="\${row.type || ''}" class="supply-type px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
+                            <input type="text" value="\${row.area || ''}" class="supply-area px-2 py-1 border border-gray-300 rounded text-sm" style="width: 100px">
+                            <input type="text" value="\${row.households || ''}" class="supply-households px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
+                            <input type="text" value="\${row.price || ''}" class="supply-price flex-1 px-2 py-1 border border-gray-300 rounded text-sm">
+                            <button type="button" onclick="removeSupplyRow(this)" class="px-2 py-1 bg-red-500 text-white rounded text-sm">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        \`;
                         document.getElementById('supplyRowsContainer').appendChild(div);
                     });
                 }
@@ -4466,7 +4388,7 @@ app.get('/admin', (c) => {
                 document.querySelectorAll('.tab-btn').forEach(btn => {
                     btn.classList.remove('tab-active');
                 });
-                document.querySelector('[data-tab="' + tab + '"]').classList.add('tab-active');
+                document.querySelector(\`[data-tab="\${tab}"]\`).classList.add('tab-active');
                 loadProperties();
             }
 
@@ -4486,7 +4408,27 @@ app.get('/admin', (c) => {
             }
 
             // Add step
+            function addStep() {
+                stepCounter++;
+                const container = document.getElementById('stepsContainer');
+                const div = document.createElement('div');
+                div.className = 'flex gap-2 items-center';
+                // 오늘 날짜를 YYYY-MM-DD 형식으로 가져오기
+                const today = new Date().toISOString().split('T')[0];
+                div.innerHTML = \`
+                    <input type="date" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <input type="text" placeholder="스텝 제목 (예: 일반공급 2순위 접수일)" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
+                        <i class="fas fa-times"></i>
+                    </button>
+                \`;
+                container.appendChild(div);
+            }
 
+            // Remove step
+            function removeStep(btn) {
+                btn.parentElement.remove();
+            }
 
             // Add supply row
             function addSupplyRow() {
@@ -4494,11 +4436,15 @@ app.get('/admin', (c) => {
                 const container = document.getElementById('supplyRowsContainer');
                 const div = document.createElement('div');
                 div.className = 'flex gap-2 items-center p-3 bg-gray-50 rounded';
-                div.innerHTML = '<input type="text" placeholder="타입" class="supply-type px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">' +
-                    '<input type="text" placeholder="면적" class="supply-area px-2 py-1 border border-gray-300 rounded text-sm" style="width: 100px">' +
-                    '<input type="text" placeholder="세대수" class="supply-households px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">' +
-                    '<input type="text" placeholder="가격" class="supply-price flex-1 px-2 py-1 border border-gray-300 rounded text-sm">' +
-                    '<button type="button" onclick="removeSupplyRow(this)" class="px-2 py-1 bg-red-500 text-white rounded text-sm"><i class="fas fa-times"></i></button>';
+                div.innerHTML = \`
+                    <input type="text" placeholder="타입" class="supply-type px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
+                    <input type="text" placeholder="면적" class="supply-area px-2 py-1 border border-gray-300 rounded text-sm" style="width: 100px">
+                    <input type="text" placeholder="세대수" class="supply-households px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
+                    <input type="text" placeholder="가격" class="supply-price flex-1 px-2 py-1 border border-gray-300 rounded text-sm">
+                    <button type="button" onclick="removeSupplyRow(this)" class="px-2 py-1 bg-red-500 text-white rounded text-sm">
+                        <i class="fas fa-times"></i>
+                    </button>
+                \`;
                 container.appendChild(div);
             }
 
@@ -4510,52 +4456,40 @@ app.get('/admin', (c) => {
             // Load properties
             async function loadProperties() {
                 try {
-                    const url = currentTab === 'all' ? '/api/properties' : '/api/properties?type=' + currentTab;
+                    const url = currentTab === 'all' ? '/api/properties' : \`/api/properties?type=\${currentTab}\`;
                     const response = await axios.get(url);
                     const properties = response.data;
                     
                     const tbody = document.getElementById('propertiesTable');
-                    let html = '';
-                    properties.forEach(p => {
-                        const typeClass = p.type === 'rental' ? 'bg-blue-100 text-blue-700' :
-                                         p.type === 'unsold' ? 'bg-orange-100 text-orange-700' :
-                                         'bg-green-100 text-green-700';
-                        const typeLabel = p.type === 'rental' ? '임대' : p.type === 'unsold' ? '줍줍' : '청약';
-                        
-                        html += '<tr class="hover:bg-gray-50">' +
-                            '<td class="px-6 py-4 text-sm text-gray-900">' + p.id + '</td>' +
-                            '<td class="px-6 py-4 text-sm font-medium text-gray-900">' + p.title + '</td>' +
-                            '<td class="px-6 py-4 text-sm text-gray-600">' + (p.location || '-') + '</td>' +
-                            '<td class="px-6 py-4 text-sm"><span class="px-2 py-1 text-xs font-medium rounded ' + typeClass + '">' + typeLabel + '</span></td>' +
-                            '<td class="px-6 py-4 text-sm text-gray-600">' + (p.deadline || '-') + '</td>' +
-                            '<td class="px-6 py-4 text-sm">' +
-                                '<button onclick="editProperty(' + p.id + ')" class="text-blue-600 hover:text-blue-800 mr-3"><i class="fas fa-edit"></i> 수정</button>' +
-                                '<button onclick="deleteProperty(' + p.id + ')" class="text-red-600 hover:text-red-800"><i class="fas fa-trash"></i> 삭제</button>' +
-                            '</td>' +
-                        '</tr>';
-                    });
-                    tbody.innerHTML = html;
+                    tbody.innerHTML = properties.map(p => \`
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 text-sm text-gray-900">\${p.id}</td>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900">\${p.title}</td>
+                            <td class="px-6 py-4 text-sm text-gray-600">\${p.location || '-'}</td>
+                            <td class="px-6 py-4 text-sm">
+                                <span class="px-2 py-1 text-xs font-medium rounded \${
+                                    p.type === 'rental' ? 'bg-blue-100 text-blue-700' :
+                                    p.type === 'unsold' ? 'bg-orange-100 text-orange-700' :
+                                    'bg-green-100 text-green-700'
+                                }">\${
+                                    p.type === 'rental' ? '임대' : p.type === 'unsold' ? '줍줍' : '청약'
+                                }</span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-600">\${p.deadline || '-'}</td>
+                            <td class="px-6 py-4 text-sm">
+                                <button onclick="editProperty(\${p.id})" class="text-blue-600 hover:text-blue-800 mr-3">
+                                    <i class="fas fa-edit"></i> 수정
+                                </button>
+                                <button onclick="deleteProperty(\${p.id})" class="text-red-600 hover:text-red-800">
+                                    <i class="fas fa-trash"></i> 삭제
+                                </button>
+                            </td>
+                        </tr>
+                    \`).join('');
                 } catch (error) {
                     console.error('Failed to load properties:', error);
                     alert('데이터 로드 실패');
                 }
-            }
-
-            // Add step
-            function addStep() {
-                stepCounter++;
-                const container = document.getElementById('stepsContainer');
-                const div = document.createElement('div');
-                div.className = 'flex gap-2 items-center';
-                div.innerHTML = '<input type="date" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">' +
-                    '<input type="text" placeholder="스텝 제목 (예: 청약접수 시작일)" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">' +
-                    '<button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm"><i class="fas fa-times"></i></button>';
-                container.appendChild(div);
-            }
-
-            // Remove step
-            function removeStep(btn) {
-                btn.parentElement.remove();
             }
 
             // Open add modal
@@ -4573,7 +4507,7 @@ app.get('/admin', (c) => {
             // Edit property
             async function editProperty(id) {
                 try {
-                    const response = await axios.get(`/api/properties?type=all`);
+                    const response = await axios.get(\`/api/properties?type=all\`);
                     const property = response.data.find(p => p.id === id);
                     
                     if (!property) {
@@ -4661,9 +4595,13 @@ app.get('/admin', (c) => {
                         extData.steps.forEach(step => {
                             const div = document.createElement('div');
                             div.className = 'flex gap-2 items-center';
-                            div.innerHTML = '<input type="date" value="' + (step.date || '') + '" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">' +
-                                '<input type="text" value="' + (step.title || '') + '" placeholder="스텝 제목" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">' +
-                                '<button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm"><i class="fas fa-times"></i></button>';
+                            div.innerHTML = \`
+                                <input type="date" value="\${step.date || ''}" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                <input type="text" value="\${step.title || ''}" placeholder="스텝 제목" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            \`;
                             document.getElementById('stepsContainer').appendChild(div);
                         });
                     }
@@ -4674,11 +4612,15 @@ app.get('/admin', (c) => {
                         extData.supplyInfo.forEach(row => {
                             const div = document.createElement('div');
                             div.className = 'flex gap-2 items-center p-3 bg-gray-50 rounded';
-                            div.innerHTML = '<input type="text" value="' + (row.type || '') + '" class="supply-type px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">' +
-                                '<input type="text" value="' + (row.area || '') + '" class="supply-area px-2 py-1 border border-gray-300 rounded text-sm" style="width: 100px">' +
-                                '<input type="text" value="' + (row.households || '') + '" class="supply-households px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">' +
-                                '<input type="text" value="' + (row.price || '') + '" class="supply-price flex-1 px-2 py-1 border border-gray-300 rounded text-sm">' +
-                                '<button type="button" onclick="removeSupplyRow(this)" class="px-2 py-1 bg-red-500 text-white rounded text-sm"><i class="fas fa-times"></i></button>';
+                            div.innerHTML = \`
+                                <input type="text" value="\${row.type || ''}" class="supply-type px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
+                                <input type="text" value="\${row.area || ''}" class="supply-area px-2 py-1 border border-gray-300 rounded text-sm" style="width: 100px">
+                                <input type="text" value="\${row.households || ''}" class="supply-households px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
+                                <input type="text" value="\${row.price || ''}" class="supply-price flex-1 px-2 py-1 border border-gray-300 rounded text-sm">
+                                <button type="button" onclick="removeSupplyRow(this)" class="px-2 py-1 bg-red-500 text-white rounded text-sm">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            \`;
                             document.getElementById('supplyRowsContainer').appendChild(div);
                         });
                     }
@@ -4747,7 +4689,7 @@ app.get('/admin', (c) => {
                 if (!deleteTargetId) return;
                 
                 try {
-                    await axios.delete('/api/properties/' + deleteTargetId);
+                    await axios.delete(\`/api/properties/\${deleteTargetId}\`);
                     alert('삭제되었습니다');
                     closeDeleteModal();
                     loadProperties();
@@ -4889,7 +4831,7 @@ app.get('/admin', (c) => {
                 try {
                     if (id) {
                         // Update
-                        await axios.post('/api/properties/' + id + '/update-parsed', { updates: data });
+                        await axios.post(\`/api/properties/\${id}/update-parsed\`, { updates: data });
                         alert('수정되었습니다');
                     } else {
                         // Create
@@ -4907,9 +4849,6 @@ app.get('/admin', (c) => {
 
             // Initial load
             loadProperties();
-            
-            // Expose all functions to global scope AFTER they are defined
-            exposeFunctions();
         </script>
     </body>
     </html>
@@ -5484,6 +5423,18 @@ app.get('/', (c) => {
                         <i class="fas fa-home text-lg"></i>
                         <span>홈</span>
                     </a>
+                    <a href="/admin" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                        <i class="fas fa-cog text-lg"></i>
+                        <span>관리자</span>
+                    </a>
+                    <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                        <i class="fas fa-heart text-lg"></i>
+                        <span>찜한 매물</span>
+                    </a>
+                    <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                        <i class="fas fa-bell text-lg"></i>
+                        <span>알림 설정</span>
+                    </a>
                 </nav>
                 
                 <!-- Menu Footer -->
@@ -5506,10 +5457,19 @@ app.get('/', (c) => {
                         <span class="text-xs text-gray-500 hidden md:inline">스마트 부동산 분양 정보</span>
                     </div>
                     
-                    <!-- Desktop Navigation - 홈만 표시 -->
+                    <!-- Desktop Navigation -->
                     <nav class="hidden lg:flex items-center gap-1">
                         <a href="/" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">홈</a>
+                        <a href="/admin" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">관리자</a>
+                        <a href="#" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">찜한 매물</a>
                     </nav>
+                    
+                    <div class="flex items-center gap-1 sm:gap-2">
+                        <button class="text-gray-600 hover:text-gray-900 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
+                            <i class="fas fa-bell text-base sm:text-lg"></i>
+                        </button>
+                        <!-- 로그인 버튼만 임시 비활성화 -->
+                    </div>
                 </div>
             </div>
         </header>
@@ -5518,20 +5478,6 @@ app.get('/', (c) => {
         <section class="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3" id="statsContainer">
                 <!-- Stats will be loaded here -->
-            </div>
-        </section>
-
-        <!-- Search Bar -->
-        <section class="max-w-6xl mx-auto px-3 sm:px-4 pb-4">
-            <div class="bg-white rounded-lg shadow-sm p-3 sm:p-4">
-                <div class="flex gap-2">
-                    <input type="text" id="mainSearchInput" placeholder="단지명, 지역으로 검색..." 
-                           class="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                           onkeypress="if(event.key==='Enter') searchMainProperties()">
-                    <button onclick="searchMainProperties()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm sm:text-base transition-colors">
-                        <i class="fas fa-search mr-1 sm:mr-2"></i><span class="hidden sm:inline">검색</span>
-                    </button>
-                </div>
             </div>
         </section>
 
@@ -5607,7 +5553,7 @@ app.get('/', (c) => {
             </div>
 
             <!-- Properties Grid -->
-            <div id="propertiesContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
+            <div id="propertiesContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
                 <!-- Properties will be loaded here -->
             </div>
 
@@ -6248,8 +6194,8 @@ app.get('/', (c) => {
                     </div>
                   \` : ''}
 
-                  <!-- Selection Timeline (Dynamic Steps from extended_data) -->
-                  \${extendedData.steps && extendedData.steps.length > 0 ? \`
+                  <!-- Selection Timeline (6 Steps) -->
+                  \${property.application_start_date || property.no_rank_date || property.first_rank_date || property.special_subscription_date ? \`
                     <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
                       <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">📅 입주자 선정 일정</h3>
                       
@@ -6265,25 +6211,68 @@ app.get('/', (c) => {
                             const today = new Date();
                             today.setHours(0, 0, 0, 0);
                             
-                            // extended_data.steps 사용
-                            const steps = extendedData.steps || [];
+                            // 각 단계의 날짜와 정보
+                            const steps = [
+                              { 
+                                date: property.application_end_date || property.application_start_date,
+                                step: 1,
+                                title: '청약신청',
+                                subtitle: '현장·인터넷·모바일',
+                                dateDisplay: property.application_start_date + (property.application_end_date && property.application_end_date !== property.application_start_date ? '~' + property.application_end_date : '')
+                              },
+                              { 
+                                date: property.document_submission_date,
+                                step: 2,
+                                title: '서류제출 대상자 발표',
+                                subtitle: '인터넷·모바일 신청자 한함',
+                                dateDisplay: property.document_submission_date
+                              },
+                              { 
+                                date: property.document_acceptance_end_date || property.document_acceptance_start_date,
+                                step: 3,
+                                title: '사업주체 대상자 서류접수',
+                                subtitle: '인터넷 신청자',
+                                dateDisplay: property.document_acceptance_start_date + (property.document_acceptance_end_date && property.document_acceptance_end_date !== property.document_acceptance_start_date ? '~' + property.document_acceptance_end_date : '')
+                              },
+                              { 
+                                date: property.qualification_verification_date,
+                                step: 4,
+                                title: '입주자격 검증 및 부적격자 소명',
+                                subtitle: '',
+                                dateDisplay: property.qualification_verification_date
+                              },
+                              { 
+                                date: property.appeal_review_date,
+                                step: 5,
+                                title: '소명 절차 및 심사',
+                                subtitle: '',
+                                dateDisplay: property.appeal_review_date
+                              },
+                              { 
+                                date: property.final_announcement_date,
+                                step: 6,
+                                title: '예비입주자 당첨자 발표',
+                                subtitle: '',
+                                dateDisplay: property.final_announcement_date
+                              }
+                            ];
                             
-                            // 현재 단계 찾기 (가장 가까운 미래 날짜)
-                            let currentStepIndex = steps.length - 1;
-                            for (let i = 0; i < steps.length; i++) {
-                              if (steps[i].date) {
-                                const stepDate = new Date(steps[i].date);
+                            // 현재 단계 찾기
+                            let currentStep = 6;
+                            for (const s of steps) {
+                              if (s.date) {
+                                const stepDate = new Date(s.date);
                                 stepDate.setHours(0, 0, 0, 0);
                                 if (stepDate >= today) {
-                                  currentStepIndex = i;
+                                  currentStep = s.step;
                                   break;
                                 }
                               }
                             }
                             
                             // 각 단계 렌더링
-                            return steps.map((s, idx) => {
-                              const isCurrent = idx === currentStepIndex;
+                            return steps.filter(s => s.date).map(s => {
+                              const isCurrent = s.step === currentStep;
                               const dotColor = isCurrent ? 'bg-primary' : 'bg-gray-400';
                               const labelColor = isCurrent ? 'text-primary font-bold' : 'text-gray-500';
                               const titleColor = isCurrent ? 'text-primary font-bold' : 'text-gray-700';
@@ -6293,12 +6282,13 @@ app.get('/', (c) => {
                                 <div class="relative pl-8 sm:pl-10">
                                   <div class="absolute left-2 sm:left-2.5 top-1.5 w-2.5 sm:w-3 h-2.5 sm:h-3 \${dotColor} rounded-full border-2 border-white"></div>
                                   <div class="bg-white rounded-lg p-2.5 sm:p-3 shadow-sm">
-                                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
+                                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 mb-1">
                                       <div class="flex-1 min-w-0">
-                                        <span class="text-xs \${labelColor}">STEP \${idx + 1}</span>
-                                        <h4 class="text-xs sm:text-sm \${titleColor} break-words">\${s.title || ''}</h4>
+                                        <span class="text-xs \${labelColor}">STEP \${s.step}</span>
+                                        <h4 class="text-xs sm:text-sm \${titleColor} break-words">\${s.title}</h4>
+                                        \${s.subtitle ? \`<p class="text-xs text-gray-500 mt-0.5 sm:mt-1">\${s.subtitle}</p>\` : ''}
                                       </div>
-                                      <span class="text-xs \${dateColor} whitespace-nowrap flex-shrink-0">\${s.date || ''}</span>
+                                      <span class="text-xs \${dateColor} whitespace-nowrap flex-shrink-0">\${s.dateDisplay}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -6311,6 +6301,44 @@ app.get('/', (c) => {
                       </div>
                     </div>
                   \` : ''}
+                  
+                  <!-- Steps from extended_data (Always shown) -->
+                  <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+                    <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">📋 신청 절차</h3>
+                    \${extendedData.steps && extendedData.steps.length > 0 ? \`
+                      <!-- Timeline Container -->
+                      <div class="relative">
+                        <!-- Vertical Line -->
+                        <div class="absolute left-4 top-3 bottom-3 w-0.5 bg-gray-300"></div>
+                        
+                        <!-- Timeline Steps -->
+                        <div class="space-y-3 sm:space-y-4">
+                          \${extendedData.steps.map((step, idx) => \`
+                            <div class="relative pl-8 sm:pl-10">
+                              <div class="absolute left-2 sm:left-2.5 top-1.5 w-2.5 sm:w-3 h-2.5 sm:h-3 bg-primary rounded-full border-2 border-white"></div>
+                              <div class="bg-white rounded-lg p-2.5 sm:p-3 shadow-sm">
+                                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 mb-1">
+                                  <div class="flex-1 min-w-0">
+                                    <span class="text-xs text-primary font-bold">STEP \${idx + 1}</span>
+                                    <h4 class="text-xs sm:text-sm text-gray-900 font-semibold break-words">\${step.title}</h4>
+                                  </div>
+                                  <span class="text-xs text-gray-600 whitespace-nowrap flex-shrink-0">\${step.date}</span>
+                                </div>
+                              </div>
+                            </div>
+                          \`).join('')}
+                        </div>
+                      </div>
+                    \` : \`
+                        <div class="bg-white p-4 rounded-lg text-center">
+                          <p class="text-xs sm:text-sm text-gray-500">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            신청 절차 정보가 아직 등록되지 않았습니다.
+                          </p>
+                        </div>
+                      \`}
+                    </div>
+                  </div>
 
                   <!-- Toggle Button for Additional Details -->
                   <div class="text-center my-5 sm:my-6">
@@ -6628,20 +6656,6 @@ app.get('/', (c) => {
           }
 
           // Load properties
-          // Search function for main page
-          function searchMainProperties() {
-            const searchInput = document.getElementById('mainSearchInput');
-            const query = searchInput.value.trim().toLowerCase();
-            
-            if (query) {
-              filters.search = query;
-            } else {
-              delete filters.search;
-            }
-            
-            loadProperties();
-          }
-
           async function loadProperties() {
             console.time('⏱️ Total Load Time');
             const container = document.getElementById('propertiesContainer');
@@ -6772,14 +6786,9 @@ app.get('/', (c) => {
                           <div>
                             <div class="text-xs text-gray-500 mb-1">📏 전용면적</div>
                             <div class="font-bold text-gray-900">\${(() => {
-                              // 김제 구조: extendedData.supplyInfo 우선
-                              if (extendedData.supplyInfo && extendedData.supplyInfo.length > 0) {
-                                const types = extendedData.supplyInfo.map(s => s.type).join(', ');
-                                return types || '-';
-                              }
-                              // 기존 필드 fallback
                               const area = property.area_type || property.exclusive_area_range || property.exclusive_area || '-';
                               if (area === '-') return area;
+                              // 이미 '㎡'가 붙어있으면 그대로, 없으면 추가
                               return area.toString().includes('㎡') ? area : area + '㎡';
                             })()}</div>
                           </div>
@@ -6787,12 +6796,7 @@ app.get('/', (c) => {
                             <div class="text-xs text-gray-500 mb-1">📐 공급면적</div>
                             <div class="font-bold text-gray-900">\${
                               (() => {
-                                // 김제 구조: extendedData.supplyInfo 우선
-                                if (extendedData.supplyInfo && extendedData.supplyInfo.length > 0) {
-                                  const areas = extendedData.supplyInfo.map(s => s.area).join(', ');
-                                  return areas || '-';
-                                }
-                                // 기존 필드 fallback
+                                // supply_area에 범위(~)가 포함되어 있으면 잘못된 데이터이므로 전용면적 기반 계산
                                 if (property.supply_area && property.supply_area.includes('~')) {
                                   if (property.exclusive_area) {
                                     const exclusiveNum = parseFloat(property.exclusive_area);
@@ -6803,8 +6807,10 @@ app.get('/', (c) => {
                                   }
                                   return '-';
                                 }
+                                // 정상 데이터는 그대로 표시
                                 const area = property.supply_area || '-';
                                 if (area === '-') return area;
+                                // 이미 '㎡'가 붙어있으면 그대로, 없으면 추가
                                 return area.toString().includes('㎡') ? area : area + '㎡';
                               })()
                             }</div>
@@ -6819,11 +6825,7 @@ app.get('/', (c) => {
                             }</div>
                             <div class="font-bold text-gray-900 text-xs">\${
                               (() => {
-                                // 김제 구조: extendedData.supplyInfo[0].price 우선
-                                if (extendedData.supplyInfo && extendedData.supplyInfo.length > 0 && extendedData.supplyInfo[0].price) {
-                                  return extendedData.supplyInfo[0].price;
-                                }
-                                // rental 타입 기존 로직
+                                // rental 타입인 경우 rental_deposit_min/max를 만원 단위로 표시
                                 if (property.type === 'rental') {
                                   if (property.rental_deposit_range) {
                                     return formatPrice(property.rental_deposit_range);
@@ -6841,7 +6843,7 @@ app.get('/', (c) => {
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">🏗️ 시공사</div>
-                            <div class="font-bold text-gray-900 text-xs">\${extendedData.details?.constructor || property.builder || '-'}</div>
+                            <div class="font-bold text-gray-900 text-xs">\${property.builder || extendedData.details?.constructor || '-'}</div>
                           </div>
                         </div>
                       </div>
