@@ -3249,31 +3249,16 @@ app.get('/admin', (c) => {
 
                             <div class="grid grid-cols-2 gap-4 mb-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">공고일</label>
-                                    <input type="date" id="announcementDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">입주예정일</label>
-                                    <input type="text" id="moveInDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="2027년 9월">
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">청약시작일 <span class="text-gray-400 text-xs">(상태 자동계산용)</span></label>
-                                    <input type="date" id="subscriptionStartDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">청약마감일 <span class="text-gray-400 text-xs">(상태 자동계산용)</span></label>
-                                    <input type="date" id="subscriptionEndDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-4 mb-4">
-                                <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">시공사</label>
                                     <input type="text" id="constructor" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="LH, 현대건설 등">
                                 </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">임대보증금</label>
+                                    <input type="text" id="rentalDeposit" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="예: 1,527만원">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">대표이미지 <span class="text-gray-400 text-xs">(선택)</span></label>
                                     
@@ -4019,9 +4004,11 @@ app.get('/admin', (c) => {
                 const container = document.getElementById('stepsContainer');
                 const div = document.createElement('div');
                 div.className = 'flex gap-2 items-center';
+                // 오늘 날짜를 YYYY-MM-DD 형식으로 가져오기
+                const today = new Date().toISOString().split('T')[0];
                 div.innerHTML = \`
-                    <input type="text" placeholder="스텝 날짜 (예: 2025.01.15)" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <input type="text" placeholder="스텝 제목 (예: 서류접수 시작)" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <input type="date" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <input type="text" placeholder="스텝 제목 (예: 일반공급 2순위 접수일)" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
                     <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
                         <i class="fas fa-times"></i>
                     </button>
@@ -4163,13 +4150,24 @@ app.get('/admin', (c) => {
                     document.getElementById('supplyType').value = extData.supplyType || '';
                     document.getElementById('region').value = property.location || '';
                     document.getElementById('fullAddress').value = property.full_address || '';
-                    document.getElementById('announcementDate').value = property.announcement_date || '';
-                    document.getElementById('moveInDate').value = property.move_in_date || '';
-                    document.getElementById('subscriptionStartDate').value = extData.subscriptionStartDate || '';
-                    document.getElementById('subscriptionEndDate').value = extData.subscriptionEndDate || '';
                     document.getElementById('constructor').value = property.builder || '';
                     document.getElementById('mainImage').value = extData.mainImage || '';
-                    document.getElementById('hashtags').value = property.tags ? property.tags.join(', ') : '';
+                    
+                    // 해시태그 처리 - 배열/문자열/JSON 모두 처리
+                    let hashtagsValue = '';
+                    if (property.tags) {
+                        if (Array.isArray(property.tags)) {
+                            hashtagsValue = property.tags.join(', ');
+                        } else if (typeof property.tags === 'string') {
+                            try {
+                                const parsed = JSON.parse(property.tags);
+                                hashtagsValue = Array.isArray(parsed) ? parsed.join(', ') : property.tags;
+                            } catch {
+                                hashtagsValue = property.tags;
+                            }
+                        }
+                    }
+                    document.getElementById('hashtags').value = hashtagsValue;
                     
                     // Target audience lines
                     if (extData.targetAudienceLines && Array.isArray(extData.targetAudienceLines)) {
@@ -4189,8 +4187,8 @@ app.get('/admin', (c) => {
                             const div = document.createElement('div');
                             div.className = 'flex gap-2 items-center';
                             div.innerHTML = \`
-                                <input type="text" value="\${step.date || ''}" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                                <input type="text" value="\${step.title || ''}" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                <input type="date" value="\${step.date || ''}" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                <input type="text" value="\${step.title || ''}" placeholder="스텝 제목" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
                                     <i class="fas fa-times"></i>
                                 </button>
@@ -6293,11 +6291,21 @@ app.get('/', (c) => {
                                 }
                               })()
                             }</div>
-                            <div class="font-bold text-gray-900">\${property.household_count ? property.household_count + '세대' : property.households}</div>
+                            <div class="font-bold text-gray-900">\${(() => {
+                              const households = property.household_count || property.households || '-';
+                              if (households === '-') return households;
+                              // 이미 '세대'가 붙어있으면 그대로, 없으면 추가
+                              return households.toString().includes('세대') ? households : households + '세대';
+                            })()}</div>
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">📏 전용면적</div>
-                            <div class="font-bold text-gray-900">\${property.area_type || property.exclusive_area_range || property.exclusive_area || '-'}</div>
+                            <div class="font-bold text-gray-900">\${(() => {
+                              const area = property.area_type || property.exclusive_area_range || property.exclusive_area || '-';
+                              if (area === '-') return area;
+                              // 이미 '㎡'가 붙어있으면 그대로, 없으면 추가
+                              return area.toString().includes('㎡') ? area : area + '㎡';
+                            })()}</div>
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">📐 공급면적</div>
@@ -6315,7 +6323,10 @@ app.get('/', (c) => {
                                   return '-';
                                 }
                                 // 정상 데이터는 그대로 표시
-                                return property.supply_area || '-';
+                                const area = property.supply_area || '-';
+                                if (area === '-') return area;
+                                // 이미 '㎡'가 붙어있으면 그대로, 없으면 추가
+                                return area.toString().includes('㎡') ? area : area + '㎡';
                               })()
                             }</div>
                           </div>
