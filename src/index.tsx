@@ -4402,13 +4402,9 @@ app.get('/admin', (c) => {
                     data.steps.forEach(step => {
                         const div = document.createElement('div');
                         div.className = 'flex gap-2 items-center';
-                        div.innerHTML = \`
-                            <input type="date" value="\${step.date || ''}" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                            <input type="text" value="\${step.title || ''}" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                            <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        \`;
+                        div.innerHTML = '<input type="date" value="' + (step.date || '') + '" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">' +
+                            '<input type="text" value="' + (step.title || '') + '" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">' +
+                            '<button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm"><i class="fas fa-times"></i></button>';
                         document.getElementById('stepsContainer').appendChild(div);
                     });
                 }
@@ -4419,15 +4415,11 @@ app.get('/admin', (c) => {
                     data.supplyInfo.forEach(row => {
                         const div = document.createElement('div');
                         div.className = 'flex gap-2 items-center p-3 bg-gray-50 rounded';
-                        div.innerHTML = \`
-                            <input type="text" value="\${row.type || ''}" class="supply-type px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
-                            <input type="text" value="\${row.area || ''}" class="supply-area px-2 py-1 border border-gray-300 rounded text-sm" style="width: 100px">
-                            <input type="text" value="\${row.households || ''}" class="supply-households px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
-                            <input type="text" value="\${row.price || ''}" class="supply-price flex-1 px-2 py-1 border border-gray-300 rounded text-sm">
-                            <button type="button" onclick="removeSupplyRow(this)" class="px-2 py-1 bg-red-500 text-white rounded text-sm">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        \`;
+                        div.innerHTML = '<input type="text" value="' + (row.type || '') + '" class="supply-type px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">' +
+                            '<input type="text" value="' + (row.area || '') + '" class="supply-area px-2 py-1 border border-gray-300 rounded text-sm" style="width: 100px">' +
+                            '<input type="text" value="' + (row.households || '') + '" class="supply-households px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">' +
+                            '<input type="text" value="' + (row.price || '') + '" class="supply-price flex-1 px-2 py-1 border border-gray-300 rounded text-sm">' +
+                            '<button type="button" onclick="removeSupplyRow(this)" class="px-2 py-1 bg-red-500 text-white rounded text-sm"><i class="fas fa-times"></i></button>';
                         document.getElementById('supplyRowsContainer').appendChild(div);
                     });
                 }
@@ -4474,7 +4466,7 @@ app.get('/admin', (c) => {
                 document.querySelectorAll('.tab-btn').forEach(btn => {
                     btn.classList.remove('tab-active');
                 });
-                document.querySelector(\`[data-tab="\${tab}"]\`).classList.add('tab-active');
+                document.querySelector('[data-tab="' + tab + '"]').classList.add('tab-active');
                 loadProperties();
             }
 
@@ -4502,15 +4494,11 @@ app.get('/admin', (c) => {
                 const container = document.getElementById('supplyRowsContainer');
                 const div = document.createElement('div');
                 div.className = 'flex gap-2 items-center p-3 bg-gray-50 rounded';
-                div.innerHTML = \`
-                    <input type="text" placeholder="타입" class="supply-type px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
-                    <input type="text" placeholder="면적" class="supply-area px-2 py-1 border border-gray-300 rounded text-sm" style="width: 100px">
-                    <input type="text" placeholder="세대수" class="supply-households px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
-                    <input type="text" placeholder="가격" class="supply-price flex-1 px-2 py-1 border border-gray-300 rounded text-sm">
-                    <button type="button" onclick="removeSupplyRow(this)" class="px-2 py-1 bg-red-500 text-white rounded text-sm">
-                        <i class="fas fa-times"></i>
-                    </button>
-                \`;
+                div.innerHTML = '<input type="text" placeholder="타입" class="supply-type px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">' +
+                    '<input type="text" placeholder="면적" class="supply-area px-2 py-1 border border-gray-300 rounded text-sm" style="width: 100px">' +
+                    '<input type="text" placeholder="세대수" class="supply-households px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">' +
+                    '<input type="text" placeholder="가격" class="supply-price flex-1 px-2 py-1 border border-gray-300 rounded text-sm">' +
+                    '<button type="button" onclick="removeSupplyRow(this)" class="px-2 py-1 bg-red-500 text-white rounded text-sm"><i class="fas fa-times"></i></button>';
                 container.appendChild(div);
             }
 
@@ -4522,36 +4510,31 @@ app.get('/admin', (c) => {
             // Load properties
             async function loadProperties() {
                 try {
-                    const url = currentTab === 'all' ? '/api/properties' : \`/api/properties?type=\${currentTab}\`;
+                    const url = currentTab === 'all' ? '/api/properties' : '/api/properties?type=' + currentTab;
                     const response = await axios.get(url);
                     const properties = response.data;
                     
                     const tbody = document.getElementById('propertiesTable');
-                    tbody.innerHTML = properties.map(p => \`
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 text-sm text-gray-900">\${p.id}</td>
-                            <td class="px-6 py-4 text-sm font-medium text-gray-900">\${p.title}</td>
-                            <td class="px-6 py-4 text-sm text-gray-600">\${p.location || '-'}</td>
-                            <td class="px-6 py-4 text-sm">
-                                <span class="px-2 py-1 text-xs font-medium rounded \${
-                                    p.type === 'rental' ? 'bg-blue-100 text-blue-700' :
-                                    p.type === 'unsold' ? 'bg-orange-100 text-orange-700' :
-                                    'bg-green-100 text-green-700'
-                                }">\${
-                                    p.type === 'rental' ? '임대' : p.type === 'unsold' ? '줍줍' : '청약'
-                                }</span>
-                            </td>
-                            <td class="px-6 py-4 text-sm text-gray-600">\${p.deadline || '-'}</td>
-                            <td class="px-6 py-4 text-sm">
-                                <button onclick="editProperty(\${p.id})" class="text-blue-600 hover:text-blue-800 mr-3">
-                                    <i class="fas fa-edit"></i> 수정
-                                </button>
-                                <button onclick="deleteProperty(\${p.id})" class="text-red-600 hover:text-red-800">
-                                    <i class="fas fa-trash"></i> 삭제
-                                </button>
-                            </td>
-                        </tr>
-                    \`).join('');
+                    let html = '';
+                    properties.forEach(p => {
+                        const typeClass = p.type === 'rental' ? 'bg-blue-100 text-blue-700' :
+                                         p.type === 'unsold' ? 'bg-orange-100 text-orange-700' :
+                                         'bg-green-100 text-green-700';
+                        const typeLabel = p.type === 'rental' ? '임대' : p.type === 'unsold' ? '줍줍' : '청약';
+                        
+                        html += '<tr class="hover:bg-gray-50">' +
+                            '<td class="px-6 py-4 text-sm text-gray-900">' + p.id + '</td>' +
+                            '<td class="px-6 py-4 text-sm font-medium text-gray-900">' + p.title + '</td>' +
+                            '<td class="px-6 py-4 text-sm text-gray-600">' + (p.location || '-') + '</td>' +
+                            '<td class="px-6 py-4 text-sm"><span class="px-2 py-1 text-xs font-medium rounded ' + typeClass + '">' + typeLabel + '</span></td>' +
+                            '<td class="px-6 py-4 text-sm text-gray-600">' + (p.deadline || '-') + '</td>' +
+                            '<td class="px-6 py-4 text-sm">' +
+                                '<button onclick="editProperty(' + p.id + ')" class="text-blue-600 hover:text-blue-800 mr-3"><i class="fas fa-edit"></i> 수정</button>' +
+                                '<button onclick="deleteProperty(' + p.id + ')" class="text-red-600 hover:text-red-800"><i class="fas fa-trash"></i> 삭제</button>' +
+                            '</td>' +
+                        '</tr>';
+                    });
+                    tbody.innerHTML = html;
                 } catch (error) {
                     console.error('Failed to load properties:', error);
                     alert('데이터 로드 실패');
@@ -4564,13 +4547,9 @@ app.get('/admin', (c) => {
                 const container = document.getElementById('stepsContainer');
                 const div = document.createElement('div');
                 div.className = 'flex gap-2 items-center';
-                div.innerHTML = \`
-                    <input type="date" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <input type="text" placeholder="스텝 제목 (예: 청약접수 시작일)" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
-                        <i class="fas fa-times"></i>
-                    </button>
-                \`;
+                div.innerHTML = '<input type="date" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">' +
+                    '<input type="text" placeholder="스텝 제목 (예: 청약접수 시작일)" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">' +
+                    '<button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm"><i class="fas fa-times"></i></button>';
                 container.appendChild(div);
             }
 
@@ -4594,7 +4573,7 @@ app.get('/admin', (c) => {
             // Edit property
             async function editProperty(id) {
                 try {
-                    const response = await axios.get(\`/api/properties?type=all\`);
+                    const response = await axios.get(`/api/properties?type=all`);
                     const property = response.data.find(p => p.id === id);
                     
                     if (!property) {
@@ -4682,13 +4661,9 @@ app.get('/admin', (c) => {
                         extData.steps.forEach(step => {
                             const div = document.createElement('div');
                             div.className = 'flex gap-2 items-center';
-                            div.innerHTML = \`
-                                <input type="date" value="\${step.date || ''}" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                                <input type="text" value="\${step.title || ''}" placeholder="스텝 제목" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                                <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            \`;
+                            div.innerHTML = '<input type="date" value="' + (step.date || '') + '" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">' +
+                                '<input type="text" value="' + (step.title || '') + '" placeholder="스텝 제목" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">' +
+                                '<button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm"><i class="fas fa-times"></i></button>';
                             document.getElementById('stepsContainer').appendChild(div);
                         });
                     }
@@ -4699,15 +4674,11 @@ app.get('/admin', (c) => {
                         extData.supplyInfo.forEach(row => {
                             const div = document.createElement('div');
                             div.className = 'flex gap-2 items-center p-3 bg-gray-50 rounded';
-                            div.innerHTML = \`
-                                <input type="text" value="\${row.type || ''}" class="supply-type px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
-                                <input type="text" value="\${row.area || ''}" class="supply-area px-2 py-1 border border-gray-300 rounded text-sm" style="width: 100px">
-                                <input type="text" value="\${row.households || ''}" class="supply-households px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">
-                                <input type="text" value="\${row.price || ''}" class="supply-price flex-1 px-2 py-1 border border-gray-300 rounded text-sm">
-                                <button type="button" onclick="removeSupplyRow(this)" class="px-2 py-1 bg-red-500 text-white rounded text-sm">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            \`;
+                            div.innerHTML = '<input type="text" value="' + (row.type || '') + '" class="supply-type px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">' +
+                                '<input type="text" value="' + (row.area || '') + '" class="supply-area px-2 py-1 border border-gray-300 rounded text-sm" style="width: 100px">' +
+                                '<input type="text" value="' + (row.households || '') + '" class="supply-households px-2 py-1 border border-gray-300 rounded text-sm" style="width: 80px">' +
+                                '<input type="text" value="' + (row.price || '') + '" class="supply-price flex-1 px-2 py-1 border border-gray-300 rounded text-sm">' +
+                                '<button type="button" onclick="removeSupplyRow(this)" class="px-2 py-1 bg-red-500 text-white rounded text-sm"><i class="fas fa-times"></i></button>';
                             document.getElementById('supplyRowsContainer').appendChild(div);
                         });
                     }
@@ -4776,7 +4747,7 @@ app.get('/admin', (c) => {
                 if (!deleteTargetId) return;
                 
                 try {
-                    await axios.delete(\`/api/properties/\${deleteTargetId}\`);
+                    await axios.delete('/api/properties/' + deleteTargetId);
                     alert('삭제되었습니다');
                     closeDeleteModal();
                     loadProperties();
@@ -4918,7 +4889,7 @@ app.get('/admin', (c) => {
                 try {
                     if (id) {
                         // Update
-                        await axios.post(\`/api/properties/\${id}/update-parsed\`, { updates: data });
+                        await axios.post('/api/properties/' + id + '/update-parsed', { updates: data });
                         alert('수정되었습니다');
                     } else {
                         // Create
