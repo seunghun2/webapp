@@ -2615,38 +2615,77 @@ Rules:
 - Extract ALL schedule dates into steps array
 - Use newline \\n for multi-line text in notices`
     
-    // Gemini API 호출 (gemini-2.5-flash 사용 - PDF 지원)
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: promptText },
-            {
-              inline_data: {
-                mime_type: 'application/pdf',
-                data: pdfBase64
-              }
+    // Gemini API 호출 with retry (gemini-2.5-flash 사용 - PDF 지원)
+    let response
+    let lastError
+    const maxRetries = 3
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Gemini API 호출 시도 ${attempt}/${maxRetries}`)
+        
+        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: promptText },
+                {
+                  inline_data: {
+                    mime_type: 'application/pdf',
+                    data: pdfBase64
+                  }
+                }
+              ]
+            }],
+            generationConfig: {
+              temperature: 0.1,
+              maxOutputTokens: 8192,
+              responseMimeType: "application/json"
             }
-          ]
-        }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 8192,
-          responseMimeType: "application/json"
-        }
-      })
-    })
+          })
+        })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Gemini API 오류:', errorText)
+        if (response.ok) {
+          break // 성공하면 루프 탈출
+        }
+        
+        const errorText = await response.text()
+        lastError = `${response.status} - ${errorText}`
+        console.error(`시도 ${attempt} 실패:`, lastError)
+        
+        // 503 (과부하) 또는 429 (Rate limit)인 경우 재시도
+        if (response.status === 503 || response.status === 429) {
+          if (attempt < maxRetries) {
+            const waitTime = Math.min(1000 * Math.pow(2, attempt), 10000) // 지수 백오프 (최대 10초)
+            console.log(`${waitTime}ms 후 재시도...`)
+            await new Promise(resolve => setTimeout(resolve, waitTime))
+            continue
+          }
+        }
+        
+        // 다른 오류는 즉시 반환
+        break
+        
+      } catch (fetchError) {
+        lastError = fetchError.message
+        console.error(`시도 ${attempt} 네트워크 오류:`, fetchError)
+        
+        if (attempt < maxRetries) {
+          const waitTime = 2000 * attempt
+          console.log(`${waitTime}ms 후 재시도...`)
+          await new Promise(resolve => setTimeout(resolve, waitTime))
+        }
+      }
+    }
+
+    if (!response || !response.ok) {
       return c.json({ 
         success: false, 
-        error: `Gemini API 오류: ${response.status} - ${errorText}` 
+        error: `Gemini API 오류 (${maxRetries}회 시도 후 실패): ${lastError}` 
       }, 500)
     }
 
@@ -4276,7 +4315,28 @@ app.get('/admin', (c) => {
                         } catch (error) {
                             console.error('PDF parsing error:', error);
                             statusDiv.classList.add('hidden');
-                            alert('PDF 파싱 중 오류가 발생했습니다: ' + (error.response?.data?.error || error.message));
+                            
+                            let errorMessage = 'PDF 파싱 중 오류가 발생했습니다.';
+                            const apiError = error.response?.data?.error || error.message;
+                            
+                            // 503 오류 (과부하) 처리
+                            if (apiError.includes('503') || apiError.includes('overloaded')) {
+                                errorMessage = '🔄 AI 서버가 일시적으로 과부하 상태입니다.\n\n잠시 후(1-2분) 다시 시도해주세요.\n또는 PDF를 수동으로 입력해주세요.';
+                            } 
+                            // 429 오류 (Rate limit) 처리
+                            else if (apiError.includes('429') || apiError.includes('quota')) {
+                                errorMessage = '⏰ API 호출 한도를 초과했습니다.\n\n잠시 후 다시 시도하거나 수동으로 입력해주세요.';
+                            }
+                            // API 키 오류
+                            else if (apiError.includes('API 키')) {
+                                errorMessage = '🔑 API 키 설정이 필요합니다.\n\n관리자에게 문의하거나 수동으로 입력해주세요.';
+                            }
+                            // 기타 오류
+                            else {
+                                errorMessage = 'PDF 파싱 오류:\n\n' + apiError + '\n\n수동으로 입력해주세요.';
+                            }
+                            
+                            alert(errorMessage);
                         } finally {
                             parseBtn.disabled = false;
                         }
