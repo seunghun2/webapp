@@ -2559,56 +2559,61 @@ app.post('/api/admin/parse-pdf', async (c) => {
 
 CRITICAL: Your response must be ONLY valid JSON. No explanations, no markdown, no code blocks. Just pure JSON.
 
-Required JSON structure:
+Required JSON structure (based on best practice format):
 {
   "projectName": "project name from PDF",
   "saleType": "rental OR general OR unsold",
-  "supplyType": "supply type",
+  "supplyType": "supply type (e.g., 행복주택, 국민임대, 신혼희망타운)",
   "region": "region name",
   "fullAddress": "full address",
-  "announcementDate": "YYYY-MM-DD",
-  "moveInDate": "move in date",
   "constructor": "construction company",
   "mainImage": "",
   "hashtags": "comma,separated,tags",
-  "steps": [{"date":"YYYY-MM-DD","title":"step title"}],
-  "supplyInfo": [{"type":"type","area":"area","households":"number","price":"price"}],
+  "targetAudienceLines": [
+    "First target audience description (e.g., 해당 지역 거주 또는 근무하는 청년·신혼부부)",
+    "Second benefit or requirement (e.g., 소득 100% 이하 무주택 세대원)",
+    "Third key point (e.g., 저렴한 임대료로 주거비 부담 완화)"
+  ],
+  "steps": [
+    {"date":"YYYY-MM-DD","title":"입주자모집공고일"},
+    {"date":"YYYY-MM-DD","title":"청약접수 시작일"},
+    {"date":"YYYY-MM-DD","title":"당첨자 발표일"},
+    {"date":"YYYY-MM-DD","title":"계약체결일"}
+  ],
+  "supplyInfo": [
+    {"type":"26㎡","area":"26㎡","households":"60세대","price":"보증금 1,527만원 / 월 8만원"},
+    {"type":"51㎡","area":"51㎡","households":"60세대","price":"보증금 4,000만원 / 월 21만원"}
+  ],
   "details": {
-    "location":"location",
-    "landArea":"land area",
-    "totalHouseholds":"total households",
-    "parking":"parking spaces",
-    "parkingRatio":"parking ratio",
-    "architect":"architect",
-    "constructor":"constructor",
-    "website":"website",
-    "targetTypes":"target types",
-    "incomeLimit":"income limit",
-    "assetLimit":"asset limit",
-    "homelessPeriod":"homeless period",
-    "savingsAccount":"savings account",
-    "selectionMethod":"selection method",
-    "scoringCriteria":"scoring criteria",
-    "notices":"important notices",
-    "applicationMethod":"application method",
-    "applicationUrl":"application URL",
-    "requiredDocs":"required documents",
-    "contactDept":"contact department",
-    "contactPhone":"phone number",
-    "contactEmail":"email",
-    "contactAddress":"contact address",
-    "features":"features",
-    "surroundings":"surroundings",
-    "transportation":"transportation",
-    "education":"education facilities"
+    "targetTypes": "청년(만19~39세), 신혼부부(혼인7년이내), 고령자(만65세이상)",
+    "incomeLimit": "도시근로자 월평균소득 100% 이하 (청년 120%, 신혼부부 120%)",
+    "assetLimit": "총자산 2억 9,200만원 이하, 자동차 3,557만원 이하",
+    "homelessPeriod": "무주택 세대구성원",
+    "savingsAccount": "청약통장 불필요 OR 필요",
+    "selectionMethod": "소득순위제 (소득 낮은 순) OR 추첨제",
+    "scoringCriteria": "소득기준, 해당지역 거주·근무기간, 부양가족수, 청약통장 가입기간",
+    "notices": "• 임대차계약 2년 단위\\n• 최장 거주기간 6년\\n• 임대료 인상률 5% 이내",
+    "applicationMethod": "LH 청약센터 온라인 신청 (PC·모바일)",
+    "applicationUrl": "https://apply.lh.or.kr",
+    "requiredDocs": "신분증, 주민등록등본, 가족관계증명서, 소득증빙서류, 자산증빙서류",
+    "contactDept": "담당 부서명",
+    "contactPhone": "전화번호",
+    "contactEmail": "이메일 (없으면 빈 문자열)",
+    "features": "단지 특징 (예: 행복주택 120세대, 26㎡·51㎡ 구성)",
+    "surroundings": "주변환경 (예: 산업단지 도보 5분, 편의시설 인근)",
+    "transportation": "교통여건 (예: 시내버스 이용 편리, 산단 출퇴근 최적)",
+    "education": "교육시설 (예: OO초등학교, OO중학교 인근)"
   }
 }
 
 Rules:
 - If information not found, use empty string ""
-- Dates must be YYYY-MM-DD format
+- Dates in steps must be YYYY-MM-DD format
 - saleType must be exactly "rental", "general", or "unsold"
-- Response must be valid JSON only`
+- targetAudienceLines must have 3 items (key selling points for main card)
+- Response must be valid JSON only
+- Extract ALL schedule dates into steps array
+- Use newline \\n for multi-line text in notices`
     
     // Gemini API 호출 (gemini-2.5-flash 사용 - PDF 지원)
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
@@ -3900,11 +3905,16 @@ app.get('/admin', (c) => {
                 if (data.supplyType) document.getElementById('supplyType').value = data.supplyType;
                 if (data.region) document.getElementById('region').value = data.region;
                 if (data.fullAddress) document.getElementById('fullAddress').value = data.fullAddress;
-                if (data.announcementDate) document.getElementById('announcementDate').value = data.announcementDate;
-                if (data.moveInDate) document.getElementById('moveInDate').value = data.moveInDate;
                 if (data.constructor) document.getElementById('constructor').value = data.constructor;
                 if (data.mainImage) document.getElementById('mainImage').value = data.mainImage;
                 if (data.hashtags) document.getElementById('hashtags').value = data.hashtags;
+                
+                // Target Audience Lines (김제지평선 구조)
+                if (data.targetAudienceLines && Array.isArray(data.targetAudienceLines)) {
+                    if (data.targetAudienceLines[0]) document.getElementById('targetAudience1').value = data.targetAudienceLines[0];
+                    if (data.targetAudienceLines[1]) document.getElementById('targetAudience2').value = data.targetAudienceLines[1];
+                    if (data.targetAudienceLines[2]) document.getElementById('targetAudience3').value = data.targetAudienceLines[2];
+                }
 
                 // Steps
                 if (data.steps && Array.isArray(data.steps)) {
@@ -3913,7 +3923,7 @@ app.get('/admin', (c) => {
                         const div = document.createElement('div');
                         div.className = 'flex gap-2 items-center';
                         div.innerHTML = \`
-                            <input type="text" value="\${step.date || ''}" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <input type="date" value="\${step.date || ''}" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
                             <input type="text" value="\${step.title || ''}" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
                             <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
                                 <i class="fas fa-times"></i>
