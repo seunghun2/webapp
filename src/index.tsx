@@ -4761,65 +4761,65 @@ app.get('/admin', (c) => {
                     price: el.querySelector('.supply-price').value
                 })).filter(s => s.type || s.area);
 
-                // Collect all detail fields
+                // Collect all detail fields (with null safety)
                 const details = {
-                    location: document.getElementById('detail_location').value,
-                    landArea: document.getElementById('detail_landArea').value,
-                    totalHouseholds: document.getElementById('detail_totalHouseholds').value,
-                    parking: document.getElementById('detail_parking').value,
-                    parkingRatio: document.getElementById('detail_parkingRatio').value,
-                    architect: document.getElementById('detail_architect').value,
-                    constructor: document.getElementById('detail_constructor').value,
-                    website: document.getElementById('detail_website').value,
+                    location: document.getElementById('detail_location')?.value || '',
+                    landArea: document.getElementById('detail_landArea')?.value || '',
+                    totalHouseholds: document.getElementById('detail_totalHouseholds')?.value || '',
+                    parking: document.getElementById('detail_parking')?.value || '',
+                    parkingRatio: document.getElementById('detail_parkingRatio')?.value || '',
+                    architect: document.getElementById('detail_architect')?.value || '',
+                    constructor: document.getElementById('detail_constructor')?.value || '',
+                    website: document.getElementById('detail_website')?.value || '',
                     
-                    targetTypes: document.getElementById('detail_targetTypes').value,
-                    incomeLimit: document.getElementById('detail_incomeLimit').value,
-                    assetLimit: document.getElementById('detail_assetLimit').value,
-                    homelessPeriod: document.getElementById('detail_homelessPeriod').value,
-                    savingsAccount: document.getElementById('detail_savingsAccount').value,
+                    targetTypes: document.getElementById('detail_targetTypes')?.value || '',
+                    incomeLimit: document.getElementById('detail_incomeLimit')?.value || '',
+                    assetLimit: document.getElementById('detail_assetLimit')?.value || '',
+                    homelessPeriod: document.getElementById('detail_homelessPeriod')?.value || '',
+                    savingsAccount: document.getElementById('detail_savingsAccount')?.value || '',
                     
-                    selectionMethod: document.getElementById('detail_selectionMethod').value,
-                    scoringCriteria: document.getElementById('detail_scoringCriteria').value,
-                    notices: document.getElementById('detail_notices').value,
+                    selectionMethod: document.getElementById('detail_selectionMethod')?.value || '',
+                    scoringCriteria: document.getElementById('detail_scoringCriteria')?.value || '',
+                    notices: document.getElementById('detail_notices')?.value || '',
                     
-                    applicationMethod: document.getElementById('detail_applicationMethod').value,
-                    applicationUrl: document.getElementById('detail_applicationUrl').value,
-                    requiredDocs: document.getElementById('detail_requiredDocs').value,
+                    applicationMethod: document.getElementById('detail_applicationMethod')?.value || '',
+                    applicationUrl: document.getElementById('detail_applicationUrl')?.value || '',
+                    requiredDocs: document.getElementById('detail_requiredDocs')?.value || '',
                     
-                    contactDept: document.getElementById('detail_contactDept').value,
-                    contactPhone: document.getElementById('detail_contactPhone').value,
-                    contactEmail: document.getElementById('detail_contactEmail').value,
-                    contactAddress: document.getElementById('detail_contactAddress').value,
+                    contactDept: document.getElementById('detail_contactDept')?.value || '',
+                    contactPhone: document.getElementById('detail_contactPhone')?.value || '',
+                    contactEmail: document.getElementById('detail_contactEmail')?.value || '',
+                    contactAddress: document.getElementById('detail_contactAddress')?.value || '',
                     
-                    features: document.getElementById('detail_features').value,
-                    surroundings: document.getElementById('detail_surroundings').value,
-                    transportation: document.getElementById('detail_transportation').value,
-                    education: document.getElementById('detail_education').value
+                    features: document.getElementById('detail_features')?.value || '',
+                    surroundings: document.getElementById('detail_surroundings')?.value || '',
+                    transportation: document.getElementById('detail_transportation')?.value || '',
+                    education: document.getElementById('detail_education')?.value || ''
                 };
 
-                // Collect target audience lines
+                // Collect target audience lines (with null safety)
                 const targetAudienceLines = [
-                    document.getElementById('targetAudience1').value,
-                    document.getElementById('targetAudience2').value,
-                    document.getElementById('targetAudience3').value
+                    document.getElementById('targetAudience1')?.value || '',
+                    document.getElementById('targetAudience2')?.value || '',
+                    document.getElementById('targetAudience3')?.value || ''
                 ].filter(line => line.trim());
 
                 // Extended data object
                 const extendedData = {
-                    supplyType: document.getElementById('supplyType').value,
-                    mainImage: document.getElementById('mainImage').value,
-                    subscriptionStartDate: document.getElementById('subscriptionStartDate').value,
-                    subscriptionEndDate: document.getElementById('subscriptionEndDate').value,
+                    supplyType: document.getElementById('supplyType')?.value || '',
+                    mainImage: document.getElementById('mainImage')?.value || '',
+                    subscriptionStartDate: document.getElementById('subscriptionStartDate')?.value || '',
+                    subscriptionEndDate: document.getElementById('subscriptionEndDate')?.value || '',
                     targetAudienceLines: targetAudienceLines,
                     steps: steps,
                     supplyInfo: supplyInfo,
                     details: details
                 };
 
-                const tags = document.getElementById('hashtags').value.split(',').map(t => t.trim()).filter(t => t);
+                const tags = (document.getElementById('hashtags')?.value || '').split(',').map(t => t.trim()).filter(t => t);
 
                 // Collect trade price data for unsold type
-                const saleType = document.getElementById('saleType').value;
+                const saleType = document.getElementById('saleType')?.value || 'rental';
                 let tradePriceData = {};
                 
                 if (saleType === 'unsold') {
@@ -4835,14 +4835,14 @@ app.get('/admin', (c) => {
                 }
 
                 return {
-                    title: document.getElementById('projectName').value,
+                    title: document.getElementById('projectName')?.value || '',
                     type: saleType,
-                    location: document.getElementById('region').value,
-                    full_address: document.getElementById('fullAddress').value,
-                    announcement_date: document.getElementById('announcementDate').value,
-                    move_in_date: document.getElementById('moveInDate').value,
-                    constructor: document.getElementById('constructor').value,
-                    deadline: document.getElementById('announcementDate').value || new Date().toISOString().split('T')[0],
+                    location: document.getElementById('region')?.value || '',
+                    full_address: document.getElementById('fullAddress')?.value || '',
+                    announcement_date: document.getElementById('announcementDate')?.value || '',
+                    move_in_date: document.getElementById('moveInDate')?.value || '',
+                    constructor: document.getElementById('constructor')?.value || '',
+                    deadline: document.getElementById('announcementDate')?.value || new Date().toISOString().split('T')[0],
                     households: supplyInfo.reduce((sum, s) => sum + (parseInt(s.households) || 0), 0).toString() || '0',
                     area_type: supplyInfo.map(s => s.type).join(', ') || '',
                     price: supplyInfo.length > 0 ? supplyInfo[0].price : '',
@@ -4858,7 +4858,7 @@ app.get('/admin', (c) => {
             document.getElementById('propertyForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
-                const id = document.getElementById('propertyId').value;
+                const id = document.getElementById('propertyId')?.value || '';
                 const data = collectFormData();
 
                 try {
