@@ -3981,6 +3981,32 @@ app.get('/admin', (c) => {
                 window.location.href = '/admin/login';
             }
 
+            // Expose functions to global scope for onclick handlers
+            const exposeFunctions = () => {
+                window.showSection = showSection;
+                window.toggleSidebar = toggleSidebar;
+                window.exportData = exportData;
+                window.handleImageSelect = handleImageSelect;
+                window.removeImage = removeImage;
+                window.fetchTradePrice = fetchTradePrice;
+                window.logout = logout;
+                window.handlePdfSelect = handlePdfSelect;
+                window.parsePdf = parsePdf;
+                window.switchTab = switchTab;
+                window.toggleSection = toggleSection;
+                window.addSupplyRow = addSupplyRow;
+                window.removeSupplyRow = removeSupplyRow;
+                window.addStep = addStep;
+                window.removeStep = removeStep;
+                window.openAddModal = openAddModal;
+                window.editProperty = editProperty;
+                window.closeEditModal = closeEditModal;
+                window.deleteProperty = deleteProperty;
+                window.closeDeleteModal = closeDeleteModal;
+                window.confirmDelete = confirmDelete;
+                window.searchProperties = searchProperties;
+            };
+
             // Section Management
             function showSection(sectionName) {
                 // Hide all sections
@@ -4020,6 +4046,9 @@ app.get('/admin', (c) => {
                     loadDashboardStats();
                 }
             }
+            
+            // Call exposeFunctions immediately to make functions available
+            exposeFunctions();
             
             // Toggle Sidebar
             function toggleSidebar() {
