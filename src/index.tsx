@@ -3070,52 +3070,266 @@ app.get('/admin', (c) => {
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <style>
+          @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+          
+          * {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+          }
+          
           .tab-active { border-bottom: 3px solid #007AFF; color: #007AFF; }
           .modal { display: none; }
           .modal.active { display: flex; }
+          
+          /* Sidebar Styles */
+          .sidebar {
+            transition: width 0.3s ease;
+          }
+          
+          .sidebar-collapsed {
+            width: 80px;
+          }
+          
+          .sidebar-expanded {
+            width: 260px;
+          }
+          
+          .sidebar-link {
+            transition: all 0.2s ease;
+          }
+          
+          .sidebar-link:hover {
+            background-color: #EBF4FF;
+            transform: translateX(4px);
+          }
+          
+          .sidebar-link.active {
+            background-color: #3182F6;
+            color: white;
+          }
+          
+          .sidebar-link.active:hover {
+            background-color: #2563EB;
+          }
+          
+          /* Dashboard Card Animation */
+          .stat-card {
+            transition: all 0.3s ease;
+          }
+          
+          .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+          }
+          
+          /* Table Row Hover */
+          tbody tr {
+            transition: background-color 0.2s ease;
+          }
+          
+          tbody tr:hover {
+            background-color: #F9FAFB;
+          }
+          
+          /* Smooth Scroll */
+          html {
+            scroll-behavior: smooth;
+          }
+          
+          /* Content Area */
+          .main-content {
+            transition: margin-left 0.3s ease;
+          }
         </style>
     </head>
     <body class="bg-gray-50">
-        <!-- Header -->
-        <header class="bg-white shadow-sm">
-            <div class="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between">
-                <div class="flex-1 min-w-0">
-                    <h1 class="text-lg sm:text-2xl font-bold text-gray-900 truncate">한채365 어드민</h1>
-                    <p class="text-xs sm:text-sm text-gray-500 hidden sm:block">분양 정보 관리 시스템</p>
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar sidebar-expanded fixed left-0 top-0 bottom-0 bg-white shadow-lg z-40 hidden lg:block">
+            <div class="h-full flex flex-col">
+                <!-- Logo -->
+                <div class="p-6 border-b">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-home text-white text-lg"></i>
+                        </div>
+                        <div class="sidebar-text">
+                            <h2 class="font-bold text-gray-900 text-lg">한채365</h2>
+                            <p class="text-xs text-gray-500">Admin</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="flex gap-2 sm:gap-3 flex-shrink-0">
-                    <button onclick="logout()" class="text-xs sm:text-sm text-red-600 hover:text-red-800 whitespace-nowrap">
-                        <i class="fas fa-sign-out-alt sm:mr-1"></i><span class="hidden sm:inline">로그아웃</span>
+                
+                <!-- Navigation -->
+                <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+                    <a href="javascript:void(0)" onclick="showSection('dashboard')" class="sidebar-link active flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium" data-section="dashboard">
+                        <i class="fas fa-chart-line text-lg w-5"></i>
+                        <span class="sidebar-text">대시보드</span>
+                    </a>
+                    <a href="javascript:void(0)" onclick="showSection('properties')" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700" data-section="properties">
+                        <i class="fas fa-building text-lg w-5"></i>
+                        <span class="sidebar-text">매물 관리</span>
+                    </a>
+                    <a href="javascript:void(0)" onclick="showSection('statistics')" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700" data-section="statistics">
+                        <i class="fas fa-chart-bar text-lg w-5"></i>
+                        <span class="sidebar-text">통계</span>
+                    </a>
+                    <a href="javascript:void(0)" onclick="showSection('settings')" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700" data-section="settings">
+                        <i class="fas fa-cog text-lg w-5"></i>
+                        <span class="sidebar-text">설정</span>
+                    </a>
+                </nav>
+                
+                <!-- Bottom Actions -->
+                <div class="p-4 border-t space-y-2">
+                    <button onclick="window.location.href='/'" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">
+                        <i class="fas fa-arrow-left text-lg w-5"></i>
+                        <span class="sidebar-text">메인으로</span>
                     </button>
-                    <button onclick="window.location.href='/'" class="text-xs sm:text-sm text-gray-600 hover:text-gray-900 whitespace-nowrap">
-                        <i class="fas fa-home sm:mr-1"></i><span class="hidden sm:inline">메인으로</span>
+                    <button onclick="logout()" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50">
+                        <i class="fas fa-sign-out-alt text-lg w-5"></i>
+                        <span class="sidebar-text">로그아웃</span>
                     </button>
                 </div>
             </div>
-        </header>
+        </aside>
 
-        <!-- Tabs -->
-        <div class="bg-white border-b overflow-x-auto">
-            <div class="max-w-7xl mx-auto px-3 sm:px-4">
-                <div class="flex gap-4 sm:gap-8 min-w-max">
-                    <button onclick="switchTab('all')" class="tab-btn py-3 sm:py-4 font-medium text-sm sm:text-base text-gray-600 tab-active whitespace-nowrap" data-tab="all">
-                        전체분양
-                    </button>
-                    <button onclick="switchTab('rental')" class="tab-btn py-3 sm:py-4 font-medium text-sm sm:text-base text-gray-600 whitespace-nowrap" data-tab="rental">
-                        임대분양
-                    </button>
-                    <button onclick="switchTab('general')" class="tab-btn py-3 sm:py-4 font-medium text-sm sm:text-base text-gray-600 whitespace-nowrap" data-tab="general">
-                        청약분양
-                    </button>
-                    <button onclick="switchTab('unsold')" class="tab-btn py-3 sm:py-4 font-medium text-sm sm:text-base text-gray-600 whitespace-nowrap" data-tab="unsold">
-                        줍줍분양
-                    </button>
+        <!-- Main Content Area -->
+        <div id="mainContent" class="main-content lg:ml-[260px]">
+            <!-- Header -->
+            <header class="bg-white shadow-sm sticky top-0 z-30">
+                <div class="px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <button onclick="toggleSidebar()" class="hidden lg:block text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-bars text-xl"></i>
+                        </button>
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-900" id="pageTitle">대시보드</h1>
+                            <p class="text-sm text-gray-500" id="pageSubtitle">전체 현황을 확인하세요</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button class="hidden sm:block px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-bell mr-2"></i>알림
+                        </button>
+                        <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                            A
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Section -->
+            <div id="dashboardSection" class="section-content p-4 sm:p-6 lg:p-8">
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="stat-card bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-building text-blue-600 text-xl"></i>
+                            </div>
+                            <span class="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded">+12%</span>
+                        </div>
+                        <h3 class="text-gray-500 text-sm font-medium mb-1">전체 매물</h3>
+                        <p class="text-3xl font-bold text-gray-900" id="totalProperties">0</p>
+                        <p class="text-xs text-gray-400 mt-2">지난달 대비</p>
+                    </div>
+                    
+                    <div class="stat-card bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-home text-green-600 text-xl"></i>
+                            </div>
+                            <span class="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">활성</span>
+                        </div>
+                        <h3 class="text-gray-500 text-sm font-medium mb-1">임대분양</h3>
+                        <p class="text-3xl font-bold text-gray-900" id="rentalProperties">0</p>
+                        <p class="text-xs text-gray-400 mt-2">현재 모집중</p>
+                    </div>
+                    
+                    <div class="stat-card bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-fire text-orange-600 text-xl"></i>
+                            </div>
+                            <span class="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded">인기</span>
+                        </div>
+                        <h3 class="text-gray-500 text-sm font-medium mb-1">줍줍분양</h3>
+                        <p class="text-3xl font-bold text-gray-900" id="unsoldProperties">0</p>
+                        <p class="text-xs text-gray-400 mt-2">미분양 매물</p>
+                    </div>
+                    
+                    <div class="stat-card bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-clock text-purple-600 text-xl"></i>
+                            </div>
+                            <span class="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded">긴급</span>
+                        </div>
+                        <h3 class="text-gray-500 text-sm font-medium mb-1">마감 임박</h3>
+                        <p class="text-3xl font-bold text-gray-900" id="urgentProperties">0</p>
+                        <p class="text-xs text-gray-400 mt-2">7일 이내 마감</p>
+                    </div>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="bg-white rounded-xl shadow-sm p-6 mb-8 border border-gray-100">
+                    <h3 class="text-lg font-bold text-gray-900 mb-4">빠른 작업</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <button onclick="openAddModal()" class="flex flex-col items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-all">
+                            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-plus text-blue-600 text-xl"></i>
+                            </div>
+                            <span class="text-sm font-medium text-gray-700">매물 등록</span>
+                        </button>
+                        <button onclick="showSection('properties')" class="flex flex-col items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 hover:border-green-500 hover:bg-green-50 transition-all">
+                            <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-list text-green-600 text-xl"></i>
+                            </div>
+                            <span class="text-sm font-medium text-gray-700">매물 목록</span>
+                        </button>
+                        <button onclick="showSection('statistics')" class="flex flex-col items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 hover:border-purple-500 hover:bg-purple-50 transition-all">
+                            <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-chart-pie text-purple-600 text-xl"></i>
+                            </div>
+                            <span class="text-sm font-medium text-gray-700">통계 보기</span>
+                        </button>
+                        <button onclick="exportData()" class="flex flex-col items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 hover:border-orange-500 hover:bg-orange-50 transition-all">
+                            <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-download text-orange-600 text-xl"></i>
+                            </div>
+                            <span class="text-sm font-medium text-gray-700">데이터 내보내기</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Recent Activities -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <h3 class="text-lg font-bold text-gray-900 mb-4">최근 활동</h3>
+                    <div class="space-y-4" id="recentActivities">
+                        <p class="text-sm text-gray-500 text-center py-8">아직 활동 내역이 없습니다.</p>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Main Content -->
-        <div class="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
+            <!-- Properties Section -->
+            <div id="propertiesSection" class="section-content p-4 sm:p-6 lg:p-8 hidden">
+                <!-- Tabs -->
+                <div class="bg-white rounded-xl shadow-sm mb-6 border border-gray-100 overflow-hidden">
+                    <div class="flex overflow-x-auto">
+                        <button onclick="switchTab('all')" class="tab-btn px-6 py-4 font-medium text-sm text-gray-600 tab-active whitespace-nowrap border-b-2" data-tab="all">
+                            전체분양
+                        </button>
+                        <button onclick="switchTab('rental')" class="tab-btn px-6 py-4 font-medium text-sm text-gray-600 whitespace-nowrap border-b-2 border-transparent" data-tab="rental">
+                            임대분양
+                        </button>
+                        <button onclick="switchTab('general')" class="tab-btn px-6 py-4 font-medium text-sm text-gray-600 whitespace-nowrap border-b-2 border-transparent" data-tab="general">
+                            청약분양
+                        </button>
+                        <button onclick="switchTab('unsold')" class="tab-btn px-6 py-4 font-medium text-sm text-gray-600 whitespace-nowrap border-b-2 border-transparent" data-tab="unsold">
+                            줍줍분양
+                        </button>
+                    </div>
+                </div>
+                
             <!-- Search & Actions -->
             <div class="bg-white rounded-lg shadow-sm p-3 sm:p-4 mb-3 sm:mb-4 flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <input type="text" id="searchInput" placeholder="단지명, 지역 검색..." 
@@ -3148,6 +3362,90 @@ app.get('/admin', (c) => {
                             <!-- Data will be loaded here -->
                         </tbody>
                     </table>
+                </div>
+            </div>
+            </div>
+
+            <!-- Statistics Section -->
+            <div id="statisticsSection" class="section-content p-4 sm:p-6 lg:p-8 hidden">
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <h3 class="text-lg font-bold text-gray-900 mb-6">통계 및 분석</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="border rounded-lg p-6">
+                            <h4 class="font-semibold text-gray-900 mb-4">타입별 분포</h4>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">임대분양</span>
+                                    <span class="text-sm font-bold text-gray-900">45%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: 45%"></div>
+                                </div>
+                            </div>
+                            <div class="space-y-3 mt-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">청약분양</span>
+                                    <span class="text-sm font-bold text-gray-900">30%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-600 h-2 rounded-full" style="width: 30%"></div>
+                                </div>
+                            </div>
+                            <div class="space-y-3 mt-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">줍줍분양</span>
+                                    <span class="text-sm font-bold text-gray-900">25%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-orange-600 h-2 rounded-full" style="width: 25%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="border rounded-lg p-6">
+                            <h4 class="font-semibold text-gray-900 mb-4">지역별 분포</h4>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">서울/경기</span>
+                                    <span class="text-sm font-bold text-gray-900">60%</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">세종/충청</span>
+                                    <span class="text-sm font-bold text-gray-900">20%</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">기타 지역</span>
+                                    <span class="text-sm font-bold text-gray-900">20%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Section -->
+            <div id="settingsSection" class="section-content p-4 sm:p-6 lg:p-8 hidden">
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <h3 class="text-lg font-bold text-gray-900 mb-6">설정</h3>
+                    <div class="space-y-6">
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-3">시스템 정보</h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">버전</span>
+                                    <span class="font-medium">v1.0.0</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">마지막 업데이트</span>
+                                    <span class="font-medium">2025-01-15</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pt-6 border-t">
+                            <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                                설정 저장
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3643,6 +3941,117 @@ app.get('/admin', (c) => {
             if (!adminToken) {
                 window.location.href = '/admin/login';
             }
+
+            // Section Management
+            function showSection(sectionName) {
+                // Hide all sections
+                document.querySelectorAll('.section-content').forEach(el => el.classList.add('hidden'));
+                
+                // Show selected section
+                const section = document.getElementById(sectionName + 'Section');
+                if (section) {
+                    section.classList.remove('hidden');
+                }
+                
+                // Update active sidebar link
+                document.querySelectorAll('.sidebar-link').forEach(link => {
+                    link.classList.remove('active');
+                });
+                const activeLink = document.querySelector(\`.sidebar-link[data-section="\${sectionName}"]\`);
+                if (activeLink) {
+                    activeLink.classList.add('active');
+                }
+                
+                // Update page title
+                const titles = {
+                    'dashboard': ['대시보드', '전체 현황을 확인하세요'],
+                    'properties': ['매물 관리', '등록된 매물을 관리하세요'],
+                    'statistics': ['통계', '데이터 분석 및 통계'],
+                    'settings': ['설정', '시스템 설정을 관리하세요']
+                };
+                if (titles[sectionName]) {
+                    document.getElementById('pageTitle').textContent = titles[sectionName][0];
+                    document.getElementById('pageSubtitle').textContent = titles[sectionName][1];
+                }
+                
+                // Load data for specific sections
+                if (sectionName === 'properties') {
+                    loadProperties();
+                } else if (sectionName === 'dashboard') {
+                    loadDashboardStats();
+                }
+            }
+            
+            // Toggle Sidebar
+            function toggleSidebar() {
+                const sidebar = document.getElementById('sidebar');
+                const mainContent = document.getElementById('mainContent');
+                
+                if (sidebar.classList.contains('sidebar-expanded')) {
+                    sidebar.classList.remove('sidebar-expanded');
+                    sidebar.classList.add('sidebar-collapsed');
+                    mainContent.classList.remove('lg:ml-[260px]');
+                    mainContent.classList.add('lg:ml-[80px]');
+                    
+                    // Hide text
+                    document.querySelectorAll('.sidebar-text').forEach(el => {
+                        el.style.display = 'none';
+                    });
+                } else {
+                    sidebar.classList.remove('sidebar-collapsed');
+                    sidebar.classList.add('sidebar-expanded');
+                    mainContent.classList.remove('lg:ml-[80px]');
+                    mainContent.classList.add('lg:ml-[260px]');
+                    
+                    // Show text
+                    document.querySelectorAll('.sidebar-text').forEach(el => {
+                        el.style.display = 'block';
+                    });
+                }
+            }
+            
+            // Load Dashboard Stats
+            async function loadDashboardStats() {
+                try {
+                    const response = await axios.get('/api/properties?type=all');
+                    const properties = response.data;
+                    
+                    // Total properties
+                    document.getElementById('totalProperties').textContent = properties.length;
+                    
+                    // Rental properties
+                    const rentalCount = properties.filter(p => p.type === 'rental').length;
+                    document.getElementById('rentalProperties').textContent = rentalCount;
+                    
+                    // Unsold properties
+                    const unsoldCount = properties.filter(p => p.type === 'unsold').length;
+                    document.getElementById('unsoldProperties').textContent = unsoldCount;
+                    
+                    // Urgent properties (7 days or less)
+                    const today = new Date();
+                    const urgentCount = properties.filter(p => {
+                        if (!p.deadline) return false;
+                        const deadline = new Date(p.deadline);
+                        const diffTime = deadline - today;
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        return diffDays >= 0 && diffDays <= 7;
+                    }).length;
+                    document.getElementById('urgentProperties').textContent = urgentCount;
+                    
+                } catch (error) {
+                    console.error('Failed to load stats:', error);
+                }
+            }
+            
+            // Export Data
+            function exportData() {
+                alert('데이터 내보내기 기능은 준비 중입니다.');
+            }
+            
+            // Initialize dashboard on load
+            window.addEventListener('DOMContentLoaded', () => {
+                loadDashboardStats();
+            });
 
             let currentTab = 'all';
             let deleteTargetId = null;
