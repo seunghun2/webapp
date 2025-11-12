@@ -4115,7 +4115,6 @@ app.get('/admin', (c) => {
 
             let currentTab = 'all';
             let deleteTargetId = null;
-            let stepCounter = 0;
             let supplyCounter = 0;
             let selectedPdfFile = null;
             let selectedImageFile = null;
@@ -4537,9 +4536,7 @@ app.get('/admin', (c) => {
                 document.getElementById('modalTitle').textContent = '신규 등록';
                 document.getElementById('propertyForm').reset();
                 document.getElementById('propertyId').value = '';
-                document.getElementById('stepsContainer').innerHTML = '';
                 document.getElementById('supplyRowsContainer').innerHTML = '';
-                stepCounter = 0;
                 supplyCounter = 0;
                 document.getElementById('editModal').classList.add('active');
             }
@@ -5457,18 +5454,6 @@ app.get('/', (c) => {
                         <i class="fas fa-home text-lg"></i>
                         <span>홈</span>
                     </a>
-                    <a href="/admin" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                        <i class="fas fa-cog text-lg"></i>
-                        <span>관리자</span>
-                    </a>
-                    <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                        <i class="fas fa-heart text-lg"></i>
-                        <span>찜한 매물</span>
-                    </a>
-                    <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                        <i class="fas fa-bell text-lg"></i>
-                        <span>알림 설정</span>
-                    </a>
                 </nav>
                 
                 <!-- Menu Footer -->
@@ -5491,19 +5476,10 @@ app.get('/', (c) => {
                         <span class="text-xs text-gray-500 hidden md:inline">스마트 부동산 분양 정보</span>
                     </div>
                     
-                    <!-- Desktop Navigation -->
+                    <!-- Desktop Navigation - 홈만 표시 -->
                     <nav class="hidden lg:flex items-center gap-1">
                         <a href="/" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">홈</a>
-                        <a href="/admin" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">관리자</a>
-                        <a href="#" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">찜한 매물</a>
                     </nav>
-                    
-                    <div class="flex items-center gap-1 sm:gap-2">
-                        <button class="text-gray-600 hover:text-gray-900 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
-                            <i class="fas fa-bell text-base sm:text-lg"></i>
-                        </button>
-                        <!-- 로그인 버튼만 임시 비활성화 -->
-                    </div>
                 </div>
             </div>
         </header>
@@ -5512,6 +5488,20 @@ app.get('/', (c) => {
         <section class="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3" id="statsContainer">
                 <!-- Stats will be loaded here -->
+            </div>
+        </section>
+
+        <!-- Search Bar -->
+        <section class="max-w-6xl mx-auto px-3 sm:px-4 pb-4">
+            <div class="bg-white rounded-lg shadow-sm p-3 sm:p-4">
+                <div class="flex gap-2">
+                    <input type="text" id="mainSearchInput" placeholder="단지명, 지역으로 검색..." 
+                           class="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                           onkeypress="if(event.key==='Enter') searchMainProperties()">
+                    <button onclick="searchMainProperties()" class="px-4 sm:px-6 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm sm:text-base transition-colors">
+                        <i class="fas fa-search mr-1 sm:mr-2"></i><span class="hidden sm:inline">검색</span>
+                    </button>
+                </div>
             </div>
         </section>
 
@@ -6652,6 +6642,20 @@ app.get('/', (c) => {
           }
 
           // Load properties
+          // Search function for main page
+          function searchMainProperties() {
+            const searchInput = document.getElementById('mainSearchInput');
+            const query = searchInput.value.trim().toLowerCase();
+            
+            if (query) {
+              filters.search = query;
+            } else {
+              delete filters.search;
+            }
+            
+            loadProperties();
+          }
+
           async function loadProperties() {
             console.time('⏱️ Total Load Time');
             const container = document.getElementById('propertiesContainer');
