@@ -2615,38 +2615,66 @@ Rules:
 - Extract ALL schedule dates into steps array
 - Use newline \\n for multi-line text in notices`
     
-    // Gemini API 호출 (gemini-2.5-flash 사용 - PDF 지원)
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: promptText },
-            {
-              inline_data: {
-                mime_type: 'application/pdf',
-                data: pdfBase64
-              }
+    // Gemini API 호출 with retry for 503 errors
+    const maxRetries = 3
+    const retryDelay = 2000 // 2 seconds
+    let response
+    let lastError
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Gemini API 호출 시도 ${attempt}/${maxRetries}`)
+        
+        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: promptText },
+                {
+                  inline_data: {
+                    mime_type: 'application/pdf',
+                    data: pdfBase64
+                  }
+                }
+              ]
+            }],
+            generationConfig: {
+              temperature: 0.1,
+              maxOutputTokens: 8192,
+              responseMimeType: "application/json"
             }
-          ]
-        }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 8192,
-          responseMimeType: "application/json"
+          })
+        })
+        
+        // 503 에러면 재시도
+        if (response.status === 503 && attempt < maxRetries) {
+          console.log(`503 에러 발생, ${retryDelay}ms 후 재시도...`)
+          await new Promise(resolve => setTimeout(resolve, retryDelay))
+          continue
         }
-      })
-    })
+        
+        // 다른 에러나 성공이면 break
+        break
+        
+      } catch (error) {
+        lastError = error
+        if (attempt < maxRetries) {
+          console.log(`네트워크 에러, ${retryDelay}ms 후 재시도...`)
+          await new Promise(resolve => setTimeout(resolve, retryDelay))
+        }
+      }
+    }
 
-    if (!response.ok) {
-      const errorText = await response.text()
+    if (!response || !response.ok) {
+      const errorText = response ? await response.text() : lastError?.message || 'Unknown error'
       console.error('Gemini API 오류:', errorText)
       return c.json({ 
         success: false, 
-        error: `Gemini API 오류: ${response.status} - ${errorText}` 
+        error: `Gemini API 오류: ${response?.status || 'Network error'} - ${errorText}` 
       }, 500)
     }
 
