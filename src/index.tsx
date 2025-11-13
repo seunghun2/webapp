@@ -3704,12 +3704,12 @@ app.get('/admin', (c) => {
                             </div>
                         </div>
 
-                        <!-- 신청절차(스텝) -->
+                        <!-- 입주자 선정 일정 -->
                         <div class="border-b pb-6">
                             <div class="flex items-center justify-between mb-4">
                                 <h3 class="text-lg font-bold text-gray-900 flex items-center">
                                     <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">2</span>
-                                    신청절차
+                                    입주자 선정 일정
                                 </h3>
                                 <button type="button" onclick="addStep()" class="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
                                     <i class="fas fa-plus mr-1"></i> 스텝 추가
