@@ -6342,21 +6342,20 @@ app.get('/', (c) => {
                       <!-- Timeline Container -->
                       <div class="relative">
                         <!-- Vertical Line -->
-                        <div class="absolute left-4 top-3 bottom-3 w-0.5 bg-gray-300"></div>
+                        <div class="absolute left-2.5 top-0 bottom-0 w-0.5 bg-gray-300"></div>
                         
                         <!-- Timeline Steps -->
                         <div class="space-y-3 sm:space-y-4">
                           \${extendedData.steps.map((step, idx) => \`
                             <div class="relative pl-8 sm:pl-10">
-                              <div class="absolute left-2 sm:left-2.5 top-1.5 w-2.5 sm:w-3 h-2.5 sm:h-3 bg-primary rounded-full border-2 border-white"></div>
-                              <div class="bg-white rounded-lg p-2.5 sm:p-3 shadow-sm">
-                                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 mb-1">
-                                  <div class="flex-1 min-w-0">
-                                    <span class="text-xs text-primary font-bold">STEP \${idx + 1}</span>
-                                    <h4 class="text-xs sm:text-sm text-gray-900 font-semibold break-words">\${step.title}</h4>
-                                  </div>
-                                  <span class="text-xs text-gray-600 whitespace-nowrap flex-shrink-0">\${step.date}</span>
+                              <div class="absolute left-2 sm:left-2.5 top-1.5 w-2.5 sm:w-3 h-2.5 sm:h-3 bg-gray-400 rounded-full border-2 border-white"></div>
+                              <div class="flex justify-between items-start gap-3">
+                                <div class="flex-1 min-w-0">
+                                  <div class="text-xs text-gray-500 mb-1">STEP \${idx + 1}</div>
+                                  <h4 class="text-base font-bold text-blue-600 mb-1 break-words">\${step.title}</h4>
+                                  \${step.description ? \`<p class="text-sm text-gray-600">\${step.description}</p>\` : ''}
                                 </div>
+                                <span class="text-sm text-gray-900 whitespace-nowrap flex-shrink-0">\${step.date}</span>
                               </div>
                             </div>
                           \`).join('')}
