@@ -6340,22 +6340,27 @@ app.get('/', (c) => {
                   <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
                     <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">📅 입주자 선정 일정</h3>
                       <!-- Timeline Container -->
-                      <div class="relative">
+                      <div class="relative pl-6">
                         <!-- Vertical Line -->
-                        <div class="absolute left-2.5 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+                        <div class="absolute left-2 top-0 bottom-0 w-0.5 bg-gray-300"></div>
                         
                         <!-- Timeline Steps -->
-                        <div class="space-y-3 sm:space-y-4">
+                        <div class="space-y-6">
                           \${extendedData.steps.map((step, idx) => \`
-                            <div class="relative pl-8 sm:pl-10">
-                              <div class="absolute left-2 sm:left-2.5 top-1.5 w-2.5 sm:w-3 h-2.5 sm:h-3 bg-gray-400 rounded-full border-2 border-white"></div>
-                              <div class="flex justify-between items-start gap-3">
-                                <div class="flex-1 min-w-0">
-                                  <div class="text-xs text-gray-500 mb-1">STEP \${idx + 1}</div>
-                                  <h4 class="text-base font-bold text-blue-600 mb-1 break-words">\${step.title}</h4>
-                                  \${step.description ? \`<p class="text-sm text-gray-600">\${step.description}</p>\` : ''}
+                            <div class="relative">
+                              <!-- Timeline Dot -->
+                              <div class="absolute -left-6 top-0 w-3 h-3 bg-gray-400 rounded-full border-2 border-white z-10"></div>
+                              
+                              <!-- Step Content -->
+                              <div>
+                                <div class="text-xs text-gray-500 mb-2">STEP \${idx + 1}</div>
+                                <div class="flex justify-between items-start gap-4">
+                                  <div class="flex-1 min-w-0">
+                                    <h4 class="text-base font-bold text-blue-600 mb-1 break-words">\${step.title}</h4>
+                                    \${step.description ? \`<p class="text-sm text-gray-600">\${step.description}</p>\` : ''}
+                                  </div>
+                                  <span class="text-sm text-gray-900 whitespace-nowrap flex-shrink-0">\${step.date}</span>
                                 </div>
-                                <span class="text-sm text-gray-900 whitespace-nowrap flex-shrink-0">\${step.date}</span>
                               </div>
                             </div>
                           \`).join('')}
