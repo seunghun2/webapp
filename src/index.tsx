@@ -4449,9 +4449,14 @@ app.get('/admin', (c) => {
                 // 오늘 날짜를 YYYY-MM-DD 형식으로 가져오기
                 const today = new Date().toISOString().split('T')[0];
                 div.innerHTML = \`
-                    <input type="date" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <input type="text" placeholder="스텝 제목 (예: 일반공급 2순위 접수일)" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
+                    <div class="flex-1 space-y-2">
+                        <div class="flex gap-2">
+                            <input type="date" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <input type="text" placeholder="스텝 제목 (예: 청약신청)" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <input type="text" placeholder="상세 설명 (예: 현장·인터넷·모바일)" class="step-details w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm self-start">
                         <i class="fas fa-times"></i>
                     </button>
                 \`;
@@ -4629,9 +4634,14 @@ app.get('/admin', (c) => {
                             const div = document.createElement('div');
                             div.className = 'flex gap-2 items-center';
                             div.innerHTML = \`
-                                <input type="date" value="\${step.date || ''}" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                                <input type="text" value="\${step.title || ''}" placeholder="스텝 제목" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                                <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
+                                <div class="flex-1 space-y-2">
+                                    <div class="flex gap-2">
+                                        <input type="date" value="\${step.date || ''}" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <input type="text" value="\${step.title || ''}" placeholder="스텝 제목" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                    </div>
+                                    <input type="text" value="\${step.details || ''}" placeholder="상세 설명" class="step-details w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                                <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm self-start">
                                     <i class="fas fa-times"></i>
                                 </button>
                             \`;
@@ -4749,7 +4759,8 @@ app.get('/admin', (c) => {
                 const stepElements = document.querySelectorAll('#stepsContainer > div');
                 const steps = Array.from(stepElements).map(el => ({
                     date: el.querySelector('.step-date').value,
-                    title: el.querySelector('.step-title').value
+                    title: el.querySelector('.step-title').value,
+                    details: el.querySelector('.step-details').value
                 })).filter(s => s.date || s.title);
 
                 // Collect supply info
@@ -6357,7 +6368,7 @@ app.get('/', (c) => {
                                 <div class="flex justify-between items-start gap-4">
                                   <div class="flex-1 min-w-0">
                                     <h4 class="text-base font-bold text-blue-600 mb-1 break-words">\${step.title}</h4>
-                                    \${step.description ? \`<p class="text-sm text-gray-600">\${step.description}</p>\` : ''}
+                                    \${step.details ? \`<p class="text-sm text-gray-600">\${step.details}</p>\` : ''}
                                   </div>
                                   <span class="text-sm text-gray-900 whitespace-nowrap flex-shrink-0">\${step.date}</span>
                                 </div>
