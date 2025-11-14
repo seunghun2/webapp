@@ -39,11 +39,14 @@
 - ✅ **이모지 정리**: 중복 이모지 제거로 깔끔한 UI
 - ✅ **투자 정보 섹션**: 줍줍분양 전용 실거래가 정보 표시
 
-### 5. 🔧 관리자 패널 (2025-11-11 완성!)
+### 5. 🔧 관리자 패널 (2025-11-14 완성!)
 - ✅ **PDF 자동 파싱**: Google Gemini API로 40+ 필드 자동 추출
 - ✅ **실거래가 조회**: 국토교통부 API 연동 원클릭 조회
 - ✅ **타입별 자동 표시**: unsold 타입 선택 시 실거래가 섹션 자동 노출
-- ✅ **이미지 업로드**: Cloudflare R2 연동 (설정 완료)
+- ✅ **이미지 업로드**: Cloudflare R2 연동 + Workers 이미지 제공 API
+- ✅ **공급 세대 이미지**: 드래그 앤 드롭, 미리보기, 자동 업로드
+- ✅ **Textarea 자동 확장**: 내용에 따라 높이 자동 조절
+- ✅ **등록일/수정일**: 매물 생성 및 수정 시간 자동 기록
 - ✅ **extended_data**: JSON 구조로 상세 정보 무제한 저장
 
 ### 6. 호갱노노 스타일 필터
@@ -124,6 +127,31 @@ Content-Type: application/json
 }
 ```
 
+### 이미지 업로드 (Cloudflare R2)
+```bash
+POST /api/admin/upload-image
+Content-Type: multipart/form-data
+
+# Form Data:
+- image: File (JPG, PNG, WEBP, max 5MB)
+
+# 응답:
+{
+  "success": true,
+  "url": "/api/images/properties/1234567890-abc123.png",
+  "filename": "properties/1234567890-abc123.png",
+  "message": "이미지 업로드 완료"
+}
+```
+
+### 이미지 제공 (Workers Proxy)
+```bash
+GET /api/images/properties/1234567890-abc123.png
+
+# 응답: Image binary data with proper Content-Type header
+# Cache-Control: public, max-age=31536000 (1 year)
+```
+
 ### 매물 목록 조회
 ```bash
 GET /api/properties?type=all
@@ -188,6 +216,16 @@ npx wrangler pages secret put GEMINI_API_KEY --project-name webapp
 - **Search Engines**: Google Search Console, Naver Search Advisor
 
 ## 📝 최근 업데이트
+
+### 2025-11-14: 🖼️ 공급 세대 정보 이미지 업로드 기능 추가!
+- ✅ **R2 이미지 저장**: Cloudflare R2 버킷을 통한 이미지 저장
+- ✅ **Workers 이미지 제공**: `/api/images/:path` 엔드포인트로 이미지 제공
+- ✅ **어드민 이미지 업로드**: 공급 세대 정보 이미지 업로드 UI 추가
+- ✅ **상세 팝업 이미지 표시**: 공급 세대 정보 카드에 이미지 표시 (테이블 위)
+- ✅ **Textarea 자동 확장**: 단지특징, 주변환경, 교통여건, 교육시설 입력 시 자동 높이 조절
+- ✅ **수정 모드 이미지 프리뷰**: 기존 매물 수정 시 업로드된 이미지 미리보기 표시
+- ✅ **등록일/수정일 컬럼**: 관리자 대시보드에 created_at, updated_at 컬럼 추가
+- ✅ **데이터 검증**: 'undefined' 문자열 필터링 처리
 
 ### 2025-11-11: 🎉 데이터 일관화 & 프로덕션 동기화 완료!
 - ✅ **데이터 일관화**: 
