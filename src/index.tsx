@@ -6412,10 +6412,22 @@ app.get('/', (c) => {
                   </div>
 
                   <!-- Additional Details Container (Hidden by default) -->
-                  <div id="additionalDetailsContainer" style="display: none;">
+                  <div id="additionalDetailsContainer" class="space-y-4" style="display: none;">
                   
-                  <!-- 신청자격 from extended_data -->
-                  \${extendedData.details?.targetTypes || extendedData.details?.incomeLimit || extendedData.details?.assetLimit ? \`
+                  <!-- 신청자격 (targetAudienceLines가 있는 경우) -->
+                  \${extendedData.targetAudienceLines && extendedData.targetAudienceLines.length > 0 ? \`
+                    <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+                      <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">🎯 신청자격</h3>
+                      <div class="text-xs sm:text-sm text-gray-700 space-y-1.5 sm:space-y-2 leading-relaxed">
+                        \${extendedData.targetAudienceLines.map(line => \`
+                          <p>• \${line}</p>
+                        \`).join('')}
+                      </div>
+                    </div>
+                  \` : ''}
+                  
+                  <!-- 신청자격 from extended_data (기존 방식 - targetAudienceLines 없을 때만) -->
+                  \${!extendedData.targetAudienceLines && (extendedData.details?.targetTypes || extendedData.details?.incomeLimit || extendedData.details?.assetLimit) ? \`
                     <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
                       <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">🎯 신청자격</h3>
                       <div class="text-xs sm:text-sm text-gray-700 space-y-1.5 sm:space-y-2">
