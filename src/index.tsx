@@ -6346,12 +6346,12 @@ app.get('/', (c) => {
                   <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
                     <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">📅 입주자 선정 일정</h3>
                       <!-- Timeline Container -->
-                      <div class="relative pl-6">
-                        <!-- Vertical Line -->
-                        <div class="absolute left-2 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+                      <div class="relative pl-8">
+                        <!-- Vertical Line (centered) -->
+                        <div class="absolute left-3 top-0 bottom-0 w-0.5 bg-gray-300"></div>
                         
                         <!-- Timeline Steps -->
-                        <div class="space-y-6">
+                        <div class="space-y-4">
                           \${(() => {
                             // 오늘 날짜 기준 가장 가까운 미래 스텝 찾기
                             const today = new Date();
@@ -6383,8 +6383,8 @@ app.get('/', (c) => {
                               const isActive = idx === activeStepIdx;
                               return \`
                                 <div class="relative">
-                                  <!-- Timeline Dot -->
-                                  <div class="absolute -left-6 top-3 w-3 h-3 \${isActive ? 'bg-blue-500' : 'bg-gray-400'} rounded-full border-2 border-white z-10"></div>
+                                  <!-- Timeline Dot (centered on line) -->
+                                  <div class="absolute -left-7.5 top-1/2 -translate-y-1/2 w-3 h-3 \${isActive ? 'bg-blue-500' : 'bg-gray-400'} rounded-full border-2 border-white z-10" style="left: -1.625rem;"></div>
                                   
                                   <!-- White Box Container -->
                                   <div class="bg-white rounded-lg p-3 shadow-sm">
