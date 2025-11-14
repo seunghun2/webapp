@@ -2575,10 +2575,10 @@ Required JSON structure (based on best practice format):
     "Third key point (e.g., 저렴한 임대료로 주거비 부담 완화)"
   ],
   "steps": [
-    {"date":"YYYY-MM-DD","title":"입주자모집공고일"},
-    {"date":"YYYY-MM-DD","title":"청약접수 시작일"},
-    {"date":"YYYY-MM-DD","title":"당첨자 발표일"},
-    {"date":"YYYY-MM-DD","title":"계약체결일"}
+    {"date":"YYYY-MM-DD","title":"입주자모집공고일","details":"LH 청약센터 공고"},
+    {"date":"YYYY-MM-DD","title":"청약접수 시작일","details":"인터넷·모바일·현장"},
+    {"date":"YYYY-MM-DD","title":"당첨자 발표일","details":"청약홈 및 개별 통보"},
+    {"date":"YYYY-MM-DD","title":"계약체결일","details":"견본주택 방문 계약"}
   ],
   "supplyInfo": [
     {"type":"26㎡","area":"26㎡","households":"60세대","price":"보증금 1,527만원 / 월 8만원"},
@@ -7022,6 +7022,38 @@ app.get('/', (c) => {
                               currentStep = steps[steps.length - 1];
                             }
                             
+                            // extendedData.steps가 있으면 카드 박스 스타일로 여러 개 표시
+                            if (extendedData.steps && extendedData.steps.length > 0) {
+                              return extendedData.steps.map((step, idx) => {
+                                // 날짜가 오늘 이후인지 확인 (활성화 여부)
+                                let isActive = true;
+                                try {
+                                  const stepDateStr = step.date.split('~')[0].split(' ')[0].trim();
+                                  const stepDate = new Date(stepDateStr);
+                                  stepDate.setHours(0, 0, 0, 0);
+                                  isActive = stepDate >= today;
+                                } catch (e) {
+                                  // 날짜 파싱 실패 시 기본 활성화
+                                  isActive = true;
+                                }
+                                
+                                return \`
+                                <div class="col-span-2">
+                                  <div class="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-200 rounded-xl p-4 shadow-sm">
+                                    <div class="flex items-start gap-2 mb-2">
+                                      <span class="text-xl">📝</span>
+                                      <span class="text-sm \${isActive ? 'text-gray-600' : 'text-gray-400'} font-medium">STEP \${idx + 1}</span>
+                                    </div>
+                                    <h4 class="text-lg font-bold \${isActive ? 'text-blue-600' : 'text-gray-400'} mb-2">\${step.title}</h4>
+                                    \${step.details ? \`<p class="text-sm \${isActive ? 'text-gray-600' : 'text-gray-400'} mb-3">\${step.details}</p>\` : ''}
+                                    <p class="text-xl font-bold \${isActive ? 'text-blue-600' : 'text-gray-400'}">\${step.date}</p>
+                                  </div>
+                                </div>
+                              \`;
+                              }).join('');
+                            }
+                            
+                            // extendedData.steps가 없으면 기존 방식 (현재 단계 하나만)
                             if (!currentStep) return '';
                             
                             return \`
