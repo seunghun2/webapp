@@ -3542,15 +3542,19 @@ app.get('/admin', (c) => {
                         
                         <!-- 메인카드 입력폼 -->
                         <div class="border-b pb-4 sm:pb-6">
-                            <h3 class="text-base sm:text-lg font-bold text-gray-900 mb-3 sm:mb-4 flex items-center">
+                            <h3 class="text-base sm:text-lg font-bold text-gray-900 mb-2 flex items-center">
                                 <span class="bg-blue-600 text-white w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs sm:text-sm mr-2">1</span>
                                 메인카드 정보
                             </h3>
+                            <p class="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4 ml-7 sm:ml-8">메인 페이지에 표시될 카드 정보를 입력하세요. (* 필수 항목)</p>
                             
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                                 <div>
-                                    <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">단지명 *</label>
-                                    <input type="text" id="projectName" required class="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg" placeholder="엘리프세종 6-3M4 신혼희망타운">
+                                    <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                        단지명 *
+                                        <span class="text-gray-400 font-normal ml-1">(공식 분양명)</span>
+                                    </label>
+                                    <input type="text" id="projectName" required class="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg" placeholder="예: 엘리프세종 6-3M4 신혼희망타운">
                                 </div>
                                 <div>
                                     <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">타입 *</label>
@@ -3564,28 +3568,43 @@ app.get('/admin', (c) => {
 
                             <div class="grid grid-cols-2 gap-4 mb-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">공급유형</label>
-                                    <input type="text" id="supplyType" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="신혼희망타운, 행복주택, 국민임대 등">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                                        공급유형
+                                        <span class="text-gray-400 font-normal text-xs ml-1">(분양 종류)</span>
+                                    </label>
+                                    <input type="text" id="supplyType" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="예: 신혼희망타운, 행복주택, 국민임대">
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">지역</label>
-                                    <input type="text" id="region" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="경기 화성">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                                        지역
+                                        <span class="text-gray-400 font-normal text-xs ml-1">(시/도 + 시/군/구)</span>
+                                    </label>
+                                    <input type="text" id="region" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="예: 경기 화성, 세종시">
                                 </div>
                             </div>
 
                             <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">전체주소</label>
-                                <input type="text" id="fullAddress" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="세종특별자치시 연기면 세종리 6-3블록">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    전체주소
+                                    <span class="text-gray-400 font-normal text-xs ml-1">(단지 위치 상세 주소)</span>
+                                </label>
+                                <input type="text" id="fullAddress" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="예: 세종특별자치시 연기면 세종리 6-3블록">
                             </div>
 
                             <div class="grid grid-cols-2 gap-4 mb-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">시공사</label>
-                                    <input type="text" id="constructor" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="LH, 현대건설 등">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                                        시공사
+                                        <span class="text-gray-400 font-normal text-xs ml-1">(건설사명)</span>
+                                    </label>
+                                    <input type="text" id="constructor" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="예: LH, 현대건설, GS건설">
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">임대보증금</label>
-                                    <input type="text" id="rentalDeposit" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="예: 1,527만원">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                                        임대보증금
+                                        <span class="text-gray-400 font-normal text-xs ml-1">(임대분양만 입력)</span>
+                                    </label>
+                                    <input type="text" id="rentalDeposit" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="예: 1,527만원, 1.2억원">
                                 </div>
                             </div>
 
@@ -3638,25 +3657,47 @@ app.get('/admin', (c) => {
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">해시태그 (쉼표로 구분)</label>
-                                <input type="text" id="hashtags" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="국민임대, 신혼부부, 전북김제">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    해시태그
+                                    <span class="text-gray-400 font-normal text-xs ml-1">(쉼표로 구분, 최대 5개 권장)</span>
+                                </label>
+                                <input type="text" id="hashtags" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="예: 국민임대, 신혼부부, 전북김제, 청약통장무관">
                             </div>
 
                             <!-- 추천대상 3줄 -->
                             <div class="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                                <h4 class="text-sm font-bold text-gray-900 mb-3">👍 추천 대상 (3줄 구조)</h4>
+                                <h4 class="text-sm font-bold text-gray-900 mb-2 flex items-center">
+                                    <i class="fas fa-users text-green-600 mr-2"></i>
+                                    추천 대상 (3줄 구조)
+                                </h4>
+                                <p class="text-xs text-green-800 mb-3">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    메인 카드 하단에 표시될 핵심 타겟 정보를 3줄로 요약해주세요.
+                                </p>
                                 <div class="space-y-3">
                                     <div>
-                                        <label class="block text-xs font-medium text-gray-600 mb-1">1줄: 거주지 + 주체</label>
-                                        <input type="text" id="targetAudience1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="예: 세종시 거주 무주택 신혼부부">
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">
+                                            <span class="bg-green-600 text-white px-2 py-0.5 rounded mr-1">1</span>
+                                            거주지 + 신청 대상
+                                        </label>
+                                        <input type="text" id="targetAudience1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white" placeholder="예: 세종시 거주 무주택 신혼부부">
+                                        <p class="text-xs text-gray-500 mt-1">💡 지역 + 주체를 명확히 작성하세요</p>
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-medium text-gray-600 mb-1">2줄: 신청 자격</label>
-                                        <input type="text" id="targetAudience2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="예: 청약통장 없어도 신청 가능">
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">
+                                            <span class="bg-green-600 text-white px-2 py-0.5 rounded mr-1">2</span>
+                                            주요 신청 자격/조건
+                                        </label>
+                                        <input type="text" id="targetAudience2" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white" placeholder="예: 청약통장 없어도 신청 가능">
+                                        <p class="text-xs text-gray-500 mt-1">💡 가장 중요한 자격 조건을 작성하세요</p>
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-medium text-gray-600 mb-1">3줄: 추가 조건/혜택</label>
-                                        <input type="text" id="targetAudience3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="예: 소득·자산 제한 없는 공공분야 희망자">
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">
+                                            <span class="bg-green-600 text-white px-2 py-0.5 rounded mr-1">3</span>
+                                            추가 조건 또는 특별 혜택
+                                        </label>
+                                        <input type="text" id="targetAudience3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white" placeholder="예: 소득·자산 제한 없는 공공분야 희망자">
+                                        <p class="text-xs text-gray-500 mt-1">💡 추가 조건이나 특별한 장점을 강조하세요</p>
                                     </div>
                                 </div>
                             </div>
@@ -3706,14 +3747,26 @@ app.get('/admin', (c) => {
 
                         <!-- 입주자 선정 일정 -->
                         <div class="border-b pb-6">
-                            <div class="flex items-center justify-between mb-4">
-                                <h3 class="text-lg font-bold text-gray-900 flex items-center">
-                                    <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">2</span>
-                                    입주자 선정 일정
-                                </h3>
-                                <button type="button" onclick="addStep()" class="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
-                                    <i class="fas fa-plus mr-1"></i> 스텝 추가
-                                </button>
+                            <div class="mb-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h3 class="text-lg font-bold text-gray-900 flex items-center">
+                                        <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">2</span>
+                                        입주자 선정 일정
+                                    </h3>
+                                    <button type="button" onclick="addStep()" class="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+                                        <i class="fas fa-plus mr-1"></i> 스텝 추가
+                                    </button>
+                                </div>
+                                <p class="text-xs sm:text-sm text-gray-500 ml-8">청약신청, 당첨자 발표 등 단계별 일정을 입력하세요.</p>
+                                <div class="mt-2 ml-8 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <p class="text-xs text-blue-800">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        <strong>입력 가이드:</strong><br>
+                                        • <strong>스텝 제목:</strong> 예) 청약신청, 당첨자 발표<br>
+                                        • <strong>날짜:</strong> 단일 날짜(2025-01-01) 또는 기간(2025-01-01 ~ 2025-01-03)<br>
+                                        • <strong>상세 설명:</strong> 예) 현장·인터넷·모바일, 청약홈 발표
+                                    </p>
+                                </div>
                             </div>
                             <div id="stepsContainer" class="space-y-2">
                                 <!-- 동적으로 추가됨 -->
@@ -3722,10 +3775,11 @@ app.get('/admin', (c) => {
 
                         <!-- 상세카드 -->
                         <div>
-                            <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                            <h3 class="text-lg font-bold text-gray-900 mb-2 flex items-center">
                                 <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm mr-2">3</span>
                                 상세카드 정보
                             </h3>
+                            <p class="text-xs sm:text-sm text-gray-500 mb-4 ml-8">상세 페이지에 표시될 추가 정보를 입력하세요. (모두 선택 사항)</p>
 
                             <!-- Accordion Sections -->
                             <div class="space-y-2">
@@ -4347,12 +4401,30 @@ app.get('/admin', (c) => {
                 if (data.steps && Array.isArray(data.steps)) {
                     document.getElementById('stepsContainer').innerHTML = '';
                     data.steps.forEach(step => {
+                        // 날짜 범위 파싱 (2025-01-01~2025-01-03 형식)
+                        let startDate = '';
+                        let endDate = '';
+                        if (step.date) {
+                            const dateParts = step.date.split('~');
+                            startDate = dateParts[0].trim();
+                            endDate = dateParts[1] ? dateParts[1].trim() : '';
+                        }
+                        
                         const div = document.createElement('div');
                         div.className = 'flex gap-2 items-center';
                         div.innerHTML = \`
-                            <input type="date" value="\${step.date || ''}" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                            <input type="text" value="\${step.title || ''}" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                            <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
+                            <div class="flex-1 space-y-2">
+                                <div class="flex gap-2">
+                                    <input type="text" value="\${step.title || ''}" placeholder="스텝 제목 (예: 청약신청)" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                                <div class="flex gap-2 items-center">
+                                    <input type="date" value="\${startDate}" class="step-date-start flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="시작일">
+                                    <span class="text-gray-500 text-sm">~</span>
+                                    <input type="date" value="\${endDate}" class="step-date-end flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="종료일 (선택)">
+                                </div>
+                                <input type="text" value="\${step.details || ''}" placeholder="상세 설명 (예: 현장·인터넷·모바일)" class="step-details w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            </div>
+                            <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm self-start">
                                 <i class="fas fa-times"></i>
                             </button>
                         \`;
@@ -4451,8 +4523,12 @@ app.get('/admin', (c) => {
                 div.innerHTML = \`
                     <div class="flex-1 space-y-2">
                         <div class="flex gap-2">
-                            <input type="date" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
                             <input type="text" placeholder="스텝 제목 (예: 청약신청)" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div class="flex gap-2 items-center">
+                            <input type="date" class="step-date-start flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="시작일">
+                            <span class="text-gray-500 text-sm">~</span>
+                            <input type="date" class="step-date-end flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="종료일 (선택)">
                         </div>
                         <input type="text" placeholder="상세 설명 (예: 현장·인터넷·모바일)" class="step-details w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                     </div>
@@ -4631,15 +4707,28 @@ app.get('/admin', (c) => {
                     document.getElementById('stepsContainer').innerHTML = '';
                     if (extData.steps && Array.isArray(extData.steps)) {
                         extData.steps.forEach(step => {
+                            // 날짜 범위 파싱 (2025-01-01~2025-01-03 형식)
+                            let startDate = '';
+                            let endDate = '';
+                            if (step.date) {
+                                const dateParts = step.date.split('~');
+                                startDate = dateParts[0].trim();
+                                endDate = dateParts[1] ? dateParts[1].trim() : '';
+                            }
+                            
                             const div = document.createElement('div');
                             div.className = 'flex gap-2 items-center';
                             div.innerHTML = \`
                                 <div class="flex-1 space-y-2">
                                     <div class="flex gap-2">
-                                        <input type="date" value="\${step.date || ''}" class="step-date flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                                        <input type="text" value="\${step.title || ''}" placeholder="스텝 제목" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <input type="text" value="\${step.title || ''}" placeholder="스텝 제목 (예: 청약신청)" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                     </div>
-                                    <input type="text" value="\${step.details || ''}" placeholder="상세 설명" class="step-details w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                    <div class="flex gap-2 items-center">
+                                        <input type="date" value="\${startDate}" class="step-date-start flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="시작일">
+                                        <span class="text-gray-500 text-sm">~</span>
+                                        <input type="date" value="\${endDate}" class="step-date-end flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="종료일 (선택)">
+                                    </div>
+                                    <input type="text" value="\${step.details || ''}" placeholder="상세 설명 (예: 현장·인터넷·모바일)" class="step-details w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
                                 <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm self-start">
                                     <i class="fas fa-times"></i>
@@ -4757,11 +4846,19 @@ app.get('/admin', (c) => {
             function collectFormData() {
                 // Collect steps
                 const stepElements = document.querySelectorAll('#stepsContainer > div');
-                const steps = Array.from(stepElements).map(el => ({
-                    date: el.querySelector('.step-date').value,
-                    title: el.querySelector('.step-title').value,
-                    details: el.querySelector('.step-details').value
-                })).filter(s => s.date || s.title);
+                const steps = Array.from(stepElements).map(el => {
+                    const startDate = el.querySelector('.step-date-start').value;
+                    const endDate = el.querySelector('.step-date-end').value;
+                    let dateStr = startDate;
+                    if (endDate && endDate !== startDate) {
+                        dateStr = startDate + '~' + endDate;
+                    }
+                    return {
+                        date: dateStr,
+                        title: el.querySelector('.step-title').value,
+                        details: el.querySelector('.step-details').value
+                    };
+                }).filter(s => s.date || s.title);
 
                 // Collect supply info
                 const supplyElements = document.querySelectorAll('#supplyRowsContainer > div');
@@ -5463,14 +5560,18 @@ app.get('/', (c) => {
                 
                 <!-- Menu Items -->
                 <nav class="p-4 space-y-1">
+                    <!-- 홈 버튼 제거 (로고 클릭으로 대체)
                     <a href="/" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
                         <i class="fas fa-home text-lg"></i>
                         <span>홈</span>
                     </a>
+                    -->
+                    <!-- 찜한 매물 (임시 비활성화)
                     <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
                         <i class="fas fa-heart text-lg"></i>
                         <span>찜한 매물</span>
                     </a>
+                    -->
                     <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
                         <i class="fas fa-bell text-lg"></i>
                         <span>알림 설정</span>
@@ -5493,15 +5594,17 @@ app.get('/', (c) => {
                         <button onclick="openMobileMenu()" class="lg:hidden text-gray-600 hover:text-gray-900 px-2 py-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
                             <i class="fas fa-bars text-lg"></i>
                         </button>
-                        <h1 class="text-lg sm:text-xl font-bold text-gray-900">똑똑한한채</h1>
+                        <a href="/" class="text-lg sm:text-xl font-bold text-gray-900 hover:text-blue-600 transition-colors cursor-pointer">똑똑한한채</a>
                         <span class="text-xs text-gray-500 hidden md:inline">스마트 부동산 분양 정보</span>
                     </div>
                     
-                    <!-- Desktop Navigation -->
+                    <!-- Desktop Navigation (홈/찜한매물 모두 비활성화 - 로고로 홈 이동) -->
+                    <!--
                     <nav class="hidden lg:flex items-center gap-1">
                         <a href="/" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">홈</a>
                         <a href="#" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">찜한 매물</a>
                     </nav>
+                    -->
                     
                     <div class="flex items-center gap-1 sm:gap-2">
                         <button class="text-gray-600 hover:text-gray-900 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
@@ -5591,8 +5694,8 @@ app.get('/', (c) => {
                 </div>
             </div>
 
-            <!-- Properties Grid -->
-            <div id="propertiesContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+            <!-- Properties Grid (PC: 2줄, Mobile: 1줄) -->
+            <div id="propertiesContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
                 <!-- Properties will be loaded here -->
             </div>
 
