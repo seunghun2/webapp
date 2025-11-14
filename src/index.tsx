@@ -6384,18 +6384,14 @@ app.get('/', (c) => {
                               return \`
                                 <div class="relative">
                                   <!-- Timeline Dot -->
-                                  <div class="absolute -left-6 top-0 w-3 h-3 \${isActive ? 'bg-blue-500' : 'bg-gray-400'} rounded-full border-2 border-white z-10"></div>
+                                  <div class="absolute -left-6 top-3 w-3 h-3 \${isActive ? 'bg-blue-500' : 'bg-gray-400'} rounded-full border-2 border-white z-10"></div>
                                   
-                                  <!-- Step Content -->
-                                  <div>
-                                    <div class="text-xs \${isActive ? 'text-gray-600' : 'text-gray-400'} mb-2">STEP \${idx + 1}</div>
-                                    <div class="flex justify-between items-start gap-4">
-                                      <div class="flex-1 min-w-0">
-                                        <h4 class="text-base font-bold \${isActive ? 'text-blue-600' : 'text-gray-400'} mb-1 break-words">\${step.title}</h4>
-                                        \${step.details ? \`<p class="text-sm \${isActive ? 'text-gray-600' : 'text-gray-400'}">\${step.details}</p>\` : ''}
-                                      </div>
-                                      <span class="text-sm \${isActive ? 'text-gray-900' : 'text-gray-400'} whitespace-nowrap flex-shrink-0">\${step.date}</span>
-                                    </div>
+                                  <!-- White Box Container -->
+                                  <div class="bg-white rounded-lg p-3 shadow-sm">
+                                    <div class="text-xs \${isActive ? 'text-gray-600' : 'text-gray-400'} mb-1">STEP \${idx + 1}</div>
+                                    <h4 class="text-sm font-bold \${isActive ? 'text-blue-600' : 'text-gray-400'} mb-1 break-words">\${step.title}</h4>
+                                    \${step.details ? \`<p class="text-xs \${isActive ? 'text-gray-600' : 'text-gray-400'} mb-2">\${step.details}</p>\` : ''}
+                                    <p class="text-xs \${isActive ? 'text-gray-900' : 'text-gray-400'} font-medium">\${step.date}</p>
                                   </div>
                                 </div>
                               \`;
