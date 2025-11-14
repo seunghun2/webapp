@@ -6233,8 +6233,8 @@ app.get('/', (c) => {
                     </div>
                   \` : ''}
 
-                  <!-- Selection Timeline (6 Steps) -->
-                  \${property.application_start_date || property.no_rank_date || property.first_rank_date || property.special_subscription_date ? \`
+                  <!-- Selection Timeline (6 Steps) - Only show if extendedData.steps doesn't exist -->
+                  \${(!extendedData.steps || extendedData.steps.length === 0) && (property.application_start_date || property.no_rank_date || property.first_rank_date || property.special_subscription_date) ? \`
                     <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
                       <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">📅 입주자 선정 일정</h3>
                       
