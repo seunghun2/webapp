@@ -19,7 +19,8 @@
     "db:console:prod": "wrangler d1 execute webapp-production",
     "restart": "npm run build && pm2 restart webapp && sleep 2 && npm run test",
     "quick": "npm run build && pm2 restart webapp",
-    "live": "./dev-deploy.sh"
+    "live": "./dev-deploy.sh",
+    "fetch-trade-prices": "node scripts/fetch-trade-prices.js"
   },
   "dependencies": {
     "hono": "^4.10.4"

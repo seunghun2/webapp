@@ -2875,19 +2875,12 @@ app.delete('/api/admin/delete-image/:filename', async (c) => {
   }
 })
 
-// Real Estate Transaction Price API (국토교통부 실거래가 API)
+// Real Estate Transaction Price API (D1 데이터베이스에서 조회)
 app.post('/api/admin/fetch-trade-price', async (c) => {
   try {
     const { address, exclusiveArea } = await c.req.json()
-    const MOLIT_API_KEY = c.env.MOLIT_API_KEY // 국토교통부 API 키
+    const DB = c.env.DB
     
-    if (!MOLIT_API_KEY || MOLIT_API_KEY === 'your_molit_api_key_here') {
-      return c.json({ 
-        success: false, 
-        error: '국토교통부 API 키가 설정되지 않았습니다. .dev.vars 파일에 MOLIT_API_KEY를 추가해주세요.' 
-      }, 500)
-    }
-
     // 주소에서 시/군/구 정보 추출
     const addressParts = address.split(' ')
     let sigunguCode = ''
@@ -2940,109 +2933,50 @@ app.post('/api/admin/fetch-trade-price', async (c) => {
       }, 400)
     }
 
-    // 현재 년월 (YYYYMM)
-    const now = new Date()
-    const dealYmd = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0')
+    console.log('D1 실거래가 조회:', sigunguCode, exclusiveArea)
+
+    // D1 데이터베이스에서 실거래가 조회 (전용면적 ±5㎡ 범위)
+    const areaMin = exclusiveArea - 5
+    const areaMax = exclusiveArea + 5
     
-    // 국토교통부 아파트 실거래가 API 호출
-    const apiUrl = `http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev`
-    const params = new URLSearchParams({
-      serviceKey: MOLIT_API_KEY,
-      LAWD_CD: sigunguCode,
-      DEAL_YMD: dealYmd,
-      numOfRows: '100'
-    })
+    const result = await DB.prepare(`
+      SELECT 
+        apt_name as apartmentName,
+        area as exclusiveArea,
+        deal_amount as dealAmount,
+        deal_year as dealYear,
+        deal_month as dealMonth,
+        deal_day as dealDay,
+        floor,
+        dong,
+        jibun
+      FROM trade_prices
+      WHERE sigungu_code = ?
+        AND area >= ? AND area <= ?
+      ORDER BY deal_year DESC, deal_month DESC, deal_day DESC
+      LIMIT 100
+    `).bind(sigunguCode, areaMin, areaMax).all()
 
-    console.log('실거래가 API 호출:', apiUrl + '?' + params.toString())
+    const items = result.results || []
 
-    let response
-    let xmlText
-    
-    try {
-      response = await fetch(`${apiUrl}?${params}`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/xml'
-        },
-        signal: AbortSignal.timeout(10000) // 10초 타임아웃
-      })
+    console.log(`D1에서 ${items.length}개의 실거래 데이터 조회 완료`)
 
-      if (!response.ok) {
-        console.error('API 응답 상태:', response.status, response.statusText)
-        return c.json({ 
-          success: false, 
-          error: `API 호출 실패: ${response.status} ${response.statusText}` 
-        }, 500)
-      }
-
-      xmlText = await response.text()
-      console.log('API 응답 샘플:', xmlText.substring(0, 500))
-    } catch (fetchError) {
-      console.error('API 호출 중 에러:', fetchError)
-      return c.json({ 
-        success: false, 
-        error: `API 호출 중 오류 발생: ${fetchError.message}. 잠시 후 다시 시도해주세요.` 
-      }, 500)
-    }
-
-    // XML 파싱 (간단한 정규식 사용)
-    const items = []
-    const itemRegex = /<item>([\s\S]*?)<\/item>/g
-    let match
-
-    while ((match = itemRegex.exec(xmlText)) !== null) {
-      const itemXml = match[1]
-      
-      const getXmlValue = (tag) => {
-        const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\/${tag}>`)
-        const m = itemXml.match(regex)
-        return m ? m[1].trim() : ''
-      }
-
-      const item = {
-        apartmentName: getXmlValue('아파트'),
-        exclusiveArea: parseFloat(getXmlValue('전용면적')),
-        dealAmount: getXmlValue('거래금액'),
-        dealYear: getXmlValue('년'),
-        dealMonth: getXmlValue('월'),
-        dealDay: getXmlValue('일'),
-        dong: getXmlValue('법정동'),
-        jibun: getXmlValue('지번')
-      }
-
-      items.push(item)
-    }
-
-    console.log(`총 ${items.length}개의 실거래 데이터 파싱 완료`)
-
-    // 주소 기반으로 필터링 (아파트명 매칭)
-    const filteredItems = items.filter(item => {
-      // 전용면적 기준으로 필터링 (±5㎡ 오차 허용)
-      const areaMatch = exclusiveArea ? Math.abs(item.exclusiveArea - exclusiveArea) <= 5 : true
-      return areaMatch
-    })
-
-    if (filteredItems.length === 0) {
+    if (items.length === 0) {
       return c.json({
         success: true,
         data: {
           found: false,
-          message: '해당 지역의 최근 실거래가 정보를 찾을 수 없습니다.',
-          totalResults: items.length
+          message: '해당 지역의 실거래가 정보가 아직 수집되지 않았습니다. GitHub Actions가 매일 자동으로 데이터를 업데이트합니다.',
+          totalResults: 0
         }
       })
     }
 
-    // 가장 최근 거래 찾기
-    const latestTrade = filteredItems.reduce((latest, current) => {
-      const latestDate = new Date(latest.dealYear, latest.dealMonth - 1, latest.dealDay)
-      const currentDate = new Date(current.dealYear, current.dealMonth - 1, current.dealDay)
-      return currentDate > latestDate ? current : latest
-    })
+    // 가장 최근 거래
+    const latestTrade = items[0]
 
-    // 거래금액 파싱 (예: "60,000" -> 6.0억)
-    const dealAmountStr = latestTrade.dealAmount.replace(/,/g, '').trim()
-    const dealAmountInEok = parseFloat(dealAmountStr) / 10000
+    // 거래금액을 억 단위로 변환 (DB에 원 단위로 저장됨)
+    const dealAmountInEok = latestTrade.dealAmount / 100000000
 
     return c.json({
       success: true,
@@ -3051,12 +2985,13 @@ app.post('/api/admin/fetch-trade-price', async (c) => {
         apartmentName: latestTrade.apartmentName,
         exclusiveArea: latestTrade.exclusiveArea,
         recentTradePrice: dealAmountInEok,
-        recentTradeDate: `${latestTrade.dealYear}.${latestTrade.dealMonth}`,
+        recentTradeDate: `${latestTrade.dealYear}.${String(latestTrade.dealMonth).padStart(2, '0')}`,
         dealYear: latestTrade.dealYear,
         dealMonth: latestTrade.dealMonth,
         dealDay: latestTrade.dealDay,
-        location: `${latestTrade.dong} ${latestTrade.jibun}`,
-        totalResults: filteredItems.length
+        location: latestTrade.dong && latestTrade.jibun ? `${latestTrade.dong} ${latestTrade.jibun}` : '-',
+        totalResults: items.length,
+        dataSource: 'D1 Database (GitHub Actions auto-sync)'
       }
     })
   } catch (error) {

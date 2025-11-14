@@ -1,0 +1,36 @@
+name: 실거래가 데이터 자동 수집
+
+on:
+  # 매일 오전 2시(한국시간 11시)에 자동 실행
+  schedule:
+    - cron: '0 2 * * *'
+  
+  # 수동 실행도 가능
+  workflow_dispatch:
+
+jobs:
+  fetch-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+      
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: 의존성 설치
+        run: npm install -g wrangler
+      
+      - name: 실거래가 데이터 수집
+        env:
+          MOLIT_API_KEY: ${{ secrets.MOLIT_API_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          node scripts/fetch-trade-prices.js
+      
+      - name: 완료 알림
+        run: echo "✅ 실거래가 데이터 수집 완료!"
