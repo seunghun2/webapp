@@ -7562,7 +7562,7 @@ app.get('/', (c) => {
                                   ? '💰 조합가격'
                                   : '💰 분양가격')
                             }</div>
-                            <div class="font-bold text-gray-900 text-xs">\${formatPrice(property.price)}</div>
+                            <div class="font-bold text-gray-900 text-xs">\${property.price || '-'}</div>
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">🏗️ 시공사</div>
