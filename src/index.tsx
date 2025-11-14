@@ -2082,21 +2082,8 @@ app.post('/api/properties/:id/update-parsed', async (c) => {
       return c.json({ error: 'No updates provided' }, 400)
     }
     
-    // Convert tags to JSON string if needed
-    if (updates.tags) {
-      if (Array.isArray(updates.tags)) {
-        updates.tags = JSON.stringify(updates.tags)
-      } else if (typeof updates.tags === 'string') {
-        // If it's already a string, try to parse and re-stringify to ensure valid JSON
-        try {
-          const parsed = JSON.parse(updates.tags)
-          updates.tags = JSON.stringify(Array.isArray(parsed) ? parsed : [updates.tags])
-        } catch {
-          // If parsing fails, treat as comma-separated string
-          updates.tags = JSON.stringify(updates.tags.split(',').map(t => t.trim()).filter(t => t))
-        }
-      }
-    }
+    // Tags는 이미 JSON string으로 전달됨 - 추가 처리 불필요
+    // (프론트엔드에서 JSON.stringify(tags) 처리됨)
     
     // Update database
     const setClause = Object.keys(updates).map(key => `${key} = ?`).join(', ')
@@ -5372,7 +5359,7 @@ app.get('/admin', (c) => {
                     price: document.getElementById('mainPrice')?.value || '',
                     price_label: document.getElementById('priceLabel')?.value || '분양가격',
                     description: details.features || '',
-                    tags: tags.join(', '),
+                    tags: JSON.stringify(tags),
                     extended_data: JSON.stringify(extendedData),
                     status: 'active',
                     ...tradePriceData
