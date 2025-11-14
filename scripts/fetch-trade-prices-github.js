@@ -42,7 +42,7 @@ function getDateRange() {
 
 // 국토교통부 API 호출
 async function fetchMOLITData(regionCode, year, month) {
-  const url = 'http://openapi.molit.go.kr/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev';
+  const url = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev';
   
   try {
     console.log(`  📡 API 호출: ${regionCode} ${year}-${month}`);
