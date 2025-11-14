@@ -5383,7 +5383,27 @@ app.get('/admin', (c) => {
                     loadProperties();
                 } catch (error) {
                     console.error('Failed to save:', error);
-                    alert('저장 실패: ' + (error.response?.data?.error || error.message));
+                    console.error('Error details:', error.response?.data);
+                    console.error('Form data size:', JSON.stringify(data).length, 'bytes');
+                    console.error('Extended data size:', JSON.stringify(data.extended_data).length, 'bytes');
+                    
+                    let errorMsg = '저장 실패: ';
+                    if (error.response?.data?.error) {
+                        errorMsg += error.response.data.error;
+                    } else if (error.message) {
+                        errorMsg += error.message;
+                    } else {
+                        errorMsg += '알 수 없는 오류';
+                    }
+                    
+                    // Check if data is too large
+                    const dataSize = JSON.stringify(data).length;
+                    if (dataSize > 100000) {
+                        const sizeKB = Math.round(dataSize/1024);
+                        errorMsg += '\\n\\n데이터 크기가 너무 큽니다 (' + sizeKB + 'KB). 이미지 개수를 줄여주세요.';
+                    }
+                    
+                    alert(errorMsg);
                 }
             });
 
