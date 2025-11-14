@@ -7022,35 +7022,52 @@ app.get('/', (c) => {
                               currentStep = steps[steps.length - 1];
                             }
                             
-                            // extendedData.steps가 있으면 카드 박스 스타일로 여러 개 표시
+                            // extendedData.steps가 있으면 오늘 이후 가장 가까운 1개만 표시
                             if (extendedData.steps && extendedData.steps.length > 0) {
-                              return extendedData.steps.map((step, idx) => {
-                                // 날짜가 오늘 이후인지 확인 (활성화 여부)
-                                let isActive = true;
+                              // 오늘 날짜 이후 가장 가까운 스텝 찾기
+                              let nextStep = null;
+                              let nextStepIdx = -1;
+                              
+                              for (let i = 0; i < extendedData.steps.length; i++) {
+                                const step = extendedData.steps[i];
                                 try {
                                   const stepDateStr = step.date.split('~')[0].split(' ')[0].trim();
                                   const stepDate = new Date(stepDateStr);
                                   stepDate.setHours(0, 0, 0, 0);
-                                  isActive = stepDate >= today;
+                                  
+                                  if (stepDate >= today) {
+                                    nextStep = step;
+                                    nextStepIdx = i;
+                                    break;
+                                  }
                                 } catch (e) {
-                                  // 날짜 파싱 실패 시 기본 활성화
-                                  isActive = true;
+                                  // 날짜 파싱 실패 시 계속
                                 }
-                                
+                              }
+                              
+                              // 모든 날짜가 지났으면 마지막 스텝 표시
+                              if (!nextStep && extendedData.steps.length > 0) {
+                                nextStep = extendedData.steps[extendedData.steps.length - 1];
+                                nextStepIdx = extendedData.steps.length - 1;
+                              }
+                              
+                              if (nextStep) {
                                 return \`
                                 <div class="col-span-2">
-                                  <div class="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-200 rounded-xl p-4 shadow-sm">
-                                    <div class="flex items-start gap-2 mb-2">
-                                      <span class="text-xl">📝</span>
-                                      <span class="text-sm \${isActive ? 'text-gray-600' : 'text-gray-400'} font-medium">STEP \${idx + 1}</span>
+                                  <div class="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-200 rounded-xl p-3 shadow-sm">
+                                    <div class="flex items-start gap-2 mb-1">
+                                      <span class="text-base">📝</span>
+                                      <span class="text-xs text-gray-600 font-medium">STEP \${nextStepIdx + 1}</span>
                                     </div>
-                                    <h4 class="text-lg font-bold \${isActive ? 'text-blue-600' : 'text-gray-400'} mb-2">\${step.title}</h4>
-                                    \${step.details ? \`<p class="text-sm \${isActive ? 'text-gray-600' : 'text-gray-400'} mb-3">\${step.details}</p>\` : ''}
-                                    <p class="text-xl font-bold \${isActive ? 'text-blue-600' : 'text-gray-400'}">\${step.date}</p>
+                                    <h4 class="text-sm font-bold text-blue-600 mb-1">\${nextStep.title}</h4>
+                                    \${nextStep.details ? \`<p class="text-xs text-gray-600 mb-2">\${nextStep.details}</p>\` : ''}
+                                    <p class="text-sm font-bold text-blue-600">\${nextStep.date}</p>
                                   </div>
                                 </div>
                               \`;
-                              }).join('');
+                              }
+                              
+                              return '';
                             }
                             
                             // extendedData.steps가 없으면 기존 방식 (현재 단계 하나만)
