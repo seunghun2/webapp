@@ -3599,12 +3599,35 @@ app.get('/admin', (c) => {
                                     </label>
                                     <input type="text" id="constructor" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="예: LH, 현대건설, GS건설">
                                 </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">
-                                        임대보증금
-                                        <span class="text-gray-400 font-normal text-xs ml-1">(임대분양만 입력)</span>
-                                    </label>
-                                    <input type="text" id="rentalDeposit" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="예: 1,527만원, 1.2억원">
+                            </div>
+
+                            <!-- 가격 정보 (라벨 선택 + 입력) -->
+                            <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <h4 class="text-sm font-bold text-gray-900 mb-3 flex items-center">
+                                    <i class="fas fa-won-sign text-blue-600 mr-2"></i>
+                                    가격 정보
+                                </h4>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                                            가격 라벨
+                                            <span class="text-gray-400 font-normal text-xs ml-1">(메인 카드 표시명)</span>
+                                        </label>
+                                        <select id="priceLabel" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                            <option value="임대보증금">임대보증금</option>
+                                            <option value="분양가격">분양가격</option>
+                                            <option value="조합가격">조합가격</option>
+                                        </select>
+                                        <p class="text-xs text-gray-500 mt-1">💡 타입에 따라 자동 설정되지만 수동 변경 가능</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                                            가격
+                                            <span class="text-gray-400 font-normal text-xs ml-1">(메인 카드에 표시)</span>
+                                        </label>
+                                        <input type="text" id="mainPrice" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="예: 1,527만원, 3.5억원">
+                                        <p class="text-xs text-gray-500 mt-1">💡 이 값이 메인 카드에 표시됩니다</p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -4226,13 +4249,25 @@ app.get('/admin', (c) => {
                 // Don't clear mainImage input - user might have entered URL manually
             }
 
-            // Toggle trade price section based on sale type
+            // Toggle trade price section and update price label based on sale type
             document.getElementById('saleType').addEventListener('change', function() {
                 const tradePriceSection = document.getElementById('tradePriceSection');
+                const priceLabelSelect = document.getElementById('priceLabel');
+                
+                // Toggle trade price section for unsold type
                 if (this.value === 'unsold') {
                     tradePriceSection.style.display = 'block';
                 } else {
                     tradePriceSection.style.display = 'none';
+                }
+                
+                // Auto-update price label based on type
+                if (this.value === 'rental') {
+                    priceLabelSelect.value = '임대보증금';
+                } else if (this.value === 'johab') {
+                    priceLabelSelect.value = '조합가격';
+                } else {
+                    priceLabelSelect.value = '분양가격';
                 }
             });
 
@@ -4389,6 +4424,8 @@ app.get('/admin', (c) => {
                 if (data.constructor) document.getElementById('constructor').value = data.constructor;
                 if (data.mainImage) document.getElementById('mainImage').value = data.mainImage;
                 if (data.hashtags) document.getElementById('hashtags').value = data.hashtags;
+                if (data.price) document.getElementById('mainPrice').value = data.price;
+                if (data.price_label) document.getElementById('priceLabel').value = data.price_label;
                 
                 // Target Audience Lines (김제지평선 구조)
                 if (data.targetAudienceLines && Array.isArray(data.targetAudienceLines)) {
@@ -4675,6 +4712,8 @@ app.get('/admin', (c) => {
                     document.getElementById('fullAddress').value = property.full_address || '';
                     document.getElementById('constructor').value = property.builder || '';
                     document.getElementById('mainImage').value = extData.mainImage || '';
+                    document.getElementById('mainPrice').value = property.price || '';
+                    document.getElementById('priceLabel').value = property.price_label || '분양가격';
                     
                     // 해시태그 처리 - 배열/문자열/JSON 모두 처리
                     let hashtagsValue = '';
@@ -4953,7 +4992,8 @@ app.get('/admin', (c) => {
                     deadline: document.getElementById('announcementDate')?.value || new Date().toISOString().split('T')[0],
                     households: supplyInfo.reduce((sum, s) => sum + (parseInt(s.households) || 0), 0).toString() || '0',
                     area_type: supplyInfo.map(s => s.type).join(', ') || '',
-                    price: supplyInfo.length > 0 ? supplyInfo[0].price : '',
+                    price: document.getElementById('mainPrice')?.value || '',
+                    price_label: document.getElementById('priceLabel')?.value || '분양가격',
                     description: details.features || '',
                     tags: tags.join(', '),
                     extended_data: JSON.stringify(extendedData),
@@ -6248,7 +6288,9 @@ app.get('/', (c) => {
                         }</span>
                         <span class="text-xs sm:text-sm font-semibold text-gray-900 text-right">\${
                           (() => {
+                            // 메인 카드에 입력된 rental_deposit 값 사용 (extended_data.rentalDeposit)
                             if (property.title && (property.title.includes('행복주택') || property.title.includes('희망타운') || property.title.includes('임대'))) {
+                              if (extendedData.rentalDeposit) return extendedData.rentalDeposit;
                               if (property.rental_deposit_range) return property.rental_deposit_range;
                               if (property.rental_deposit_min && property.rental_deposit_max) {
                                 return property.rental_deposit_min.toFixed(1) + '억~' + property.rental_deposit_max.toFixed(1) + '억';
@@ -6324,9 +6366,15 @@ app.get('/', (c) => {
                           <tbody>
                             \${extendedData.supplyInfo.map(info => \`
                               <tr class="border-b border-gray-200">
-                                <td class="px-2 sm:px-3 py-2 text-gray-900 whitespace-nowrap">\${info.type || '-'}</td>
-                                <td class="px-2 sm:px-3 py-2 text-gray-900 whitespace-nowrap">\${info.area || '-'}</td>
-                                <td class="px-2 sm:px-3 py-2 text-gray-900 whitespace-nowrap">\${info.households || '-'}</td>
+                                <td class="px-2 sm:px-3 py-2 text-gray-900 whitespace-nowrap">\${
+                                  info.type ? (info.type.includes('m') || info.type.includes('㎡') || info.type.includes('평') ? info.type : info.type + 'm²') : '-'
+                                }</td>
+                                <td class="px-2 sm:px-3 py-2 text-gray-900 whitespace-nowrap">\${
+                                  info.area ? (info.area.includes('평') || info.area.includes('m') || info.area.includes('㎡') ? info.area : info.area + '평') : '-'
+                                }</td>
+                                <td class="px-2 sm:px-3 py-2 text-gray-900 whitespace-nowrap">\${
+                                  info.households ? (info.households.includes('세대') ? info.households : info.households + '세대') : '-'
+                                }</td>
                                 <td class="px-2 sm:px-3 py-2 text-gray-900">\${info.price || '-'}</td>
                               </tr>
                             \`).join('')}
@@ -6994,29 +7042,15 @@ app.get('/', (c) => {
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">\${
-                              property.type === 'rental'
-                                ? '💰 임대보증금'
-                                : property.type === 'johab'
-                                ? '💰 조합가격'
-                                : '💰 분양가격'
+                              property.price_label 
+                                ? '💰 ' + property.price_label
+                                : (property.type === 'rental'
+                                  ? '💰 임대보증금'
+                                  : property.type === 'johab'
+                                  ? '💰 조합가격'
+                                  : '💰 분양가격')
                             }</div>
-                            <div class="font-bold text-gray-900 text-xs">\${
-                              (() => {
-                                // rental 타입인 경우 rental_deposit_min/max를 만원 단위로 표시
-                                if (property.type === 'rental') {
-                                  if (property.rental_deposit_range) {
-                                    return formatPrice(property.rental_deposit_range);
-                                  } else if (property.rental_deposit_min && property.rental_deposit_max) {
-                                    return property.rental_deposit_min + '~' + property.rental_deposit_max + '만원';
-                                  }
-                                }
-                                // 분양주택인 경우
-                                if (property.sale_price_min && property.sale_price_max) {
-                                  return property.sale_price_min.toFixed(1) + '~' + property.sale_price_max.toFixed(1) + '억';
-                                }
-                                return formatPrice(property.price);
-                              })()
-                            }</div>
+                            <div class="font-bold text-gray-900 text-xs">\${formatPrice(property.price)}</div>
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">🏗️ 시공사</div>
