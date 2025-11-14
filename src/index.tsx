@@ -4089,6 +4089,47 @@ app.get('/admin', (c) => {
                                         </div>
                                     </div>
                                 </div>
+                                
+                                <!-- Section 9: 상세 정보 이미지 갤러리 -->
+                                <div class="border-b">
+                                    <button type="button" onclick="toggleSection('section9')" class="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between">
+                                        <span class="font-medium text-gray-900">🖼️ 상세 정보 이미지 (최대 30개)</span>
+                                        <i class="fas fa-chevron-down text-gray-400"></i>
+                                    </button>
+                                    <div id="section9" class="hidden p-4 space-y-3">
+                                        <div class="mb-3">
+                                            <p class="text-xs text-gray-600 mb-2">
+                                                <i class="fas fa-info-circle text-blue-500 mr-1"></i>
+                                                상세 정보 카드 하단에 표시될 이미지를 업로드하세요. 순서대로 저장됩니다.
+                                            </p>
+                                        </div>
+                                        
+                                        <!-- 이미지 업로드 버튼 -->
+                                        <div class="mb-4">
+                                            <label class="cursor-pointer">
+                                                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-blue-500 hover:bg-blue-50 transition-all text-center">
+                                                    <i class="fas fa-images text-4xl text-gray-400 mb-2"></i>
+                                                    <p class="text-sm text-gray-600 mb-1">
+                                                        <span class="font-semibold text-blue-600">이미지 선택</span> 또는 드래그 앤 드롭
+                                                    </p>
+                                                    <p class="text-xs text-gray-500">JPG, PNG, WEBP (최대 5MB, 최대 30개)</p>
+                                                </div>
+                                                <input type="file" id="detailImagesInput" accept="image/jpeg,image/jpg,image/png,image/webp" multiple class="hidden" onchange="handleDetailImagesSelect(event)">
+                                            </label>
+                                        </div>
+                                        
+                                        <!-- 업로드 상태 표시 -->
+                                        <div id="detailImagesUploadStatus" class="hidden mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm"></div>
+                                        
+                                        <!-- 이미지 미리보기 그리드 -->
+                                        <div id="detailImagesPreviewContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                            <!-- 이미지 미리보기가 여기에 동적으로 추가됨 -->
+                                        </div>
+                                        
+                                        <!-- 숨겨진 URL 필드 (JSON 배열로 저장) -->
+                                        <input type="hidden" id="detailImagesUrls" value="[]">
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -4411,6 +4452,119 @@ app.get('/admin', (c) => {
                 
                 // Set height to scrollHeight (content height)
                 textarea.style.height = textarea.scrollHeight + 'px';
+            }
+
+            // Detail Images Gallery Upload (최대 30개)
+            let detailImagesArray = [];
+            const MAX_DETAIL_IMAGES = 30;
+
+            async function handleDetailImagesSelect(event) {
+                const files = Array.from(event.target.files);
+                
+                if (detailImagesArray.length + files.length > MAX_DETAIL_IMAGES) {
+                    alert(\`최대 \${MAX_DETAIL_IMAGES}개의 이미지만 업로드할 수 있습니다. 현재: \${detailImagesArray.length}개\`);
+                    return;
+                }
+
+                const statusDiv = document.getElementById('detailImagesUploadStatus');
+                statusDiv.classList.remove('hidden');
+                statusDiv.innerHTML = '<span class="text-blue-600"><i class="fas fa-spinner fa-spin mr-2"></i>이미지 업로드 중...</span>';
+
+                let successCount = 0;
+                let failCount = 0;
+
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    
+                    // Validate file type
+                    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+                    if (!allowedTypes.includes(file.type)) {
+                        failCount++;
+                        continue;
+                    }
+
+                    // Validate file size (5MB)
+                    if (file.size > 5 * 1024 * 1024) {
+                        failCount++;
+                        continue;
+                    }
+
+                    try {
+                        const formData = new FormData();
+                        formData.append('image', file);
+
+                        const response = await axios.post('/api/admin/upload-image', formData, {
+                            headers: { 'Content-Type': 'multipart/form-data' }
+                        });
+
+                        if (response.data.success) {
+                            detailImagesArray.push(response.data.url);
+                            successCount++;
+                            updateDetailImagesPreview();
+                        } else {
+                            failCount++;
+                        }
+                    } catch (error) {
+                        console.error('Image upload error:', error);
+                        failCount++;
+                    }
+
+                    // Update progress
+                    statusDiv.innerHTML = \`<span class="text-blue-600"><i class="fas fa-spinner fa-spin mr-2"></i>업로드 중... (\${i + 1}/\${files.length})</span>\`;
+                }
+
+                // Show final status
+                if (failCount === 0) {
+                    statusDiv.innerHTML = \`<span class="text-green-600"><i class="fas fa-check-circle mr-2"></i>\${successCount}개 이미지 업로드 완료!</span>\`;
+                } else {
+                    statusDiv.innerHTML = \`<span class="text-yellow-600"><i class="fas fa-exclamation-triangle mr-2"></i>성공: \${successCount}개, 실패: \${failCount}개</span>\`;
+                }
+
+                // Hide status after 3 seconds
+                setTimeout(() => {
+                    statusDiv.classList.add('hidden');
+                }, 3000);
+
+                // Clear file input
+                event.target.value = '';
+            }
+
+            function updateDetailImagesPreview() {
+                const container = document.getElementById('detailImagesPreviewContainer');
+                container.innerHTML = detailImagesArray.map((url, index) => \`
+                    <div class="relative group">
+                        <img src="\${url}" alt="상세 이미지 \${index + 1}" class="w-full h-32 object-cover rounded-lg border-2 border-gray-200">
+                        <div class="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">\${index + 1}</div>
+                        <button type="button" onclick="removeDetailImage(\${index})" class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <i class="fas fa-times text-xs"></i>
+                        </button>
+                        <div class="absolute bottom-2 left-2 right-2 flex gap-1">
+                            \${index > 0 ? \`<button type="button" onclick="moveDetailImage(\${index}, -1)" class="flex-1 bg-white text-gray-700 text-xs py-1 rounded hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-arrow-left"></i></button>\` : ''}
+                            \${index < detailImagesArray.length - 1 ? \`<button type="button" onclick="moveDetailImage(\${index}, 1)" class="flex-1 bg-white text-gray-700 text-xs py-1 rounded hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-arrow-right"></i></button>\` : ''}
+                        </div>
+                    </div>
+                \`).join('');
+
+                // Update hidden field
+                document.getElementById('detailImagesUrls').value = JSON.stringify(detailImagesArray);
+            }
+
+            function removeDetailImage(index) {
+                if (confirm('이 이미지를 삭제하시겠습니까?')) {
+                    detailImagesArray.splice(index, 1);
+                    updateDetailImagesPreview();
+                }
+            }
+
+            function moveDetailImage(index, direction) {
+                const newIndex = index + direction;
+                if (newIndex < 0 || newIndex >= detailImagesArray.length) return;
+
+                // Swap images
+                [detailImagesArray[index], detailImagesArray[newIndex]] = 
+                [detailImagesArray[newIndex], detailImagesArray[index]];
+                
+                updateDetailImagesPreview();
             }
 
             // Toggle trade price section and update price label based on sale type
@@ -4822,6 +4976,11 @@ app.get('/admin', (c) => {
                 document.getElementById('supplyRowsContainer').innerHTML = '';
                 stepCounter = 0;
                 supplyCounter = 0;
+                
+                // Reset detail images
+                detailImagesArray = [];
+                updateDetailImagesPreview();
+                
                 document.getElementById('editModal').classList.add('active');
             }
 
@@ -5017,6 +5176,15 @@ app.get('/admin', (c) => {
                         const textarea = document.getElementById(id);
                         if (textarea) autoResize(textarea);
                     });
+                    
+                    // Load detail images
+                    if (details.detailImages && Array.isArray(details.detailImages)) {
+                        detailImagesArray = details.detailImages;
+                        updateDetailImagesPreview();
+                    } else {
+                        detailImagesArray = [];
+                        updateDetailImagesPreview();
+                    }
 
                     document.getElementById('editModal').classList.add('active');
                 } catch (error) {
@@ -5128,7 +5296,9 @@ app.get('/admin', (c) => {
                     features: document.getElementById('detail_features')?.value || '',
                     surroundings: document.getElementById('detail_surroundings')?.value || '',
                     transportation: document.getElementById('detail_transportation')?.value || '',
-                    education: document.getElementById('detail_education')?.value || ''
+                    education: document.getElementById('detail_education')?.value || '',
+                    
+                    detailImages: detailImagesArray || []
                 };
 
                 // Collect target audience lines (with null safety)
@@ -7015,6 +7185,25 @@ app.get('/', (c) => {
                       </a>
                     \` : ''}
                   </div>
+                  
+                  <!-- Detail Images Gallery -->
+                  \${extendedData.details && extendedData.details.detailImages && extendedData.details.detailImages.length > 0 ? \`
+                    <div class="mt-4 sm:mt-6">
+                      <div class="grid grid-cols-1 gap-0">
+                        \${extendedData.details.detailImages.map((imageUrl, index) => \`
+                          <div class="relative">
+                            <img 
+                              src="\${imageUrl}" 
+                              alt="상세 이미지 \${index + 1}" 
+                              class="w-full h-auto cursor-pointer"
+                              onclick="openImageModal('\${imageUrl}')"
+                              onerror="this.parentElement.style.display='none'"
+                            >
+                          </div>
+                        \`).join('')}
+                      </div>
+                    </div>
+                  \` : ''}
                 </div>
               \`;
               
@@ -7023,6 +7212,26 @@ app.get('/', (c) => {
               console.error('Failed to load detail:', error);
               alert('상세 정보를 불러올 수 없습니다.');
             }
+          }
+
+          // Open image in modal (for detail images)
+          function openImageModal(imageUrl) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-90 z-[9999] flex items-center justify-center p-4';
+            modal.onclick = (e) => {
+              if (e.target === modal) modal.remove();
+            };
+            
+            modal.innerHTML = \`
+              <div class="relative max-w-6xl w-full">
+                <button onclick="this.closest('.fixed').remove()" class="absolute top-4 right-4 bg-white text-gray-900 rounded-full w-10 h-10 flex items-center justify-center hover:bg-gray-100 z-10">
+                  <i class="fas fa-times"></i>
+                </button>
+                <img src="\${imageUrl}" alt="상세 이미지" class="w-full h-auto rounded-lg shadow-2xl">
+              </div>
+            \`;
+            
+            document.body.appendChild(modal);
           }
 
           // Toggle additional details
