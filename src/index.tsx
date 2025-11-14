@@ -5329,7 +5329,7 @@ app.get('/admin', (c) => {
 
                 const tags = (document.getElementById('hashtags')?.value || '').split(',').map(t => t.trim()).filter(t => t);
                 
-                // Calculate deadline: 청약접수 시작일 10일 전
+                // Calculate deadline: 청약접수 시작일 그대로 사용 (마감일 = 청약시작일)
                 let calculatedDeadline = document.getElementById('announcementDate')?.value || new Date().toISOString().split('T')[0];
                 
                 // steps 배열에서 "청약접수 시작일" 찾기
@@ -5338,10 +5338,8 @@ app.get('/admin', (c) => {
                 );
                 
                 if (subscriptionStartStep && subscriptionStartStep.date) {
-                    // 접수 시작일에서 10일 빼기
-                    const startDate = new Date(subscriptionStartStep.date);
-                    startDate.setDate(startDate.getDate() - 10);
-                    calculatedDeadline = startDate.toISOString().split('T')[0];
+                    // 마감일 = 청약접수 시작일
+                    calculatedDeadline = subscriptionStartStep.date;
                 }
 
                 // Collect trade price data for unsold type
@@ -5365,7 +5363,8 @@ app.get('/admin', (c) => {
                 let salePriceMin = 0;
                 let salePriceMax = 0;
                 
-                // Extract numbers from price string (e.g., "2억 6,127만 원 ~ 2억 7,795만 원")
+                // Extract numbers from price string
+                // Examples: "2억 6,127만 원 ~ 2억 7,795만 원" or "2억6,127만원 ~ 2억7795만원"
                 const priceMatches = priceText.match(/([0-9]+)억\s*([0-9,]+)?만/g);
                 if (priceMatches && priceMatches.length > 0) {
                     // First price (min)
@@ -5388,6 +5387,13 @@ app.get('/admin', (c) => {
                         salePriceMax = salePriceMin;
                     }
                 }
+                
+                console.log('💰 Price parsing:', {
+                    input: priceText,
+                    matches: priceMatches,
+                    salePriceMin: salePriceMin,
+                    salePriceMax: salePriceMax
+                });
 
                 return {
                     title: document.getElementById('projectName')?.value || '',
