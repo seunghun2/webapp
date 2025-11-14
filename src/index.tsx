@@ -6302,7 +6302,11 @@ app.get('/', (c) => {
                       </div>
                       <div class="flex justify-between items-center py-2 border-b border-gray-200 gap-3">
                         <span class="text-xs sm:text-sm text-gray-600 flex-shrink-0">모집세대</span>
-                        <span class="text-xs sm:text-sm font-semibold text-gray-900 text-right">\${property.households}</span>
+                        <span class="text-xs sm:text-sm font-semibold text-gray-900 text-right">\${
+                          property.households 
+                            ? (property.households.toString().includes('세대') ? property.households : property.households + '세대')
+                            : '-'
+                        }</span>
                       </div>
                       \${property.move_in_date ? \`
                         <div class="flex justify-between items-center py-2 border-b border-gray-200">
