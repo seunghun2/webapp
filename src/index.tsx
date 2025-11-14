@@ -8755,12 +8755,9 @@ app.get('/favicon.ico', (c) => {
   return c.text('', 204)
 })
 
-export default app
-// Version: 1762751607
 // Favicon route
 app.get('/favicon.ico', (c) => {
   return c.text('', 204)
 })
 
 export default app
-// Version: 1762751607
