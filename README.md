@@ -110,6 +110,14 @@ Content-Type: application/json
 
 ## 📝 최근 업데이트
 
+### 2025-11-14: 🤖 실거래가 자동 수집 시스템 구축!
+- ✅ **GitHub Actions 워크플로우**: 자동화된 데이터 수집 파이프라인
+- ✅ **국토교통부 API 연동**: 4개 지역 최근 6개월 데이터 수집
+- ✅ **D1 Database 자동 업로드**: 수집 → SQL 생성 → D1 삽입 자동화
+- ✅ **중복 방지**: INSERT OR IGNORE로 중복 데이터 자동 제외
+- ✅ **수동/자동 실행**: workflow_dispatch (수동) + cron (자동) 지원
+- ✅ **로컬 테스트 스크립트**: 샌드박스 환경용 별도 스크립트
+
 ### 2025-11-14: 🎯 실거래가 목업 기능 추가!
 - ✅ **실거래가 목업 버튼**: 샘플 데이터로 UI 미리보기 가능
 - ✅ **두 버튼 구성**: [실거래가 목업] (보라색) + [실거래가 조회] (주황색)
@@ -144,7 +152,37 @@ cd /home/user/webapp && npx wrangler pages deploy dist --project-name webapp
 # Git 커밋
 git add . && git commit -m "..."
 git push origin main
+
+# 실거래가 수집 (로컬 - 샌드박스에서는 실행 불가)
+npm run fetch-trade-prices
 ```
+
+### 실거래가 자동 수집 (GitHub Actions)
+
+**설정 방법:**
+
+1. **GitHub Secrets 설정** (저장소 Settings → Secrets and variables → Actions)
+   ```
+   MOLIT_API_KEY: 국토교통부 API 키
+   CLOUDFLARE_API_TOKEN: Cloudflare API 토큰
+   ```
+
+2. **수동 실행**
+   - GitHub 저장소 → Actions 탭
+   - "Fetch Trade Prices" 워크플로우 선택
+   - "Run workflow" 버튼 클릭
+
+3. **자동 실행 (선택)**
+   - `.github/workflows/fetch-trade-prices.yml` 파일의 주석 해제
+   - 매주 월요일 오전 9시 자동 실행
+
+**수집 지역:**
+- 광주광역시 광산구 (29200)
+- 세종특별자치시 (36110)
+- 경기도 화성시 (41590)
+- 경기도 평택시 (41220)
+
+**수집 기간:** 최근 6개월
 
 ### 배포 히스토리
 - **Latest**: 2025-11-14 - 실거래가 목업 기능 추가

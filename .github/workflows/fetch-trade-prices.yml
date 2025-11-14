@@ -1,36 +1,45 @@
-name: 실거래가 데이터 자동 수집
+name: Fetch Trade Prices
 
 on:
-  # 매일 오전 2시(한국시간 11시)에 자동 실행
-  schedule:
-    - cron: '0 2 * * *'
-  
-  # 수동 실행도 가능
+  # 수동 실행
   workflow_dispatch:
+  
+  # 매주 월요일 오전 9시 (KST 기준) 자동 실행
+  # schedule:
+  #   - cron: '0 0 * * 1'  # UTC 0시 = KST 9시
 
 jobs:
-  fetch-data:
+  fetch-and-upload:
     runs-on: ubuntu-latest
     
     steps:
-      - name: 체크아웃
+      - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Node.js 설정
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
       
-      - name: 의존성 설치
-        run: npm install -g wrangler
+      - name: Install dependencies
+        run: npm install axios
       
-      - name: 실거래가 데이터 수집
+      - name: Fetch trade prices from MOLIT API
         env:
           MOLIT_API_KEY: ${{ secrets.MOLIT_API_KEY }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          node scripts/fetch-trade-prices.js
+          node scripts/fetch-trade-prices-github.js
       
-      - name: 완료 알림
-        run: echo "✅ 실거래가 데이터 수집 완료!"
+      - name: Install Wrangler
+        run: npm install -g wrangler
+      
+      - name: Upload to Cloudflare D1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -f /tmp/insert_trades.sql ]; then
+            wrangler d1 execute webapp-production --remote --file=/tmp/insert_trades.sql
+            echo "✅ Data uploaded to Cloudflare D1"
+          else
+            echo "⚠️ No data to upload"
+          fi
