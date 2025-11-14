@@ -5467,10 +5467,6 @@ app.get('/', (c) => {
                         <i class="fas fa-home text-lg"></i>
                         <span>홈</span>
                     </a>
-                    <a href="/admin" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                        <i class="fas fa-cog text-lg"></i>
-                        <span>관리자</span>
-                    </a>
                     <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
                         <i class="fas fa-heart text-lg"></i>
                         <span>찜한 매물</span>
@@ -5504,7 +5500,6 @@ app.get('/', (c) => {
                     <!-- Desktop Navigation -->
                     <nav class="hidden lg:flex items-center gap-1">
                         <a href="/" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">홈</a>
-                        <a href="/admin" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">관리자</a>
                         <a href="#" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">찜한 매물</a>
                     </nav>
                     
