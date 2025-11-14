@@ -7055,13 +7055,12 @@ app.get('/', (c) => {
                                 return \`
                                 <div class="col-span-2">
                                   <div class="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-200 rounded-xl p-3 shadow-sm">
-                                    <div class="flex items-start gap-2 mb-1">
-                                      <span class="text-base">📝</span>
-                                      <span class="text-xs text-gray-600 font-medium">STEP \${nextStepIdx + 1}</span>
+                                    <div class="flex items-center gap-1.5 mb-1">
+                                      <span class="text-sm">📝</span>
+                                      <h4 class="text-xs font-bold text-blue-600">\${nextStep.title}</h4>
                                     </div>
-                                    <h4 class="text-sm font-bold text-blue-600 mb-1">\${nextStep.title}</h4>
-                                    \${nextStep.details ? \`<p class="text-xs text-gray-600 mb-2">\${nextStep.details}</p>\` : ''}
-                                    <p class="text-sm font-bold text-blue-600">\${nextStep.date}</p>
+                                    \${nextStep.details ? \`<p class="text-xs text-gray-600 mb-1">\${nextStep.details}</p>\` : ''}
+                                    <p class="text-xs font-bold text-blue-600">\${nextStep.date}</p>
                                   </div>
                                 </div>
                               \`;
