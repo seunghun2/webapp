@@ -5328,6 +5328,21 @@ app.get('/admin', (c) => {
                 };
 
                 const tags = (document.getElementById('hashtags')?.value || '').split(',').map(t => t.trim()).filter(t => t);
+                
+                // Calculate deadline: 청약접수 시작일 10일 전
+                let calculatedDeadline = document.getElementById('announcementDate')?.value || new Date().toISOString().split('T')[0];
+                
+                // steps 배열에서 "청약접수 시작일" 찾기
+                const subscriptionStartStep = steps.find(step => 
+                    step.title.includes('청약접수') || step.title.includes('접수') || step.title.includes('신청')
+                );
+                
+                if (subscriptionStartStep && subscriptionStartStep.date) {
+                    // 접수 시작일에서 10일 빼기
+                    const startDate = new Date(subscriptionStartStep.date);
+                    startDate.setDate(startDate.getDate() - 10);
+                    calculatedDeadline = startDate.toISOString().split('T')[0];
+                }
 
                 // Collect trade price data for unsold type
                 const saleType = document.getElementById('saleType')?.value || 'rental';
@@ -5345,6 +5360,35 @@ app.get('/admin', (c) => {
                     if (salePriceDate) tradePriceData.sale_price_date = salePriceDate;
                 }
 
+                // Parse price to extract min/max values
+                const priceText = document.getElementById('mainPrice')?.value || '';
+                let salePriceMin = 0;
+                let salePriceMax = 0;
+                
+                // Extract numbers from price string (e.g., "2억 6,127만 원 ~ 2억 7,795만 원")
+                const priceMatches = priceText.match(/([0-9]+)억\s*([0-9,]+)?만/g);
+                if (priceMatches && priceMatches.length > 0) {
+                    // First price (min)
+                    const minMatch = priceMatches[0].match(/([0-9]+)억(?:\s*([0-9,]+)만)?/);
+                    if (minMatch) {
+                        const eok = parseFloat(minMatch[1]);
+                        const man = minMatch[2] ? parseFloat(minMatch[2].replace(/,/g, '')) / 10000 : 0;
+                        salePriceMin = eok + man;
+                    }
+                    
+                    // Second price (max) if exists
+                    if (priceMatches.length > 1) {
+                        const maxMatch = priceMatches[1].match(/([0-9]+)억(?:\s*([0-9,]+)만)?/);
+                        if (maxMatch) {
+                            const eok = parseFloat(maxMatch[1]);
+                            const man = maxMatch[2] ? parseFloat(maxMatch[2].replace(/,/g, '')) / 10000 : 0;
+                            salePriceMax = eok + man;
+                        }
+                    } else {
+                        salePriceMax = salePriceMin;
+                    }
+                }
+
                 return {
                     title: document.getElementById('projectName')?.value || '',
                     type: saleType,
@@ -5353,11 +5397,13 @@ app.get('/admin', (c) => {
                     announcement_date: document.getElementById('announcementDate')?.value || '',
                     move_in_date: document.getElementById('moveInDate')?.value || '',
                     constructor: document.getElementById('constructor')?.value || '',
-                    deadline: document.getElementById('announcementDate')?.value || new Date().toISOString().split('T')[0],
+                    deadline: calculatedDeadline,
                     households: supplyInfo.reduce((sum, s) => sum + (parseInt(s.households) || 0), 0).toString() || '0',
                     area_type: supplyInfo.map(s => s.type).join(', ') || '',
-                    price: document.getElementById('mainPrice')?.value || '',
+                    price: priceText,
                     price_label: document.getElementById('priceLabel')?.value || '분양가격',
+                    sale_price_min: salePriceMin,
+                    sale_price_max: salePriceMax,
                     description: details.features || '',
                     tags: JSON.stringify(tags),
                     extended_data: JSON.stringify(extendedData),
