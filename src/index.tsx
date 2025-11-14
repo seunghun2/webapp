@@ -5387,23 +5387,35 @@ app.get('/admin', (c) => {
                 const data = collectFormData();
 
                 try {
+                    console.log('💾 Saving data...', {
+                        id: id,
+                        mode: id ? 'UPDATE' : 'CREATE',
+                        dataKeys: Object.keys(data),
+                        dataSize: JSON.stringify(data).length,
+                        extendedDataSize: data.extended_data ? data.extended_data.length : 0
+                    });
+                    
                     if (id) {
                         // Update
-                        await axios.post(\`/api/properties/\${id}/update-parsed\`, { updates: data });
+                        const response = await axios.post(\`/api/properties/\${id}/update-parsed\`, { updates: data });
+                        console.log('✅ Update success:', response.data);
                         alert('수정되었습니다');
                     } else {
                         // Create
-                        await axios.post('/api/properties/create', data);
+                        const response = await axios.post('/api/properties/create', data);
+                        console.log('✅ Create success:', response.data);
                         alert('등록되었습니다');
                     }
                     
                     closeEditModal();
                     loadProperties();
                 } catch (error) {
-                    console.error('Failed to save:', error);
-                    console.error('Error details:', error.response?.data);
+                    console.error('❌ Failed to save:', error);
+                    console.error('Error response:', error.response);
+                    console.error('Error data:', error.response?.data);
                     console.error('Form data size:', JSON.stringify(data).length, 'bytes');
-                    console.error('Extended data size:', JSON.stringify(data.extended_data).length, 'bytes');
+                    console.error('Extended data size:', data.extended_data ? data.extended_data.length : 0, 'bytes');
+                    console.error('Data keys:', Object.keys(data));
                     
                     let errorMsg = '저장 실패: ';
                     if (error.response?.data?.error) {
