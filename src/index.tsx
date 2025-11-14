@@ -2907,6 +2907,10 @@ app.post('/api/admin/fetch-trade-price', async (c) => {
       '서울 강남구': '11680',
       '서울특별시 서초구': '11650',
       '서울 서초구': '11650',
+      '광주광역시 광산구': '29200',
+      '광주 광산구': '29200',
+      '광주광역시': '29200',
+      '광주': '29200',
     }
     
     // 시/도 또는 시/도+시/군/구 조합으로 코드 찾기
@@ -2932,7 +2936,7 @@ app.post('/api/admin/fetch-trade-price', async (c) => {
     if (!sigunguCode) {
       return c.json({ 
         success: false, 
-        error: `지역 코드를 찾을 수 없습니다: ${sigunguName}. 지원 지역: 세종, 전북 김제, 경기 평택/화성, 서울 강남/서초` 
+        error: `지역 코드를 찾을 수 없습니다: ${sigunguName}. 지원 지역: 세종, 전북 김제, 경기 평택/화성, 서울 강남/서초, 광주 광산구` 
       }, 400)
     }
 
@@ -8746,6 +8750,13 @@ app.get('/', (c) => {
   `)
 })
 
+// Favicon route
+app.get('/favicon.ico', (c) => {
+  return c.text('', 204)
+})
+
+export default app
+// Version: 1762751607
 // Favicon route
 app.get('/favicon.ico', (c) => {
   return c.text('', 204)
