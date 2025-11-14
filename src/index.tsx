@@ -2955,22 +2955,35 @@ app.post('/api/admin/fetch-trade-price', async (c) => {
 
     console.log('실거래가 API 호출:', apiUrl + '?' + params.toString())
 
-    const response = await fetch(`${apiUrl}?${params}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/xml'
-      }
-    })
+    let response
+    let xmlText
+    
+    try {
+      response = await fetch(`${apiUrl}?${params}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/xml'
+        },
+        signal: AbortSignal.timeout(10000) // 10초 타임아웃
+      })
 
-    if (!response.ok) {
+      if (!response.ok) {
+        console.error('API 응답 상태:', response.status, response.statusText)
+        return c.json({ 
+          success: false, 
+          error: `API 호출 실패: ${response.status} ${response.statusText}` 
+        }, 500)
+      }
+
+      xmlText = await response.text()
+      console.log('API 응답 샘플:', xmlText.substring(0, 500))
+    } catch (fetchError) {
+      console.error('API 호출 중 에러:', fetchError)
       return c.json({ 
         success: false, 
-        error: `API 호출 실패: ${response.status}` 
+        error: `API 호출 중 오류 발생: ${fetchError.message}. 잠시 후 다시 시도해주세요.` 
       }, 500)
     }
-
-    const xmlText = await response.text()
-    console.log('API 응답 샘플:', xmlText.substring(0, 500))
 
     // XML 파싱 (간단한 정규식 사용)
     const items = []
