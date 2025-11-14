@@ -5383,19 +5383,21 @@ app.get('/admin', (c) => {
             document.getElementById('propertyForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
-                const id = document.getElementById('propertyId')?.value || '';
+                const id = document.getElementById('propertyId')?.value;
                 const data = collectFormData();
 
                 try {
                     console.log('💾 Saving data...', {
                         id: id,
-                        mode: id ? 'UPDATE' : 'CREATE',
+                        idType: typeof id,
+                        isEmpty: !id || id === '',
+                        mode: (id && id !== '') ? 'UPDATE' : 'CREATE',
                         dataKeys: Object.keys(data),
                         dataSize: JSON.stringify(data).length,
                         extendedDataSize: data.extended_data ? data.extended_data.length : 0
                     });
                     
-                    if (id) {
+                    if (id && id !== '') {
                         // Update
                         const response = await axios.post(\`/api/properties/\${id}/update-parsed\`, { updates: data });
                         console.log('✅ Update success:', response.data);
