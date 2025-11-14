@@ -26,21 +26,16 @@ const REGIONS = [
   { name: '경기도 평택시', code: '41220' },
 ];
 
-// 날짜 계산 (최근 6개월)
+// 날짜 계산 (2024년 전체 + 2024년 하반기)
 function getDateRange() {
-  const end = new Date();
-  const start = new Date();
-  start.setMonth(start.getMonth() - 6);
-  
   const dates = [];
-  let current = new Date(start);
   
-  while (current <= end) {
+  // 2024년 1월부터 11월까지
+  for (let month = 1; month <= 11; month++) {
     dates.push({
-      year: current.getFullYear(),
-      month: String(current.getMonth() + 1).padStart(2, '0')
+      year: 2024,
+      month: String(month).padStart(2, '0')
     });
-    current.setMonth(current.getMonth() + 1);
   }
   
   return dates;
