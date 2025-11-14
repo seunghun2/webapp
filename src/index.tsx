@@ -2144,9 +2144,10 @@ app.post('/api/properties/create', async (c) => {
     const result = await DB.prepare(`
       INSERT INTO properties (
         title, type, location, full_address, deadline, announcement_date,
-        move_in_date, households, area_type, price, constructor, tags,
-        description, extended_data, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', datetime('now'), datetime('now'))
+        move_in_date, households, area_type, price, price_label, constructor, tags,
+        description, extended_data, status, sale_price_min, sale_price_max, 
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, datetime('now'), datetime('now'))
     `).bind(
       data.title,
       data.type,
@@ -2158,10 +2159,13 @@ app.post('/api/properties/create', async (c) => {
       data.households || '',
       data.area_type || '',
       data.price || '',
+      data.price_label || '분양가격',
       data.constructor || '',
       data.tags || '[]',
       data.description || '',
-      data.extended_data || '{}'
+      data.extended_data || '{}',
+      data.sale_price_min || 0,
+      data.sale_price_max || 0
     ).run()
     
     return c.json({
