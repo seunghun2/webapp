@@ -2790,15 +2790,13 @@ app.post('/api/admin/upload-image', async (c) => {
       }
     })
 
-    // Generate public URL
-    // Note: R2는 기본적으로 private입니다. Public URL을 위해서는:
-    // 1. Custom Domain 연결 (권장) 또는
-    // 2. R2.dev subdomain 활성화 필요
-    const imageUrl = `https://webapp-images.YOUR_ACCOUNT_ID.r2.cloudflarestorage.com/${filename}`
+    // Generate public URL using Workers proxy endpoint
+    // Images will be served through /api/images/:filename endpoint
+    const imageUrl = `/api/images/${filename}`
     
     return c.json({
       success: true,
-      imageUrl: imageUrl,
+      url: imageUrl,  // Changed from imageUrl to url to match frontend
       filename: filename,
       message: '이미지 업로드 완료'
     })
@@ -2808,6 +2806,32 @@ app.post('/api/admin/upload-image', async (c) => {
       success: false, 
       error: error.message || '이미지 업로드 중 오류가 발생했습니다.' 
     }, 500)
+  }
+})
+
+// Serve images from R2
+app.get('/api/images/:path{.+}', async (c) => {
+  try {
+    const path = c.req.param('path')
+    const { IMAGES } = c.env
+    
+    const object = await IMAGES.get(path)
+    
+    if (!object) {
+      return c.notFound()
+    }
+    
+    const headers = new Headers()
+    object.writeHttpMetadata(headers)
+    headers.set('etag', object.httpEtag)
+    headers.set('cache-control', 'public, max-age=31536000') // Cache for 1 year
+    
+    return new Response(object.body, {
+      headers
+    })
+  } catch (error) {
+    console.error('이미지 조회 오류:', error)
+    return c.notFound()
   }
 })
 
@@ -3172,6 +3196,14 @@ app.get('/admin', (c) => {
           .main-content {
             transition: margin-left 0.3s ease;
           }
+          
+          /* Auto-resize Textarea */
+          textarea.auto-resize {
+            overflow: hidden;
+            resize: vertical;
+            min-height: 72px; /* 3 rows minimum */
+            transition: height 0.1s ease;
+          }
         </style>
     </head>
     <body class="bg-gray-50">
@@ -3371,7 +3403,7 @@ app.get('/admin', (c) => {
                     <button onclick="searchProperties()" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm sm:text-base">
                         <i class="fas fa-search sm:mr-2"></i><span class="hidden sm:inline">검색</span>
                     </button>
-                    <button onclick="openAddModal()" class="flex-1 sm:flex-none px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm sm:text-base">
+                    <button onclick="openAddModal()" class="flex-1 sm:flex-none sm:w-auto px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm sm:text-base whitespace-nowrap">
                         <i class="fas fa-plus sm:mr-2"></i>신규등록
                     </button>
                 </div>
@@ -3388,6 +3420,8 @@ app.get('/admin', (c) => {
                                 <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">지역</th>
                                 <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">타입</th>
                                 <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">마감일</th>
+                                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">등록일</th>
+                                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">수정일</th>
                                 <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">작업</th>
                             </tr>
                         </thead>
@@ -3894,14 +3928,57 @@ app.get('/admin', (c) => {
                                         <span class="font-medium text-gray-900">🏠 공급세대정보</span>
                                         <i class="fas fa-chevron-down text-gray-400"></i>
                                     </button>
-                                    <div id="section3" class="hidden p-4">
-                                        <div class="mb-2 flex justify-end">
-                                            <button type="button" onclick="addSupplyRow()" class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">
-                                                <i class="fas fa-plus mr-1"></i> 타입 추가
-                                            </button>
+                                    <div id="section3" class="hidden p-4 space-y-4">
+                                        <!-- 공급 세대 이미지 -->
+                                        <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                                <i class="fas fa-image text-blue-600 mr-1"></i>
+                                                공급 세대 정보 이미지
+                                                <span class="text-gray-400 font-normal text-xs ml-1">(선택사항)</span>
+                                            </label>
+                                            
+                                            <!-- 이미지 미리보기 -->
+                                            <div id="supplyInfoImagePreviewArea" class="hidden mb-3">
+                                                <div class="relative inline-block">
+                                                    <img id="supplyInfoImagePreview" src="" alt="미리보기" class="max-w-full max-h-48 rounded-lg border-2 border-gray-300">
+                                                    <button type="button" onclick="removeSupplyInfoImage()" class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- 업로드 버튼 -->
+                                            <label class="cursor-pointer">
+                                                <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 transition-all text-center">
+                                                    <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                                                    <p class="text-sm text-gray-600">
+                                                        <span class="font-semibold text-blue-600">파일 선택</span> 또는 드래그 앤 드롭
+                                                    </p>
+                                                    <p class="text-xs text-gray-500 mt-1">JPG, PNG, WEBP (최대 5MB)</p>
+                                                </div>
+                                                <input type="file" id="supplyInfoImageFile" accept="image/jpeg,image/jpg,image/png,image/webp" class="hidden" onchange="handleSupplyInfoImageSelect(event)">
+                                            </label>
+                                            
+                                            <!-- 숨겨진 URL 필드 -->
+                                            <input type="hidden" id="supplyInfoImage">
+                                            
+                                            <!-- 업로드 상태 -->
+                                            <div id="supplyInfoImageUploadStatus" class="hidden mt-2 text-sm"></div>
+                                            
+                                            <p class="text-xs text-gray-500 mt-2">💡 상세 팝업의 공급 세대 정보 테이블 위에 표시됩니다</p>
                                         </div>
-                                        <div id="supplyRowsContainer" class="space-y-2">
-                                            <!-- 동적으로 추가됨 -->
+                                        
+                                        <!-- 공급 세대 타입 입력 -->
+                                        <div>
+                                            <div class="mb-2 flex justify-between items-center">
+                                                <span class="text-sm font-medium text-gray-700">공급 타입 목록</span>
+                                                <button type="button" onclick="addSupplyRow()" class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">
+                                                    <i class="fas fa-plus mr-1"></i> 타입 추가
+                                                </button>
+                                            </div>
+                                            <div id="supplyRowsContainer" class="space-y-2">
+                                                <!-- 동적으로 추가됨 -->
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -3996,19 +4073,19 @@ app.get('/admin', (c) => {
                                     <div id="section8" class="hidden p-4 space-y-3">
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">단지특징</label>
-                                            <textarea id="detail_features" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                                            <textarea id="detail_features" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm auto-resize" oninput="autoResize(this)"></textarea>
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">주변환경</label>
-                                            <textarea id="detail_surroundings" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                                            <textarea id="detail_surroundings" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm auto-resize" oninput="autoResize(this)"></textarea>
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">교통여건</label>
-                                            <textarea id="detail_transportation" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                                            <textarea id="detail_transportation" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm auto-resize" oninput="autoResize(this)"></textarea>
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">교육시설</label>
-                                            <textarea id="detail_education" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                                            <textarea id="detail_education" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm auto-resize" oninput="autoResize(this)"></textarea>
                                         </div>
                                     </div>
                                 </div>
@@ -4247,6 +4324,93 @@ app.get('/admin', (c) => {
                 document.getElementById('imagePreviewArea').classList.add('hidden');
                 document.getElementById('uploadStatus').classList.add('hidden');
                 // Don't clear mainImage input - user might have entered URL manually
+            }
+
+            // Supply Info Image Upload
+            let selectedSupplyInfoImageFile = null;
+            let uploadedSupplyInfoImageUrl = null;
+
+            function handleSupplyInfoImageSelect(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                // Validate file type
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+                if (!allowedTypes.includes(file.type)) {
+                    alert('JPG, PNG, WEBP 형식만 업로드 가능합니다.');
+                    return;
+                }
+
+                // Validate file size (5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('파일 크기는 5MB를 초과할 수 없습니다.');
+                    return;
+                }
+
+                selectedSupplyInfoImageFile = file;
+
+                // Show preview
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.getElementById('supplyInfoImagePreview').src = e.target.result;
+                    document.getElementById('supplyInfoImagePreviewArea').classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+
+                // Auto upload
+                uploadSupplyInfoImage();
+            }
+
+            async function uploadSupplyInfoImage() {
+                if (!selectedSupplyInfoImageFile) return;
+
+                const statusDiv = document.getElementById('supplyInfoImageUploadStatus');
+                statusDiv.classList.remove('hidden');
+                statusDiv.innerHTML = '<span class="text-blue-600"><i class="fas fa-spinner fa-spin mr-2"></i>이미지 업로드 중...</span>';
+
+                try {
+                    const formData = new FormData();
+                    formData.append('image', selectedSupplyInfoImageFile);
+
+                    const response = await axios.post('/api/admin/upload-image', formData, {
+                        headers: {
+                            'Content-Type': 'multipart/form-data'
+                        }
+                    });
+
+                    if (response.data.success) {
+                        uploadedSupplyInfoImageUrl = response.data.url;
+                        document.getElementById('supplyInfoImage').value = response.data.url;
+                        statusDiv.innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle mr-2"></i>업로드 완료!</span>';
+                    } else {
+                        throw new Error(response.data.error || '업로드 실패');
+                    }
+                } catch (error) {
+                    console.error('Upload failed:', error);
+                    statusDiv.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-2"></i>업로드 실패</span>';
+                    alert('이미지 업로드에 실패했습니다.');
+                }
+            }
+
+            function removeSupplyInfoImage() {
+                selectedSupplyInfoImageFile = null;
+                uploadedSupplyInfoImageUrl = null;
+                document.getElementById('supplyInfoImageFile').value = '';
+                document.getElementById('supplyInfoImagePreview').src = '';
+                document.getElementById('supplyInfoImagePreviewArea').classList.add('hidden');
+                document.getElementById('supplyInfoImageUploadStatus').classList.add('hidden');
+                document.getElementById('supplyInfoImage').value = '';
+            }
+
+            // Auto-resize textarea based on content
+            function autoResize(textarea) {
+                if (!textarea) return;
+                
+                // Reset height to auto to get the correct scrollHeight
+                textarea.style.height = 'auto';
+                
+                // Set height to scrollHeight (content height)
+                textarea.style.height = textarea.scrollHeight + 'px';
             }
 
             // Toggle trade price section and update price label based on sale type
@@ -4616,7 +4780,7 @@ app.get('/admin', (c) => {
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4 text-sm text-gray-900">\${p.id}</td>
                             <td class="px-6 py-4 text-sm font-medium text-gray-900">\${p.title}</td>
-                            <td class="px-6 py-4 text-sm text-gray-600">\${p.location || '-'}</td>
+                            <td class="px-6 py-4 text-sm text-gray-600 hidden sm:table-cell">\${p.location || '-'}</td>
                             <td class="px-6 py-4 text-sm">
                                 <span class="px-2 py-1 text-xs font-medium rounded \${
                                     p.type === 'rental' ? 'bg-blue-100 text-blue-700' :
@@ -4626,7 +4790,13 @@ app.get('/admin', (c) => {
                                     p.type === 'rental' ? '임대' : p.type === 'unsold' ? '줍줍' : '청약'
                                 }</span>
                             </td>
-                            <td class="px-6 py-4 text-sm text-gray-600">\${p.deadline || '-'}</td>
+                            <td class="px-6 py-4 text-sm text-gray-600 hidden md:table-cell">\${p.deadline || '-'}</td>
+                            <td class="px-6 py-4 text-sm text-gray-600 hidden lg:table-cell">\${
+                                p.created_at ? new Date(p.created_at).toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\\. /g, '-').replace('.', '') : '-'
+                            }</td>
+                            <td class="px-6 py-4 text-sm text-gray-600 hidden lg:table-cell">\${
+                                p.updated_at ? new Date(p.updated_at).toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\\. /g, '-').replace('.', '') : '-'
+                            }</td>
                             <td class="px-6 py-4 text-sm">
                                 <button onclick="editProperty(\${p.id})" class="text-blue-600 hover:text-blue-800 mr-3">
                                     <i class="fas fa-edit"></i> 수정
@@ -4714,6 +4884,17 @@ app.get('/admin', (c) => {
                     document.getElementById('mainImage').value = extData.mainImage || '';
                     document.getElementById('mainPrice').value = property.price || '';
                     document.getElementById('priceLabel').value = property.price_label || '분양가격';
+                    document.getElementById('supplyInfoImage').value = extData.supplyInfoImage || '';
+                    
+                    // Load supply info image preview if exists
+                    if (extData.supplyInfoImage) {
+                        uploadedSupplyInfoImageUrl = extData.supplyInfoImage;
+                        document.getElementById('supplyInfoImagePreview').src = extData.supplyInfoImage;
+                        document.getElementById('supplyInfoImagePreviewArea').classList.remove('hidden');
+                    } else {
+                        document.getElementById('supplyInfoImagePreview').src = '';
+                        document.getElementById('supplyInfoImagePreviewArea').classList.add('hidden');
+                    }
                     
                     // 해시태그 처리 - 배열/문자열/JSON 모두 처리
                     let hashtagsValue = '';
@@ -4830,6 +5011,12 @@ app.get('/admin', (c) => {
                     document.getElementById('detail_surroundings').value = details.surroundings || '';
                     document.getElementById('detail_transportation').value = details.transportation || '';
                     document.getElementById('detail_education').value = details.education || '';
+                    
+                    // Auto-resize textareas after loading content
+                    ['detail_features', 'detail_surroundings', 'detail_transportation', 'detail_education'].forEach(id => {
+                        const textarea = document.getElementById(id);
+                        if (textarea) autoResize(textarea);
+                    });
 
                     document.getElementById('editModal').classList.add('active');
                 } catch (error) {
@@ -4952,6 +5139,7 @@ app.get('/admin', (c) => {
                 ].filter(line => line.trim());
 
                 // Extended data object
+                const supplyInfoImageValue = document.getElementById('supplyInfoImage')?.value || uploadedSupplyInfoImageUrl || '';
                 const extendedData = {
                     supplyType: document.getElementById('supplyType')?.value || '',
                     mainImage: document.getElementById('mainImage')?.value || '',
@@ -4960,6 +5148,7 @@ app.get('/admin', (c) => {
                     targetAudienceLines: targetAudienceLines,
                     steps: steps,
                     supplyInfo: supplyInfo,
+                    supplyInfoImage: supplyInfoImageValue && supplyInfoImageValue !== 'undefined' ? supplyInfoImageValue : '',
                     details: details
                 };
 
@@ -6234,6 +6423,10 @@ app.get('/', (c) => {
                 console.warn('Failed to parse extended_data:', e);
               }
               
+              // Debug: Log supplyInfoImage
+              console.log('🖼️ Supply Info Image URL:', extendedData.supplyInfoImage);
+              console.log('📊 Supply Info Data:', extendedData.supplyInfo);
+              
               const dday = calculateDDay(property.deadline);
               const margin = formatMargin(property.expected_margin, property.margin_rate);
               
@@ -6357,6 +6550,17 @@ app.get('/', (c) => {
                   \${extendedData.supplyInfo && extendedData.supplyInfo.length > 0 ? \`
                     <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
                       <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">공급 세대 정보</h3>
+                      \${extendedData.supplyInfoImage && extendedData.supplyInfoImage !== 'undefined' && extendedData.supplyInfoImage !== '' ? \`
+                        <div class="mb-4 bg-white p-2 rounded-lg border border-gray-200">
+                          <img 
+                            src="\${extendedData.supplyInfoImage}" 
+                            alt="공급 세대 정보" 
+                            class="w-full rounded-lg shadow-sm" 
+                            style="max-height: 600px; object-fit: contain;"
+                            onerror="console.error('Image load failed:', this.src); this.parentElement.innerHTML='<p class=\\'text-sm text-red-600 p-2\\'>이미지를 불러올 수 없습니다.</p>';"
+                            onload="console.log('✅ Image loaded successfully:', this.src)">
+                        </div>
+                      \` : ''}
                       <div class="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
                         <table class="w-full text-xs sm:text-sm">
                           <thead class="bg-white">
