@@ -682,10 +682,20 @@ app.get('/api/properties', async (c) => {
     const properties = result.results.map((prop: any) => {
       let parsedTags = []
       try {
-        // tags는 쉼표로 구분된 문자열 (예: "📦 줍줍분양,🏙️ 세종,💰 3억대")
-        parsedTags = typeof prop.tags === 'string' ? prop.tags.split(',').map((t: string) => t.trim()) : (prop.tags || [])
+        if (typeof prop.tags === 'string') {
+          // JSON 배열 형식인 경우 파싱
+          if (prop.tags.startsWith('[')) {
+            parsedTags = JSON.parse(prop.tags)
+          } else {
+            // 쉼표로 구분된 문자열
+            parsedTags = prop.tags.split(',').map((t: string) => t.trim()).filter(t => t)
+          }
+        } else {
+          parsedTags = prop.tags || []
+        }
       } catch (e) {
         console.warn('Failed to parse tags:', e)
+        parsedTags = []
       }
       
       return {
@@ -5415,7 +5425,7 @@ app.get('/admin', (c) => {
                     sale_price_min: salePriceMin,
                     sale_price_max: salePriceMax,
                     description: details.features || '',
-                    tags: JSON.stringify(tags),
+                    tags: tags.join(', '),
                     extended_data: JSON.stringify(extendedData),
                     status: 'active',
                     ...tradePriceData
