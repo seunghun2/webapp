@@ -4774,25 +4774,22 @@ app.get('/admin', (c) => {
                         
                         const row = document.createElement('tr');
                         row.className = 'hover:bg-gray-50';
-                        row.innerHTML = `
-                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-900">#\${property.id}</td>
-                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium text-gray-900">\${property.title}</td>
-                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-600 hidden sm:table-cell">\${property.location}</td>
-                            <td class="px-3 sm:px-6 py-3 sm:py-4">
-                                <span class="px-2 py-1 text-xs font-medium rounded-full \${typeColors[property.type] || 'bg-gray-100 text-gray-800'}">
-                                    \${typeLabels[property.type] || property.type}
-                                </span>
-                            </td>
-                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-600 hidden md:table-cell">\${deletedAt}</td>
-                            <td class="px-3 sm:px-6 py-3 sm:py-4">
-                                <div class="flex gap-2">
-                                    <button onclick="restoreProperty(\${property.id})" 
-                                            class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">
-                                        <i class="fas fa-trash-restore mr-1"></i>복원
-                                    </button>
-                                </div>
-                            </td>
-                        `;
+                        row.innerHTML = '<td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-900">#' + property.id + '<' + '/td>' +
+                            '<td class="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium text-gray-900">' + property.title + '<' + '/td>' +
+                            '<td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-600 hidden sm:table-cell">' + property.location + '<' + '/td>' +
+                            '<td class="px-3 sm:px-6 py-3 sm:py-4">' +
+                                '<span class="px-2 py-1 text-xs font-medium rounded-full ' + (typeColors[property.type] || 'bg-gray-100 text-gray-800') + '">' +
+                                    (typeLabels[property.type] || property.type) +
+                                '<' + '/span>' +
+                            '<' + '/td>' +
+                            '<td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-600 hidden md:table-cell">' + deletedAt + '<' + '/td>' +
+                            '<td class="px-3 sm:px-6 py-3 sm:py-4">' +
+                                '<div class="flex gap-2">' +
+                                    '<button onclick="restoreProperty(' + property.id + ')" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">' +
+                                        '<i class="fas fa-trash-restore mr-1"><' + '/i>복원' +
+                                    '<' + '/button>' +
+                                '<' + '/div>' +
+                            '<' + '/td>';
                         tableBody.appendChild(row);
                     });
                 } catch (error) {
@@ -5870,65 +5867,6 @@ app.get('/admin', (c) => {
                 } catch (error) {
                     console.error('Failed to delete:', error);
                     alert('삭제 실패');
-                }
-            }
-
-            // Load deleted properties
-            async function loadDeletedProperties() {
-                try {
-                    const response = await axios.get('/api/properties/deleted');
-                    const properties = response.data;
-                    
-                    const tbody = document.getElementById('deletedPropertiesTable');
-                    const noDataDiv = document.getElementById('noDeletedProperties');
-                    
-                    if (properties.length === 0) {
-                        tbody.innerHTML = '';
-                        noDataDiv.classList.remove('hidden');
-                    } else {
-                        noDataDiv.classList.add('hidden');
-                        tbody.innerHTML = properties.map(p => \`
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 text-sm text-gray-900">\${p.id}</td>
-                                <td class="px-6 py-4 text-sm font-medium text-gray-900">\${p.title}</td>
-                                <td class="px-6 py-4 text-sm text-gray-600 hidden sm:table-cell">\${p.location || '-'}</td>
-                                <td class="px-6 py-4 text-sm">
-                                    <span class="px-2 py-1 text-xs font-medium rounded \${
-                                        p.type === 'rental' ? 'bg-blue-100 text-blue-700' :
-                                        p.type === 'unsold' ? 'bg-orange-100 text-orange-700' :
-                                        'bg-green-100 text-green-700'
-                                    }">\${
-                                        p.type === 'rental' ? '임대' : p.type === 'unsold' ? '줍줍' : '청약'
-                                    }</span>
-                                </td>
-                                <td class="px-6 py-4 text-sm text-gray-600 hidden md:table-cell">\${
-                                    p.deleted_at ? new Date(p.deleted_at).toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\\. /g, '-').replace('.', '') : '-'
-                                }</td>
-                                <td class="px-6 py-4 text-sm">
-                                    <button onclick="restoreProperty(\${p.id})" class="text-green-600 hover:text-green-800 mr-3">
-                                        <i class="fas fa-undo"></i> 복원
-                                    </button>
-                                </td>
-                            </tr>
-                        \`).join('');
-                    }
-                } catch (error) {
-                    console.error('Failed to load deleted properties:', error);
-                    alert('삭제된 매물 로드 실패');
-                }
-            }
-            
-            // Restore property
-            async function restoreProperty(id) {
-                if (!confirm('이 매물을 복원하시겠습니까?')) return;
-                
-                try {
-                    await axios.post(\`/api/properties/\${id}/restore\`);
-                    alert('복원되었습니다');
-                    loadDeletedProperties();
-                } catch (error) {
-                    console.error('Failed to restore property:', error);
-                    alert('복원 실패');
                 }
             }
 

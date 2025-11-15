@@ -1,0 +1,2 @@
+INSERT INTO properties (id, type, title, location, status, deadline, price, households, tags, description, area_type, constructor, full_address, extended_data, price_label, created_at, updated_at)
+VALUES (247, 'rental', '군산나운4', '군산시', 'active', '2025-11-26', '207만원~323만원', '30', '["영구임대","군산나운4","예비입주자","리모델링","LH","전북"]', '영구임대주택, 26.37㎡ 구성, 복도식/중앙난방, 1993년 5월 입주 개시', '26.37A, 26.37B', '-', '전북특별자치도 군산시 문화로 36, (군산나운4단지)', '{"supplyType":"영구임대주택"}', '임대보증금', '2025-11-15 06:12:41', '2025-11-15 06:12:41');
