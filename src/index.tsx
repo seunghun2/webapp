@@ -3003,6 +3003,104 @@ app.post('/api/admin/fetch-trade-price', async (c) => {
   }
 })
 
+// GitHub Actions - Trigger Trade Price Collection
+app.post('/api/admin/trigger-trade-price-collection', async (c) => {
+  try {
+    const GITHUB_TOKEN = c.env.GITHUB_TOKEN
+    const GITHUB_OWNER = c.env.GITHUB_OWNER || 'seunghun2'
+    const GITHUB_REPO = c.env.GITHUB_REPO || 'webapp'
+    
+    if (!GITHUB_TOKEN) {
+      return c.json({
+        success: false,
+        error: 'GitHub Token이 설정되지 않았습니다. .dev.vars 파일에 GITHUB_TOKEN을 추가해주세요.'
+      }, 400)
+    }
+    
+    // GitHub Actions workflow dispatch
+    const response = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/fetch-trade-prices.yml/dispatches`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ref: 'main' // branch name
+        })
+      }
+    )
+    
+    if (response.status === 204) {
+      return c.json({
+        success: true,
+        message: '실거래가 수집이 시작되었습니다. GitHub Actions에서 진행 상황을 확인하세요.',
+        githubUrl: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/actions`
+      })
+    } else {
+      const errorText = await response.text()
+      return c.json({
+        success: false,
+        error: 'GitHub Actions 트리거 실패',
+        details: errorText
+      }, response.status)
+    }
+  } catch (error) {
+    console.error('GitHub Actions Trigger Error:', error)
+    return c.json({
+      success: false,
+      error: error.message || 'GitHub Actions 트리거 중 오류가 발생했습니다.'
+    }, 500)
+  }
+})
+
+// Get Trade Price Stats
+app.get('/api/admin/trade-price-stats', async (c) => {
+  try {
+    const { DB } = c.env
+    
+    // 총 거래 건수
+    const totalResult = await DB.prepare(`
+      SELECT COUNT(*) as total FROM trade_prices
+    `).first()
+    
+    // 지역별 건수
+    const regionResult = await DB.prepare(`
+      SELECT sigungu_name, COUNT(*) as count 
+      FROM trade_prices 
+      GROUP BY sigungu_name
+      ORDER BY count DESC
+    `).all()
+    
+    // 최신 거래 일자
+    const latestResult = await DB.prepare(`
+      SELECT deal_year, deal_month, deal_day
+      FROM trade_prices
+      ORDER BY deal_year DESC, deal_month DESC, deal_day DESC
+      LIMIT 1
+    `).first()
+    
+    return c.json({
+      success: true,
+      stats: {
+        total: totalResult?.total || 0,
+        regions: regionResult?.results || [],
+        latestDate: latestResult ? 
+          `${latestResult.deal_year}-${String(latestResult.deal_month).padStart(2, '0')}-${String(latestResult.deal_day).padStart(2, '0')}` 
+          : null
+      }
+    })
+  } catch (error) {
+    console.error('Trade Price Stats Error:', error)
+    return c.json({
+      success: false,
+      error: error.message
+    }, 500)
+  }
+})
+
 // Admin login page
 app.get('/admin/login', (c) => {
   return c.html(`
@@ -3309,7 +3407,7 @@ app.get('/admin', (c) => {
                 <!-- Quick Actions -->
                 <div class="bg-white rounded-xl shadow-sm p-6 mb-8 border border-gray-100">
                     <h3 class="text-lg font-bold text-gray-900 mb-4">빠른 작업</h3>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                         <button onclick="openAddModal()" class="flex flex-col items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-all">
                             <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                                 <i class="fas fa-plus text-blue-600 text-xl"></i>
@@ -3321,6 +3419,12 @@ app.get('/admin', (c) => {
                                 <i class="fas fa-list text-green-600 text-xl"></i>
                             </div>
                             <span class="text-sm font-medium text-gray-700">매물 목록</span>
+                        </button>
+                        <button onclick="triggerTradePriceCollection()" class="flex flex-col items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 hover:border-red-500 hover:bg-red-50 transition-all">
+                            <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-sync-alt text-red-600 text-xl"></i>
+                            </div>
+                            <span class="text-sm font-medium text-gray-700">실시간 수집</span>
                         </button>
                         <button onclick="showSection('statistics')" class="flex flex-col items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 hover:border-purple-500 hover:bg-purple-50 transition-all">
                             <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
@@ -3334,6 +3438,30 @@ app.get('/admin', (c) => {
                             </div>
                             <span class="text-sm font-medium text-gray-700">데이터 내보내기</span>
                         </button>
+                    </div>
+                </div>
+                
+                <!-- Trade Price Stats Card -->
+                <div class="bg-white rounded-xl shadow-sm p-6 mb-8 border border-gray-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-gray-900">실거래가 데이터 현황</h3>
+                        <button onclick="loadTradePriceStats()" class="text-sm text-blue-600 hover:text-blue-800">
+                            <i class="fas fa-refresh mr-1"></i>새로고침
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="p-4 bg-blue-50 rounded-lg">
+                            <div class="text-sm text-gray-600 mb-1">총 거래 건수</div>
+                            <div class="text-2xl font-bold text-gray-900" id="tradePriceTotal">-</div>
+                        </div>
+                        <div class="p-4 bg-green-50 rounded-lg">
+                            <div class="text-sm text-gray-600 mb-1">수집 지역</div>
+                            <div class="text-2xl font-bold text-gray-900" id="tradePriceRegions">-</div>
+                        </div>
+                        <div class="p-4 bg-purple-50 rounded-lg">
+                            <div class="text-sm text-gray-600 mb-1">최신 거래일</div>
+                            <div class="text-2xl font-bold text-gray-900" id="tradePriceLatest">-</div>
+                        </div>
                     </div>
                 </div>
                 
@@ -4247,9 +4375,53 @@ app.get('/admin', (c) => {
                 alert('데이터 내보내기 기능은 준비 중입니다.');
             }
             
+            // Trigger Trade Price Collection
+            async function triggerTradePriceCollection() {
+                if (!confirm('실거래가 데이터 수집을 시작하시겠습니까?\\n\\n수집 범위: 2022년 12월 ~ 2025년 11월 (3년)\\n예상 시간: 약 5-10분')) {
+                    return;
+                }
+                
+                try {
+                    const response = await axios.post('/api/admin/trigger-trade-price-collection');
+                    
+                    if (response.data.success) {
+                        alert('✅ ' + response.data.message + '\\n\\nGitHub Actions에서 진행 상황을 확인하세요.');
+                        window.open(response.data.githubUrl, '_blank');
+                        // Reload stats after 2 minutes
+                        setTimeout(loadTradePriceStats, 120000);
+                    } else {
+                        alert('❌ ' + response.data.error);
+                    }
+                } catch (error) {
+                    console.error('Trade Price Collection Error:', error);
+                    alert('❌ 실거래가 수집 시작 실패: ' + (error.response?.data?.error || error.message));
+                }
+            }
+            
+            // Load Trade Price Stats
+            async function loadTradePriceStats() {
+                try {
+                    const response = await axios.get('/api/admin/trade-price-stats');
+                    
+                    if (response.data.success) {
+                        const stats = response.data.stats;
+                        
+                        document.getElementById('tradePriceTotal').textContent = stats.total.toLocaleString() + '건';
+                        document.getElementById('tradePriceRegions').textContent = stats.regions.length + '개 지역';
+                        document.getElementById('tradePriceLatest').textContent = stats.latestDate || '-';
+                    }
+                } catch (error) {
+                    console.error('Trade Price Stats Error:', error);
+                    document.getElementById('tradePriceTotal').textContent = '오류';
+                    document.getElementById('tradePriceRegions').textContent = '오류';
+                    document.getElementById('tradePriceLatest').textContent = '오류';
+                }
+            }
+            
             // Initialize dashboard on load
             window.addEventListener('DOMContentLoaded', () => {
                 loadDashboardStats();
+                loadTradePriceStats();
             });
 
             let currentTab = 'all';

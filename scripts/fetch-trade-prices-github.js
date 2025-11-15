@@ -20,16 +20,27 @@ const REGIONS = [
   { name: '세종특별자치시', code: '36110' },
 ];
 
-// 날짜 계산 (최근 3개월: 2024-09 ~ 2024-11)
+// 날짜 계산 (최근 3년: 2022-11 ~ 2025-11)
 function getDateRange() {
   const dates = [];
   
-  // 2024년 9월부터 11월까지 (3개월)
-  for (let month = 9; month <= 11; month++) {
-    dates.push({
-      year: 2024,
-      month: String(month).padStart(2, '0')
-    });
+  // 2022년 12월 ~ 2025년 11월 (3년)
+  // 2022년 12월
+  dates.push({ year: 2022, month: '12' });
+  
+  // 2023년 전체
+  for (let month = 1; month <= 12; month++) {
+    dates.push({ year: 2023, month: String(month).padStart(2, '0') });
+  }
+  
+  // 2024년 전체
+  for (let month = 1; month <= 12; month++) {
+    dates.push({ year: 2024, month: String(month).padStart(2, '0') });
+  }
+  
+  // 2025년 1월 ~ 11월
+  for (let month = 1; month <= 11; month++) {
+    dates.push({ year: 2025, month: String(month).padStart(2, '0') });
   }
   
   return dates;
