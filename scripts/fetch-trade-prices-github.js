@@ -127,17 +127,25 @@ async function main() {
     return;
   }
   
-  // SQL 생성 (중복 방지를 위해 INSERT OR IGNORE 사용)
-  const values = allItems.map(item => 
-    `('${item.sigungu_code}', '${item.apt_name.replace(/'/g, "''")}', ${item.deal_amount}, ${item.deal_year}, ${item.deal_month}, ${item.deal_day}, ${item.area}, ${item.floor}, '${item.dong.replace(/'/g, "''")}', '${item.jibun.replace(/'/g, "''")}')`
-  ).join(',\n  ');
+  // SQL 생성 (100건씩 나눠서 INSERT)
+  const BATCH_SIZE = 100;
+  const batches = [];
+  
+  for (let i = 0; i < allItems.length; i += BATCH_SIZE) {
+    const batch = allItems.slice(i, i + BATCH_SIZE);
+    const values = batch.map(item => 
+      `('${item.sigungu_code}', '${item.apt_name.replace(/'/g, "''")}', ${item.deal_amount}, ${item.deal_year}, ${item.deal_month}, ${item.deal_day}, ${item.area}, ${item.floor}, '${item.dong.replace(/'/g, "''")}', '${item.jibun.replace(/'/g, "''")}')`
+    ).join(',\n  ');
+    
+    batches.push(`INSERT OR IGNORE INTO trade_prices (sigungu_code, apt_name, deal_amount, deal_year, deal_month, deal_day, area, floor, dong, jibun) VALUES\n  ${values};`);
+  }
   
   const sql = `-- 실거래가 데이터 삽입 (중복 무시)
 -- 생성일: ${new Date().toISOString()}
 -- 총 건수: ${allItems.length}
+-- 배치 수: ${batches.length}
 
-INSERT OR IGNORE INTO trade_prices (sigungu_code, apt_name, deal_amount, deal_year, deal_month, deal_day, area, floor, dong, jibun) VALUES
-  ${values};
+${batches.join('\n\n')}
 `;
   
   // SQL 파일 저장
