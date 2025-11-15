@@ -55,15 +55,19 @@ async function fetchMOLITData(regionCode, year, month) {
         numOfRows: 999,
       },
       timeout: 30000,
+      responseType: 'text', // 텍스트로 받기
     });
     
-    const xml = response.data;
+    const xml = String(response.data);
     
     // 에러 체크
     if (xml.includes('<resultCode>00</resultCode>')) {
       console.log(`  ✅ API 응답 성공`);
     } else if (xml.includes('SERVICE_KEY_IS_NOT_REGISTERED_ERROR')) {
       console.error(`  ❌ API 키 오류`);
+      return [];
+    } else if (xml.includes('NO_DATA')) {
+      console.log(`  ℹ️  데이터 없음`);
       return [];
     }
     
