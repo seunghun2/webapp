@@ -14,20 +14,18 @@ if (!MOLIT_API_KEY) {
   process.exit(1);
 }
 
-// 지역 코드 매핑
+// 지역 코드 매핑 (테스트: 서울 + 세종만)
 const REGIONS = [
-  { name: '광주광역시 광산구', code: '29200' },
+  { name: '서울특별시 강남구', code: '11680' },
   { name: '세종특별자치시', code: '36110' },
-  { name: '경기도 화성시', code: '41590' },
-  { name: '경기도 평택시', code: '41220' },
 ];
 
-// 날짜 계산 (최근 1년: 2024-01 ~ 2024-11)
+// 날짜 계산 (최근 3개월: 2024-09 ~ 2024-11)
 function getDateRange() {
   const dates = [];
   
-  // 2024년 1월부터 11월까지 (11개월)
-  for (let month = 1; month <= 11; month++) {
+  // 2024년 9월부터 11월까지 (3개월)
+  for (let month = 9; month <= 11; month++) {
     dates.push({
       year: 2024,
       month: String(month).padStart(2, '0')
