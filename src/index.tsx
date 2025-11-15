@@ -3327,11 +3327,11 @@ app.post('/api/admin/search-apartments', async (c) => {
 
     // Format apartment list
     const apartments = result.results.map(apt => {
-      // Get most recent price for this apartment
+      // Get most recent price for this apartment and convert to 억 unit
       return {
         name: apt.apt_name,
         count: apt.trade_count,
-        recentPrice: apt.recent_price,
+        recentPrice: (apt.recent_price / 100000000).toFixed(2), // Convert to 억 and format
         recentDate: `${apt.recent_year}.${String(apt.recent_month).padStart(2, '0')}`
       }
     })
@@ -4282,28 +4282,28 @@ app.get('/admin', (c) => {
                             <div id="tradePriceSection" class="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg" style="display: none;">
                                 <div class="flex items-center justify-between mb-3">
                                     <h4 class="text-sm font-bold text-gray-900">📊 실거래가 정보 (줍줍분양 전용)</h4>
-                                    <div class="flex gap-2">
-                                        <button type="button" onclick="openApartmentSearch()" class="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700">
-                                            <i class="fas fa-search mr-1"></i> 아파트 검색
-                                        </button>
-                                        <button type="button" onclick="fetchTradePrice()" id="fetchTradePriceBtn" class="px-3 py-1 bg-orange-600 text-white text-xs rounded-lg hover:bg-orange-700">
-                                            <i class="fas fa-sync-alt mr-1"></i> 실거래가 조회
-                                        </button>
-                                    </div>
+                                    <button type="button" onclick="fetchTradePrice()" id="fetchTradePriceBtn" class="px-3 py-1 bg-orange-600 text-white text-xs rounded-lg hover:bg-orange-700">
+                                        <i class="fas fa-sync-alt mr-1"></i> 실거래가 조회
+                                    </button>
                                 </div>
                                 
-                                <!-- 아파트명 입력 필드 -->
+                                <!-- 아파트명 입력 필드 (검색 아이콘 포함) -->
                                 <div class="mb-3">
                                     <label class="block text-xs font-medium text-gray-600 mb-1">아파트명</label>
-                                    <input type="text" id="apartmentName" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="예) 아크로힐스논현" readonly>
-                                    <p class="text-xs text-gray-500 mt-1">💡 '아파트 검색' 버튼을 클릭해서 선택하세요</p>
+                                    <div class="relative">
+                                        <input type="text" id="apartmentName" class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg text-sm" placeholder="예) 아크로힐스논현" readonly>
+                                        <button type="button" onclick="openApartmentSearch()" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-blue-600 hover:text-blue-700 transition-colors">
+                                            <i class="fas fa-search text-lg"></i>
+                                        </button>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-1">💡 검색 아이콘(<i class="fas fa-search text-blue-600"></i>)을 클릭해서 아파트를 선택하세요</p>
                                 </div>
                                 
                                 <div id="tradePriceResult" class="hidden space-y-3">
                                     <div class="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label class="block text-xs font-medium text-gray-600 mb-1">최근 실거래가</label>
-                                            <input type="number" id="recentTradePrice" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="3.5">
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">최근 실거래가 (억원)</label>
+                                            <input type="number" id="recentTradePrice" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="24.8">
                                         </div>
                                         <div>
                                             <label class="block text-xs font-medium text-gray-600 mb-1">거래 년월</label>
@@ -4312,12 +4312,12 @@ app.get('/admin', (c) => {
                                     </div>
                                     <div class="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label class="block text-xs font-medium text-gray-600 mb-1">기존 분양가</label>
-                                            <input type="number" id="originalPrice" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="3.0">
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">기존 분양가 (억원)</label>
+                                            <input type="number" id="originalPrice" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="20.0">
                                         </div>
                                         <div>
-                                            <label class="block text-xs font-medium text-gray-600 mb-1">분양가 날짜</label>
-                                            <input type="text" id="salePriceDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="2023.5">
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">분양 날짜</label>
+                                            <input type="text" id="salePriceDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="2023.05">
                                         </div>
                                     </div>
                                 </div>
@@ -5249,10 +5249,20 @@ app.get('/admin', (c) => {
                                 </button>
                             </div>
                             
-                            <div class="mb-4">
-                                <p class="text-sm text-gray-600 mb-2">주소: <strong>\${address}</strong></p>
-                                <button onclick="searchApartments()" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                                    <i class="fas fa-search mr-2"></i>이 지역의 아파트 검색
+                            <div class="mb-4 space-y-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">검색할 주소</label>
+                                    <input 
+                                        type="text" 
+                                        id="modalSearchAddress" 
+                                        value="\${address}"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="예) 서울특별시 강남구 또는 서초구"
+                                    >
+                                    <p class="text-xs text-gray-500 mt-1">💡 다른 지역을 검색하려면 주소를 직접 수정하세요</p>
+                                </div>
+                                <button onclick="searchApartmentsFromModal()" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-search mr-2"></i>아파트 검색
                                 </button>
                             </div>
                             
@@ -5274,9 +5284,15 @@ app.get('/admin', (c) => {
                 document.body.appendChild(modal);
             }
             
-            // Search apartments in the address
-            async function searchApartments() {
-                const address = document.getElementById('fullAddress').value;
+            // Search apartments from modal (using modal's address input)
+            async function searchApartmentsFromModal() {
+                const address = document.getElementById('modalSearchAddress').value;
+                
+                if (!address || address.trim() === '') {
+                    alert('검색할 주소를 입력해주세요.');
+                    return;
+                }
+                
                 const loadingDiv = document.getElementById('apartmentSearchLoading');
                 const resultDiv = document.getElementById('apartmentSearchResult');
                 const messageDiv = document.getElementById('apartmentSearchMessage');
@@ -5381,6 +5397,7 @@ app.get('/admin', (c) => {
             async function fetchTradePrice() {
                 const address = document.getElementById('fullAddress').value;
                 const exclusiveArea = document.getElementById('detail_exclusiveArea')?.value;
+                const apartmentName = document.getElementById('apartmentName')?.value;
                 
                 if (!address) {
                     alert('주소를 먼저 입력해주세요.');
@@ -5392,16 +5409,23 @@ app.get('/admin', (c) => {
                 const messageDiv = document.getElementById('tradePriceMessage');
                 const btn = document.getElementById('fetchTradePriceBtn');
 
+                // Prevent duplicate calls
+                if (btn.disabled) {
+                    return;
+                }
+
                 // Show loading
                 loadingDiv.classList.remove('hidden');
                 resultDiv.classList.add('hidden');
                 messageDiv.classList.add('hidden');
                 btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> 조회 중...';
 
                 try {
                     const response = await axios.post('/api/admin/fetch-trade-price', {
                         address: address,
-                        exclusiveArea: exclusiveArea ? parseFloat(exclusiveArea) : null
+                        exclusiveArea: exclusiveArea ? parseFloat(exclusiveArea) : null,
+                        apartmentName: apartmentName || null
                     });
 
                     if (response.data.success && response.data.data.found) {
@@ -5427,6 +5451,7 @@ app.get('/admin', (c) => {
                 } finally {
                     loadingDiv.classList.add('hidden');
                     btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i> 실거래가 조회';
                 }
             }
 
