@@ -2991,7 +2991,19 @@ app.post('/api/admin/fetch-trade-price', async (c) => {
         dealDay: latestTrade.dealDay,
         location: latestTrade.dong && latestTrade.jibun ? `${latestTrade.dong} ${latestTrade.jibun}` : '-',
         totalResults: items.length,
-        dataSource: 'D1 Database (GitHub Actions auto-sync)'
+        dataSource: 'D1 Database (GitHub Actions auto-sync)',
+        trades: items.slice(0, 10).map(item => ({
+          apartmentName: item.apartmentName,
+          exclusiveArea: item.exclusiveArea,
+          dealAmount: item.dealAmount / 100000000,
+          dealYear: item.dealYear,
+          dealMonth: item.dealMonth,
+          dealDay: item.dealDay,
+          floor: item.floor,
+          dong: item.dong || '-',
+          jibun: item.jibun || '-',
+          location: item.dong && item.jibun ? `${item.dong} ${item.jibun}` : '-'
+        }))
       }
     })
   } catch (error) {
@@ -3474,40 +3486,65 @@ app.get('/admin', (c) => {
                                 <i class="fas fa-vial text-white text-xl"></i>
                             </div>
                             <div>
-                                <h3 class="text-lg font-bold text-gray-900">서울 강남 실거래가 테스트</h3>
-                                <p class="text-sm text-gray-600">실시간 조회 기능 테스트</p>
+                                <h3 class="text-lg font-bold text-gray-900">서울 강남 실거래가 실시간 조회</h3>
+                                <p class="text-sm text-gray-600">D1 데이터베이스 실시간 조회 테스트</p>
                             </div>
                         </div>
                         <button onclick="testSeoulTradePrice()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-all">
-                            <i class="fas fa-play mr-2"></i>테스트 실행
+                            <i class="fas fa-search mr-2"></i>실시간 조회
                         </button>
                     </div>
                     
+                    <!-- Summary Stats -->
                     <div id="seoulTestResult" class="hidden mt-4">
-                        <div class="bg-white rounded-lg p-4 space-y-3">
-                            <div class="flex items-center justify-between pb-3 border-b">
-                                <span class="text-sm font-medium text-gray-600">아파트명</span>
-                                <span class="text-sm font-bold text-gray-900" id="seoulAptName">-</span>
+                        <div class="bg-white rounded-lg p-4 mb-4">
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div class="text-center">
+                                    <div class="text-xs text-gray-500 mb-1">아파트명</div>
+                                    <div class="text-sm font-bold text-gray-900" id="seoulAptName">-</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-xs text-gray-500 mb-1">전용면적</div>
+                                    <div class="text-sm font-bold text-gray-900" id="seoulArea">-</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-xs text-gray-500 mb-1">최근 실거래가</div>
+                                    <div class="text-lg font-bold text-blue-600" id="seoulPrice">-</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-xs text-gray-500 mb-1">총 거래 건수</div>
+                                    <div class="text-sm font-bold text-green-600" id="seoulTotal">-</div>
+                                </div>
                             </div>
-                            <div class="flex items-center justify-between pb-3 border-b">
-                                <span class="text-sm font-medium text-gray-600">전용면적</span>
-                                <span class="text-sm font-bold text-gray-900" id="seoulArea">-</span>
+                        </div>
+                        
+                        <!-- Trade Price Table -->
+                        <div class="bg-white rounded-lg overflow-hidden">
+                            <div class="px-4 py-3 bg-gray-50 border-b">
+                                <h4 class="text-sm font-bold text-gray-900">
+                                    <i class="fas fa-list mr-2"></i>실거래 내역 (최근 10건)
+                                </h4>
                             </div>
-                            <div class="flex items-center justify-between pb-3 border-b">
-                                <span class="text-sm font-medium text-gray-600">최근 실거래가</span>
-                                <span class="text-lg font-bold text-blue-600" id="seoulPrice">-</span>
-                            </div>
-                            <div class="flex items-center justify-between pb-3 border-b">
-                                <span class="text-sm font-medium text-gray-600">거래일</span>
-                                <span class="text-sm font-bold text-gray-900" id="seoulDate">-</span>
-                            </div>
-                            <div class="flex items-center justify-between pb-3 border-b">
-                                <span class="text-sm font-medium text-gray-600">위치</span>
-                                <span class="text-sm font-bold text-gray-900" id="seoulLocation">-</span>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium text-gray-600">총 거래 건수</span>
-                                <span class="text-sm font-bold text-green-600" id="seoulTotal">-</span>
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-4 py-2 text-xs font-medium text-gray-500 text-left">거래일</th>
+                                            <th class="px-4 py-2 text-xs font-medium text-gray-500 text-left">아파트명</th>
+                                            <th class="px-4 py-2 text-xs font-medium text-gray-500 text-right">면적(㎡)</th>
+                                            <th class="px-4 py-2 text-xs font-medium text-gray-500 text-right">거래가(억)</th>
+                                            <th class="px-4 py-2 text-xs font-medium text-gray-500 text-center">층</th>
+                                            <th class="px-4 py-2 text-xs font-medium text-gray-500 text-left">위치</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="seoulTradeTable" class="divide-y divide-gray-200">
+                                        <tr>
+                                            <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500">
+                                                조회 버튼을 클릭하세요
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -4469,6 +4506,7 @@ app.get('/admin', (c) => {
             // Test Seoul Trade Price
             async function testSeoulTradePrice() {
                 const resultDiv = document.getElementById('seoulTestResult');
+                const tableBody = document.getElementById('seoulTradeTable');
                 resultDiv.classList.add('hidden');
                 
                 try {
@@ -4480,12 +4518,35 @@ app.get('/admin', (c) => {
                     if (response.data.success && response.data.data.found) {
                         const data = response.data.data;
                         
+                        // Update summary stats
                         document.getElementById('seoulAptName').textContent = data.apartmentName;
                         document.getElementById('seoulArea').textContent = data.exclusiveArea + '㎡';
-                        document.getElementById('seoulPrice').textContent = data.recentTradePrice + '억원';
-                        document.getElementById('seoulDate').textContent = data.recentTradeDate + '.' + String(data.dealDay).padStart(2, '0');
-                        document.getElementById('seoulLocation').textContent = data.location;
+                        document.getElementById('seoulPrice').textContent = data.recentTradePrice.toFixed(1) + '억원';
                         document.getElementById('seoulTotal').textContent = data.totalResults + '건';
+                        
+                        // Update table
+                        if (data.trades && data.trades.length > 0) {
+                            tableBody.innerHTML = data.trades.map(trade => \`
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 text-sm text-gray-900">
+                                        \${trade.dealYear}.\${String(trade.dealMonth).padStart(2, '0')}.\${String(trade.dealDay).padStart(2, '0')}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm font-medium text-gray-900">\${trade.apartmentName}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 text-right">\${trade.exclusiveArea.toFixed(2)}</td>
+                                    <td class="px-4 py-3 text-sm font-bold text-blue-600 text-right">\${trade.dealAmount.toFixed(1)}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 text-center">\${trade.floor || '-'}층</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">\${trade.location}</td>
+                                </tr>
+                            \`).join('');
+                        } else {
+                            tableBody.innerHTML = \`
+                                <tr>
+                                    <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500">
+                                        거래 내역이 없습니다
+                                    </td>
+                                </tr>
+                            \`;
+                        }
                         
                         resultDiv.classList.remove('hidden');
                         
