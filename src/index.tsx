@@ -2935,27 +2935,50 @@ app.post('/api/admin/fetch-trade-price', async (c) => {
 
     console.log('D1 실거래가 조회:', sigunguCode, exclusiveArea)
 
-    // D1 데이터베이스에서 실거래가 조회 (전용면적 ±5㎡ 범위)
-    const areaMin = exclusiveArea - 5
-    const areaMax = exclusiveArea + 5
+    // D1 데이터베이스에서 실거래가 조회
+    let result
     
-    const result = await DB.prepare(`
-      SELECT 
-        apt_name as apartmentName,
-        area as exclusiveArea,
-        deal_amount as dealAmount,
-        deal_year as dealYear,
-        deal_month as dealMonth,
-        deal_day as dealDay,
-        floor,
-        dong,
-        jibun
-      FROM trade_prices
-      WHERE sigungu_code = ?
-        AND area >= ? AND area <= ?
-      ORDER BY deal_year DESC, deal_month DESC, deal_day DESC
-      LIMIT 100
-    `).bind(sigunguCode, areaMin, areaMax).all()
+    if (exclusiveArea && !isNaN(exclusiveArea)) {
+      // 전용면적이 있으면 ±5㎡ 범위로 조회
+      const areaMin = exclusiveArea - 5
+      const areaMax = exclusiveArea + 5
+      
+      result = await DB.prepare(`
+        SELECT 
+          apt_name as apartmentName,
+          area as exclusiveArea,
+          deal_amount as dealAmount,
+          deal_year as dealYear,
+          deal_month as dealMonth,
+          deal_day as dealDay,
+          floor,
+          dong,
+          jibun
+        FROM trade_prices
+        WHERE sigungu_code = ?
+          AND area >= ? AND area <= ?
+        ORDER BY deal_year DESC, deal_month DESC, deal_day DESC
+        LIMIT 100
+      `).bind(sigunguCode, areaMin, areaMax).all()
+    } else {
+      // 전용면적이 없으면 해당 지역 전체 조회
+      result = await DB.prepare(`
+        SELECT 
+          apt_name as apartmentName,
+          area as exclusiveArea,
+          deal_amount as dealAmount,
+          deal_year as dealYear,
+          deal_month as dealMonth,
+          deal_day as dealDay,
+          floor,
+          dong,
+          jibun
+        FROM trade_prices
+        WHERE sigungu_code = ?
+        ORDER BY deal_year DESC, deal_month DESC, deal_day DESC
+        LIMIT 100
+      `).bind(sigunguCode).all()
+    }
 
     const items = result.results || []
 
@@ -7088,6 +7111,77 @@ app.get('/', (c) => {
                     </div>
                   </div>
                   
+                  <!-- 실거래가 조회 (줍줍분양 전용) -->
+                  \${property.type === 'unsold' ? \`
+                    <div class="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg p-4 sm:p-5 border-2 border-orange-200">
+                      <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm sm:text-base font-bold text-gray-900">
+                          <i class="fas fa-chart-line text-orange-600 mr-2"></i>
+                          실거래가 정보 (줍줍분양 전용)
+                        </h3>
+                        <button 
+                          onclick="fetchDetailTradePrice(\${property.id}, '\${property.full_address || property.location}')" 
+                          id="fetchDetailTradePriceBtn" 
+                          class="px-3 py-1.5 bg-orange-600 text-white text-xs font-medium rounded-lg hover:bg-orange-700 active:bg-orange-800 transition-colors"
+                        >
+                          <i class="fas fa-sync-alt mr-1"></i> 실거래가 조회
+                        </button>
+                      </div>
+                      
+                      <div id="detailTradePriceLoading" class="hidden text-center py-6">
+                        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-600 mx-auto"></div>
+                        <p class="text-sm text-gray-600 mt-3">실거래가 조회 중...</p>
+                      </div>
+                      
+                      <div id="detailTradePriceResult" class="hidden">
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                          <div class="bg-white rounded-lg p-3 shadow-sm">
+                            <div class="text-xs text-gray-500 mb-1">아파트명</div>
+                            <div id="detailAptName" class="text-sm font-bold text-gray-900">-</div>
+                          </div>
+                          <div class="bg-white rounded-lg p-3 shadow-sm">
+                            <div class="text-xs text-gray-500 mb-1">전용면적</div>
+                            <div id="detailArea" class="text-sm font-bold text-gray-900">-</div>
+                          </div>
+                          <div class="bg-white rounded-lg p-3 shadow-sm">
+                            <div class="text-xs text-gray-500 mb-1">최근 실거래가</div>
+                            <div id="detailPrice" class="text-sm font-bold text-orange-600">-</div>
+                          </div>
+                          <div class="bg-white rounded-lg p-3 shadow-sm">
+                            <div class="text-xs text-gray-500 mb-1">총 거래</div>
+                            <div id="detailTotal" class="text-sm font-bold text-gray-900">-</div>
+                          </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg p-3 shadow-sm overflow-x-auto">
+                          <h4 class="text-xs font-bold text-gray-700 mb-2">
+                            <i class="fas fa-list mr-1"></i>최근 거래 내역 (10건)
+                          </h4>
+                          <table class="w-full text-xs">
+                            <thead class="bg-gray-50">
+                              <tr>
+                                <th class="px-2 py-1.5 text-left text-gray-600 font-medium whitespace-nowrap">거래일</th>
+                                <th class="px-2 py-1.5 text-left text-gray-600 font-medium">아파트명</th>
+                                <th class="px-2 py-1.5 text-left text-gray-600 font-medium whitespace-nowrap">면적</th>
+                                <th class="px-2 py-1.5 text-left text-gray-600 font-medium whitespace-nowrap">거래가</th>
+                                <th class="px-2 py-1.5 text-left text-gray-600 font-medium">층</th>
+                                <th class="px-2 py-1.5 text-left text-gray-600 font-medium">위치</th>
+                              </tr>
+                            </thead>
+                            <tbody id="detailTradeTableBody" class="divide-y divide-gray-100">
+                              <!-- 동적으로 채워짐 -->
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      
+                      <div id="detailTradePriceMessage" class="text-xs text-gray-600 mt-2">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        실거래가 조회 버튼을 클릭하면 D1 데이터베이스에서 최근 실거래가를 가져옵니다.
+                      </div>
+                    </div>
+                  \` : ''}
+                  
                   <!-- Supply Info from extended_data -->
                   \${extendedData.supplyInfo && extendedData.supplyInfo.length > 0 ? \`
                     <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
@@ -7623,6 +7717,73 @@ app.get('/', (c) => {
               text.textContent = '더보기';
               icon.classList.remove('fa-chevron-up');
               icon.classList.add('fa-chevron-down');
+            }
+          }
+
+          // Fetch trade price for detail modal
+          async function fetchDetailTradePrice(propertyId, address) {
+            const loadingDiv = document.getElementById('detailTradePriceLoading');
+            const resultDiv = document.getElementById('detailTradePriceResult');
+            const messageDiv = document.getElementById('detailTradePriceMessage');
+            const btn = document.getElementById('fetchDetailTradePriceBtn');
+
+            if (!address) {
+              messageDiv.innerHTML = '<span class="text-yellow-600"><i class="fas fa-exclamation-circle mr-1"></i>주소 정보가 없습니다.</span>';
+              return;
+            }
+
+            // Show loading
+            loadingDiv.classList.remove('hidden');
+            resultDiv.classList.add('hidden');
+            messageDiv.classList.add('hidden');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> 조회 중...';
+
+            try {
+              const response = await axios.post('/api/admin/fetch-trade-price', {
+                address: address,
+                exclusiveArea: null
+              });
+
+              if (response.data.success && response.data.data.found) {
+                const data = response.data.data;
+                
+                // Update summary stats
+                document.getElementById('detailAptName').textContent = data.apartmentName;
+                document.getElementById('detailArea').textContent = data.exclusiveArea.toFixed(2) + '㎡';
+                document.getElementById('detailPrice').textContent = data.recentTradePrice.toFixed(1) + '억원';
+                document.getElementById('detailTotal').textContent = data.totalResults + '건';
+                
+                // Update table with 10 transactions
+                const tableBody = document.getElementById('detailTradeTableBody');
+                tableBody.innerHTML = data.trades.map(trade => \`
+                  <tr class="hover:bg-gray-50">
+                    <td class="px-2 py-2 text-gray-900 whitespace-nowrap">\${trade.dealYear}.\${String(trade.dealMonth).padStart(2, '0')}.\${String(trade.dealDay).padStart(2, '0')}</td>
+                    <td class="px-2 py-2 text-gray-900 text-xs">\${trade.apartmentName}</td>
+                    <td class="px-2 py-2 text-gray-900 whitespace-nowrap">\${trade.exclusiveArea.toFixed(2)}㎡</td>
+                    <td class="px-2 py-2 text-orange-600 font-semibold whitespace-nowrap">\${trade.dealAmount.toFixed(1)}억</td>
+                    <td class="px-2 py-2 text-gray-900 whitespace-nowrap">\${trade.floor || '-'}층</td>
+                    <td class="px-2 py-2 text-gray-900 text-xs">\${trade.location}</td>
+                  </tr>
+                \`).join('');
+                
+                // Show result
+                resultDiv.classList.remove('hidden');
+                messageDiv.innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>실거래가 정보를 가져왔습니다. (총 ' + data.totalResults + '건)</span>';
+                messageDiv.classList.remove('hidden');
+              } else {
+                const message = response.data.data?.message || '실거래가 정보를 찾을 수 없습니다.';
+                messageDiv.innerHTML = '<span class="text-yellow-600"><i class="fas fa-info-circle mr-1"></i>' + message + '</span>';
+                messageDiv.classList.remove('hidden');
+              }
+            } catch (error) {
+              console.error('실거래가 조회 오류:', error);
+              messageDiv.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>오류: ' + (error.response?.data?.error || error.message) + '</span>';
+              messageDiv.classList.remove('hidden');
+            } finally {
+              loadingDiv.classList.add('hidden');
+              btn.disabled = false;
+              btn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i> 실거래가 조회';
             }
           }
 
