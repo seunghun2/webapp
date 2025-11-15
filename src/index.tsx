@@ -650,8 +650,8 @@ app.get('/api/properties', async (c) => {
     const type = c.req.query('type') || 'all'
     const sort = c.req.query('sort') || 'latest'
     
-    // Build query for admin - show all properties including expired
-    let query = "SELECT * FROM properties WHERE 1=1"
+    // Build query for admin - show all properties including expired (excluding soft-deleted)
+    let query = "SELECT * FROM properties WHERE deleted_at IS NULL"
     let params: any[] = []
     
     // Type filter
@@ -2133,7 +2133,8 @@ app.delete('/api/properties/:id', async (c) => {
     const { DB } = c.env
     const id = c.req.param('id')
     
-    await DB.prepare(`DELETE FROM properties WHERE id = ?`).bind(id).run()
+    // 소프트 삭제: deleted_at을 현재 시간으로 설정
+    await DB.prepare(`UPDATE properties SET deleted_at = datetime('now') WHERE id = ?`).bind(id).run()
     
     return c.json({
       success: true,
@@ -2142,6 +2143,66 @@ app.delete('/api/properties/:id', async (c) => {
   } catch (error) {
     console.error('Error deleting property:', error)
     return c.json({ error: 'Failed to delete property' }, 500)
+  }
+})
+
+// Get deleted properties (Admin)
+app.get('/api/properties/deleted', async (c) => {
+  try {
+    const { DB } = c.env
+    
+    const result = await DB.prepare(`
+      SELECT * FROM properties 
+      WHERE deleted_at IS NOT NULL 
+      ORDER BY deleted_at DESC
+    `).all()
+    
+    const properties = result.results.map((prop: any) => {
+      let parsedTags = []
+      try {
+        if (typeof prop.tags === 'string') {
+          if (prop.tags.startsWith('[')) {
+            parsedTags = JSON.parse(prop.tags)
+          } else {
+            parsedTags = prop.tags.split(',').map((t: string) => t.trim()).filter(t => t)
+          }
+        } else {
+          parsedTags = prop.tags || []
+        }
+      } catch (e) {
+        console.warn('Failed to parse tags:', e)
+        parsedTags = []
+      }
+      
+      return {
+        ...prop,
+        tags: parsedTags
+      }
+    })
+    
+    return c.json(properties)
+  } catch (error) {
+    console.error('Error fetching deleted properties:', error)
+    return c.json({ error: 'Failed to fetch deleted properties' }, 500)
+  }
+})
+
+// Restore deleted property (Admin)
+app.post('/api/properties/:id/restore', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    
+    // 복원: deleted_at을 NULL로 설정
+    await DB.prepare(`UPDATE properties SET deleted_at = NULL WHERE id = ?`).bind(id).run()
+    
+    return c.json({
+      success: true,
+      message: 'Property restored successfully'
+    })
+  } catch (error) {
+    console.error('Error restoring property:', error)
+    return c.json({ error: 'Failed to restore property' }, 500)
   }
 })
 
@@ -3458,6 +3519,10 @@ app.get('/admin', (c) => {
                         <i class="fas fa-building text-lg w-5"></i>
                         <span class="sidebar-text">매물 관리</span>
                     </a>
+                    <a href="javascript:void(0)" onclick="showSection('deleted')" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700" data-section="deleted">
+                        <i class="fas fa-trash-restore text-lg w-5"></i>
+                        <span class="sidebar-text">삭제된 매물</span>
+                    </a>
                     <a href="javascript:void(0)" onclick="showSection('statistics')" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700" data-section="statistics">
                         <i class="fas fa-chart-bar text-lg w-5"></i>
                         <span class="sidebar-text">통계</span>
@@ -3758,6 +3823,81 @@ app.get('/admin', (c) => {
                     </table>
                 </div>
             </div>
+            </div>
+
+            <!-- Deleted Properties Section -->
+            <div id="deletedSection" class="section-content p-4 sm:p-6 lg:p-8 hidden">
+                <div class="bg-white rounded-xl shadow-sm mb-6 border border-gray-100 p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900">삭제된 매물</h3>
+                            <p class="text-sm text-gray-500 mt-1">삭제된 매물을 복원하거나 영구 삭제할 수 있습니다</p>
+                        </div>
+                        <button onclick="loadDeletedProperties()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                            <i class="fas fa-sync-alt mr-2"></i>새로고침
+                        </button>
+                    </div>
+                    
+                    <!-- Deleted Properties Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full min-w-[640px]">
+                            <thead class="bg-gray-50 border-b">
+                                <tr>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">단지명</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">지역</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">타입</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">삭제일</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">작업</th>
+                                </tr>
+                            </thead>
+                            <tbody id="deletedPropertiesTable" class="divide-y divide-gray-200">
+                                <!-- Data will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Deleted Properties Section -->
+            <div id="deletedSection" class="section-content p-4 sm:p-6 lg:p-8 hidden">
+                <!-- Search & Info -->
+                <div class="bg-white rounded-lg shadow-sm p-3 sm:p-4 mb-3 sm:mb-4 flex flex-col sm:flex-row gap-2 sm:gap-3 items-center">
+                    <div class="flex-1 text-left">
+                        <p class="text-sm text-gray-600">
+                            <i class="fas fa-info-circle mr-2 text-blue-500"></i>
+                            삭제된 매물을 복원하거나 영구 삭제할 수 있습니다.
+                        </p>
+                    </div>
+                    <button onclick="loadDeletedProperties()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
+                        <i class="fas fa-sync mr-2"></i>새로고침
+                    </button>
+                </div>
+
+                <!-- Deleted Properties Table -->
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full min-w-[640px]">
+                            <thead class="bg-gray-50 border-b">
+                                <tr>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">단지명</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">지역</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">타입</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">삭제일</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">작업</th>
+                                </tr>
+                            </thead>
+                            <tbody id="deletedPropertiesTable" class="divide-y divide-gray-200">
+                                <!-- Data will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="noDeletedProperties" class="hidden p-8 text-center text-gray-500">
+                        <i class="fas fa-inbox text-4xl mb-3"></i>
+                        <p>삭제된 매물이 없습니다.</p>
+                    </div>
+                </div>
             </div>
 
             <!-- Statistics Section -->
@@ -4521,6 +4661,7 @@ app.get('/admin', (c) => {
                 const titles = {
                     'dashboard': ['대시보드', '전체 현황을 확인하세요'],
                     'properties': ['매물 관리', '등록된 매물을 관리하세요'],
+                    'deleted': ['삭제된 매물', '삭제된 매물을 복원하세요'],
                     'statistics': ['통계', '데이터 분석 및 통계'],
                     'settings': ['설정', '시스템 설정을 관리하세요']
                 };
@@ -4532,6 +4673,8 @@ app.get('/admin', (c) => {
                 // Load data for specific sections
                 if (sectionName === 'properties') {
                     loadProperties();
+                } else if (sectionName === 'deleted') {
+                    loadDeletedProperties();
                 } else if (sectionName === 'dashboard') {
                     loadDashboardStats();
                 }
@@ -4595,6 +4738,82 @@ app.get('/admin', (c) => {
                     
                 } catch (error) {
                     console.error('Failed to load stats:', error);
+                }
+            }
+            
+            // Load Deleted Properties
+            async function loadDeletedProperties() {
+                try {
+                    const response = await axios.get('/api/properties/deleted');
+                    const deletedProperties = response.data;
+                    
+                    const tableBody = document.getElementById('deletedPropertiesTable');
+                    tableBody.innerHTML = '';
+                    
+                    if (deletedProperties.length === 0) {
+                        const emptyRow = document.createElement('tr');
+                        emptyRow.innerHTML = '<td colspan="6" class="px-6 py-8 text-center text-gray-500"><i class="fas fa-inbox text-4xl mb-2"><' + '/i><p>삭제된 매물이 없습니다<' + '/p><' + '/td>';
+                        tableBody.appendChild(emptyRow);
+                        return;
+                    }
+                    
+                    deletedProperties.forEach(property => {
+                        const typeLabels = {
+                            'rental': '임대분양',
+                            'general': '청약분양',
+                            'unsold': '줍줍분양'
+                        };
+                        
+                        const typeColors = {
+                            'rental': 'bg-blue-100 text-blue-800',
+                            'general': 'bg-green-100 text-green-800',
+                            'unsold': 'bg-orange-100 text-orange-800'
+                        };
+                        
+                        const deletedAt = new Date(property.deleted_at).toLocaleString('ko-KR');
+                        
+                        const row = document.createElement('tr');
+                        row.className = 'hover:bg-gray-50';
+                        row.innerHTML = `
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-900">#\${property.id}</td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium text-gray-900">\${property.title}</td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-600 hidden sm:table-cell">\${property.location}</td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4">
+                                <span class="px-2 py-1 text-xs font-medium rounded-full \${typeColors[property.type] || 'bg-gray-100 text-gray-800'}">
+                                    \${typeLabels[property.type] || property.type}
+                                </span>
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-600 hidden md:table-cell">\${deletedAt}</td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4">
+                                <div class="flex gap-2">
+                                    <button onclick="restoreProperty(\${property.id})" 
+                                            class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">
+                                        <i class="fas fa-trash-restore mr-1"></i>복원
+                                    </button>
+                                </div>
+                            </td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                } catch (error) {
+                    console.error('Failed to load deleted properties:', error);
+                    alert('삭제된 매물 목록을 불러오는데 실패했습니다.');
+                }
+            }
+            
+            // Restore Property
+            async function restoreProperty(id) {
+                if (!confirm('이 매물을 복원하시겠습니까?')) {
+                    return;
+                }
+                
+                try {
+                    await axios.post(\`/api/properties/\${id}/restore\`);
+                    alert('매물이 복원되었습니다.');
+                    loadDeletedProperties();
+                } catch (error) {
+                    console.error('Failed to restore property:', error);
+                    alert('매물 복원에 실패했습니다.');
                 }
             }
             
@@ -5651,6 +5870,65 @@ app.get('/admin', (c) => {
                 } catch (error) {
                     console.error('Failed to delete:', error);
                     alert('삭제 실패');
+                }
+            }
+
+            // Load deleted properties
+            async function loadDeletedProperties() {
+                try {
+                    const response = await axios.get('/api/properties/deleted');
+                    const properties = response.data;
+                    
+                    const tbody = document.getElementById('deletedPropertiesTable');
+                    const noDataDiv = document.getElementById('noDeletedProperties');
+                    
+                    if (properties.length === 0) {
+                        tbody.innerHTML = '';
+                        noDataDiv.classList.remove('hidden');
+                    } else {
+                        noDataDiv.classList.add('hidden');
+                        tbody.innerHTML = properties.map(p => \`
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 text-sm text-gray-900">\${p.id}</td>
+                                <td class="px-6 py-4 text-sm font-medium text-gray-900">\${p.title}</td>
+                                <td class="px-6 py-4 text-sm text-gray-600 hidden sm:table-cell">\${p.location || '-'}</td>
+                                <td class="px-6 py-4 text-sm">
+                                    <span class="px-2 py-1 text-xs font-medium rounded \${
+                                        p.type === 'rental' ? 'bg-blue-100 text-blue-700' :
+                                        p.type === 'unsold' ? 'bg-orange-100 text-orange-700' :
+                                        'bg-green-100 text-green-700'
+                                    }">\${
+                                        p.type === 'rental' ? '임대' : p.type === 'unsold' ? '줍줍' : '청약'
+                                    }</span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-600 hidden md:table-cell">\${
+                                    p.deleted_at ? new Date(p.deleted_at).toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\\. /g, '-').replace('.', '') : '-'
+                                }</td>
+                                <td class="px-6 py-4 text-sm">
+                                    <button onclick="restoreProperty(\${p.id})" class="text-green-600 hover:text-green-800 mr-3">
+                                        <i class="fas fa-undo"></i> 복원
+                                    </button>
+                                </td>
+                            </tr>
+                        \`).join('');
+                    }
+                } catch (error) {
+                    console.error('Failed to load deleted properties:', error);
+                    alert('삭제된 매물 로드 실패');
+                }
+            }
+            
+            // Restore property
+            async function restoreProperty(id) {
+                if (!confirm('이 매물을 복원하시겠습니까?')) return;
+                
+                try {
+                    await axios.post(\`/api/properties/\${id}/restore\`);
+                    alert('복원되었습니다');
+                    loadDeletedProperties();
+                } catch (error) {
+                    console.error('Failed to restore property:', error);
+                    alert('복원 실패');
                 }
             }
 
