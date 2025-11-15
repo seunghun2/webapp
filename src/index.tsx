@@ -3025,7 +3025,8 @@ app.post('/api/admin/trigger-trade-price-collection', async (c) => {
         headers: {
           'Authorization': `Bearer ${GITHUB_TOKEN}`,
           'Accept': 'application/vnd.github+json',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'User-Agent': 'webapp-admin-panel'
         },
         body: JSON.stringify({
           ref: 'main' // branch name
