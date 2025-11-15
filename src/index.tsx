@@ -2878,7 +2878,7 @@ app.delete('/api/admin/delete-image/:filename', async (c) => {
 // Real Estate Transaction Price API (D1 데이터베이스에서 조회)
 app.post('/api/admin/fetch-trade-price', async (c) => {
   try {
-    const { address, exclusiveArea } = await c.req.json()
+    const { address, exclusiveArea, apartmentName } = await c.req.json()
     const DB = c.env.DB
     
     // 주소에서 시/군/구 정보 추출
@@ -2886,24 +2886,125 @@ app.post('/api/admin/fetch-trade-price', async (c) => {
     let sigunguCode = ''
     let sigunguName = ''
     
-    // 주요 지역 코드 매핑
+    // 전국 지역 코드 매핑
     const regionCodes = {
-      '세종특별자치시': '36110',
-      '세종': '36110',
-      '전북특별자치도 김제시': '45210',
-      '전북 김제': '45210',
-      '경기도 평택시': '41220',
-      '경기 평택': '41220',
-      '경기도 화성시': '41590',
-      '경기 화성': '41590',
-      '서울특별시 강남구': '11680',
-      '서울 강남구': '11680',
-      '서울특별시 서초구': '11650',
-      '서울 서초구': '11650',
-      '광주광역시 광산구': '29200',
-      '광주 광산구': '29200',
-      '광주광역시': '29200',
-      '광주': '29200',
+      // 서울
+      '서울특별시 강남구': '11680', '서울 강남구': '11680',
+      '서울특별시 서초구': '11650', '서울 서초구': '11650',
+      '서울특별시 송파구': '11710', '서울 송파구': '11710',
+      '서울특별시 강동구': '11740', '서울 강동구': '11740',
+      '서울특별시 용산구': '11170', '서울 용산구': '11170',
+      '서울특별시 성동구': '11200', '서울 성동구': '11200',
+      '서울특별시 광진구': '11215', '서울 광진구': '11215',
+      '서울특별시 마포구': '11440', '서울 마포구': '11440',
+      '서울특별시 영등포구': '11560', '서울 영등포구': '11560',
+      '서울특별시 강서구': '11500', '서울 강서구': '11500',
+      '서울특별시 양천구': '11470', '서울 양천구': '11470',
+      '서울특별시 구로구': '11530', '서울 구로구': '11530',
+      '서울특별시 동작구': '11590', '서울 동작구': '11590',
+      '서울특별시 관악구': '11620', '서울 관악구': '11620',
+      '서울특별시 종로구': '11110', '서울 종로구': '11110',
+      '서울특별시 중구': '11140', '서울 중구': '11140',
+      
+      // 부산
+      '부산광역시 해운대구': '26350', '부산 해운대구': '26350',
+      '부산광역시 수영구': '26320', '부산 수영구': '26320',
+      '부산광역시 남구': '26290', '부산 남구': '26290',
+      '부산광역시 동래구': '26260', '부산 동래구': '26260',
+      '부산광역시 연제구': '26470', '부산 연제구': '26470',
+      '부산광역시 부산진구': '26230', '부산 부산진구': '26230',
+      '부산광역시 서구': '26170', '부산 서구': '26170',
+      '부산광역시 사상구': '26530', '부산 사상구': '26530',
+      
+      // 대구
+      '대구광역시 수성구': '27200', '대구 수성구': '27200',
+      '대구광역시 달서구': '27290', '대구 달서구': '27290',
+      '대구광역시 중구': '27110', '대구 중구': '27110',
+      '대구광역시 동구': '27140', '대구 동구': '27140',
+      
+      // 인천
+      '인천광역시 남동구': '28200', '인천 남동구': '28200',
+      '인천광역시 연수구': '28185', '인천 연수구': '28185',
+      '인천광역시 부평구': '28237', '인천 부평구': '28237',
+      '인천광역시 서구': '28260', '인천 서구': '28260',
+      
+      // 광주
+      '광주광역시 광산구': '29200', '광주 광산구': '29200',
+      '광주광역시 남구': '29155', '광주 남구': '29155',
+      '광주광역시 북구': '29170', '광주 북구': '29170',
+      '광주광역시': '29200', '광주': '29200',
+      
+      // 대전
+      '대전광역시 유성구': '30200', '대전 유성구': '30200',
+      '대전광역시 서구': '30170', '대전 서구': '30170',
+      '대전광역시 중구': '30110', '대전 중구': '30110',
+      
+      // 울산
+      '울산광역시 남구': '31140', '울산 남구': '31140',
+      '울산광역시 동구': '31170', '울산 동구': '31170',
+      '울산광역시 북구': '31200', '울산 북구': '31200',
+      
+      // 세종
+      '세종특별자치시': '36110', '세종': '36110',
+      
+      // 경기
+      '경기도 수원시': '41110', '경기 수원': '41110',
+      '경기도 성남시': '41130', '경기 성남': '41130',
+      '경기도 고양시': '41280', '경기 고양': '41280',
+      '경기도 용인시': '41460', '경기 용인': '41460',
+      '경기도 부천시': '41190', '경기 부천': '41190',
+      '경기도 안산시': '41270', '경기 안산': '41270',
+      '경기도 안양시': '41170', '경기 안양': '41170',
+      '경기도 남양주시': '41360', '경기 남양주': '41360',
+      '경기도 화성시': '41590', '경기 화성': '41590',
+      '경기도 평택시': '41220', '경기 평택': '41220',
+      '경기도 의정부시': '41150', '경기 의정부': '41150',
+      '경기도 시흥시': '41390', '경기 시흥': '41390',
+      '경기도 파주시': '41480', '경기 파주': '41480',
+      '경기도 김포시': '41570', '경기 김포': '41570',
+      '경기도 광명시': '41210', '경기 광명': '41210',
+      '경기도 광주시': '41610', '경기 광주': '41610',
+      '경기도 군포시': '41410', '경기 군포': '41410',
+      '경기도 하남시': '41450', '경기 하남': '41450',
+      
+      // 강원
+      '강원특별자치도 춘천시': '51110', '강원 춘천': '51110',
+      '강원특별자치도 원주시': '51130', '강원 원주': '51130',
+      '강원특별자치도 강릉시': '51150', '강원 강릉': '51150',
+      
+      // 충북
+      '충청북도 청주시': '43110', '충북 청주': '43110',
+      '충청북도 충주시': '43130', '충북 충주': '43130',
+      
+      // 충남
+      '충청남도 천안시': '44130', '충남 천안': '44130',
+      '충청남도 아산시': '44200', '충남 아산': '44200',
+      '충청남도 서산시': '44210', '충남 서산': '44210',
+      
+      // 전북
+      '전북특별자치도 전주시': '45110', '전북 전주': '45110',
+      '전북특별자치도 익산시': '45140', '전북 익산': '45140',
+      '전북특별자치도 김제시': '45210', '전북 김제': '45210',
+      
+      // 전남
+      '전라남도 목포시': '46110', '전남 목포': '46110',
+      '전라남도 여수시': '46130', '전남 여수': '46130',
+      '전라남도 순천시': '46150', '전남 순천': '46150',
+      
+      // 경북
+      '경상북도 포항시': '47110', '경북 포항': '47110',
+      '경상북도 경주시': '47130', '경북 경주': '47130',
+      '경상북도 구미시': '47190', '경북 구미': '47190',
+      
+      // 경남
+      '경상남도 창원시': '48120', '경남 창원': '48120',
+      '경상남도 김해시': '48250', '경남 김해': '48250',
+      '경상남도 양산시': '48330', '경남 양산': '48330',
+      '경상남도 진주시': '48170', '경남 진주': '48170',
+      
+      // 제주
+      '제주특별자치도 제주시': '50110', '제주 제주시': '50110',
+      '제주특별자치도 서귀포시': '50130', '제주 서귀포시': '50130',
     }
     
     // 시/도 또는 시/도+시/군/구 조합으로 코드 찾기
@@ -2929,16 +3030,35 @@ app.post('/api/admin/fetch-trade-price', async (c) => {
     if (!sigunguCode) {
       return c.json({ 
         success: false, 
-        error: `지역 코드를 찾을 수 없습니다: ${sigunguName}. 지원 지역: 세종, 전북 김제, 경기 평택/화성, 서울 강남/서초, 광주 광산구` 
+        error: `지역 코드를 찾을 수 없습니다: ${sigunguName}. 전국 주요 시/군/구를 지원합니다.` 
       }, 400)
     }
 
-    console.log('D1 실거래가 조회:', sigunguCode, exclusiveArea)
+    console.log('D1 실거래가 조회:', sigunguCode, exclusiveArea, apartmentName)
 
     // D1 데이터베이스에서 실거래가 조회
     let result
     
-    if (exclusiveArea && !isNaN(exclusiveArea)) {
+    // 아파트명이 있으면 해당 아파트만 필터링
+    if (apartmentName) {
+      result = await DB.prepare(`
+        SELECT 
+          apt_name as apartmentName,
+          area as exclusiveArea,
+          deal_amount as dealAmount,
+          deal_year as dealYear,
+          deal_month as dealMonth,
+          deal_day as dealDay,
+          floor,
+          dong,
+          jibun
+        FROM trade_prices
+        WHERE sigungu_code = ?
+          AND apt_name = ?
+        ORDER BY deal_year DESC, deal_month DESC, deal_day DESC
+        LIMIT 100
+      `).bind(sigunguCode, apartmentName).all()
+    } else if (exclusiveArea && !isNaN(exclusiveArea)) {
       // 전용면적이 있으면 ±5㎡ 범위로 조회
       const areaMin = exclusiveArea - 5
       const areaMax = exclusiveArea + 5
@@ -5833,6 +5953,7 @@ app.get('/', (c) => {
         
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
         <style>
           @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
           
@@ -7111,74 +7232,50 @@ app.get('/', (c) => {
                     </div>
                   </div>
                   
-                  <!-- 실거래가 조회 (줍줍분양 전용) -->
-                  \${property.type === 'unsold' ? \`
+                  <!-- 실거래가 정보 (줍줍분양 전용) - 자동 로드 -->
+                  \${property.type === 'unsold' && property.apartment_name ? \`
                     <div class="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg p-4 sm:p-5 border-2 border-orange-200">
-                      <div class="flex items-center justify-between mb-3">
+                      <div class="mb-3">
                         <h3 class="text-sm sm:text-base font-bold text-gray-900">
                           <i class="fas fa-chart-line text-orange-600 mr-2"></i>
-                          실거래가 정보 (줍줍분양 전용)
+                          실거래가 정보
                         </h3>
-                        <button 
-                          onclick="fetchDetailTradePrice(\${property.id}, '\${property.full_address || property.location}')" 
-                          id="fetchDetailTradePriceBtn" 
-                          class="px-3 py-1.5 bg-orange-600 text-white text-xs font-medium rounded-lg hover:bg-orange-700 active:bg-orange-800 transition-colors"
-                        >
-                          <i class="fas fa-sync-alt mr-1"></i> 실거래가 조회
-                        </button>
+                        <p class="text-xs text-gray-500 mt-1">\${property.apartment_name}</p>
                       </div>
                       
-                      <div id="detailTradePriceLoading" class="hidden text-center py-6">
+                      <div id="detailTradePriceLoading-\${property.id}" class="text-center py-6">
                         <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-600 mx-auto"></div>
-                        <p class="text-sm text-gray-600 mt-3">실거래가 조회 중...</p>
+                        <p class="text-sm text-gray-600 mt-3">실거래가 데이터 로딩 중...</p>
                       </div>
                       
-                      <div id="detailTradePriceResult" class="hidden">
+                      <div id="detailTradePriceResult-\${property.id}" class="hidden">
+                        <!-- 그래프 영역 -->
+                        <div class="bg-white rounded-lg p-4 shadow-sm mb-4">
+                          <canvas id="tradePriceChart-\${property.id}" style="max-height: 300px;"></canvas>
+                        </div>
+                        
+                        <!-- 요약 정보 -->
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                           <div class="bg-white rounded-lg p-3 shadow-sm">
-                            <div class="text-xs text-gray-500 mb-1">아파트명</div>
-                            <div id="detailAptName" class="text-sm font-bold text-gray-900">-</div>
+                            <div class="text-xs text-gray-500 mb-1">평균 거래가</div>
+                            <div id="detailAvgPrice-\${property.id}" class="text-sm font-bold text-gray-900">-</div>
                           </div>
                           <div class="bg-white rounded-lg p-3 shadow-sm">
-                            <div class="text-xs text-gray-500 mb-1">전용면적</div>
-                            <div id="detailArea" class="text-sm font-bold text-gray-900">-</div>
+                            <div class="text-xs text-gray-500 mb-1">최고가</div>
+                            <div id="detailMaxPrice-\${property.id}" class="text-sm font-bold text-green-600">-</div>
                           </div>
                           <div class="bg-white rounded-lg p-3 shadow-sm">
-                            <div class="text-xs text-gray-500 mb-1">최근 실거래가</div>
-                            <div id="detailPrice" class="text-sm font-bold text-orange-600">-</div>
+                            <div class="text-xs text-gray-500 mb-1">최저가</div>
+                            <div id="detailMinPrice-\${property.id}" class="text-sm font-bold text-blue-600">-</div>
                           </div>
                           <div class="bg-white rounded-lg p-3 shadow-sm">
                             <div class="text-xs text-gray-500 mb-1">총 거래</div>
-                            <div id="detailTotal" class="text-sm font-bold text-gray-900">-</div>
+                            <div id="detailTotal-\${property.id}" class="text-sm font-bold text-gray-900">-</div>
                           </div>
-                        </div>
-                        
-                        <div class="bg-white rounded-lg p-3 shadow-sm overflow-x-auto">
-                          <h4 class="text-xs font-bold text-gray-700 mb-2">
-                            <i class="fas fa-list mr-1"></i>최근 거래 내역 (10건)
-                          </h4>
-                          <table class="w-full text-xs">
-                            <thead class="bg-gray-50">
-                              <tr>
-                                <th class="px-2 py-1.5 text-left text-gray-600 font-medium whitespace-nowrap">거래일</th>
-                                <th class="px-2 py-1.5 text-left text-gray-600 font-medium">아파트명</th>
-                                <th class="px-2 py-1.5 text-left text-gray-600 font-medium whitespace-nowrap">면적</th>
-                                <th class="px-2 py-1.5 text-left text-gray-600 font-medium whitespace-nowrap">거래가</th>
-                                <th class="px-2 py-1.5 text-left text-gray-600 font-medium">층</th>
-                                <th class="px-2 py-1.5 text-left text-gray-600 font-medium">위치</th>
-                              </tr>
-                            </thead>
-                            <tbody id="detailTradeTableBody" class="divide-y divide-gray-100">
-                              <!-- 동적으로 채워짐 -->
-                            </tbody>
-                          </table>
                         </div>
                       </div>
                       
-                      <div id="detailTradePriceMessage" class="text-xs text-gray-600 mt-2">
-                        <i class="fas fa-info-circle mr-1"></i>
-                        실거래가 조회 버튼을 클릭하면 D1 데이터베이스에서 최근 실거래가를 가져옵니다.
-                      </div>
+                      <div id="detailTradePriceMessage-\${property.id}" class="hidden text-xs text-gray-600 mt-2"></div>
                     </div>
                   \` : ''}
                   
@@ -7674,6 +7771,11 @@ app.get('/', (c) => {
               \`;
               
               document.getElementById('detailModal').classList.add('show');
+              
+              // 줍줍분양인 경우 실거래가 자동 로드
+              if (property.type === 'unsold' && property.apartment_name) {
+                loadTradePriceAuto(property.id, property.apartment_name, property.full_address || property.location);
+              }
             } catch (error) {
               console.error('Failed to load detail:', error);
               alert('상세 정보를 불러올 수 없습니다.');
@@ -7784,6 +7886,121 @@ app.get('/', (c) => {
               loadingDiv.classList.add('hidden');
               btn.disabled = false;
               btn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i> 실거래가 조회';
+            }
+          }
+
+          // Auto load trade price data with graph (for detail modal)
+          async function loadTradePriceAuto(propertyId, apartmentName, address) {
+            const loadingDiv = document.getElementById(\`detailTradePriceLoading-\${propertyId}\`);
+            const resultDiv = document.getElementById(\`detailTradePriceResult-\${propertyId}\`);
+            const messageDiv = document.getElementById(\`detailTradePriceMessage-\${propertyId}\`);
+
+            if (!address || !apartmentName) {
+              loadingDiv.classList.add('hidden');
+              messageDiv.innerHTML = '<span class="text-yellow-600"><i class="fas fa-exclamation-circle mr-1"></i>주소 또는 아파트명 정보가 없습니다.</span>';
+              messageDiv.classList.remove('hidden');
+              return;
+            }
+
+            try {
+              const response = await axios.post('/api/admin/fetch-trade-price', {
+                address: address,
+                apartmentName: apartmentName,
+                exclusiveArea: null
+              });
+
+              if (response.data.success && response.data.data.found) {
+                const data = response.data.data;
+                
+                // Calculate statistics
+                const prices = data.trades.map(t => t.dealAmount);
+                const avgPrice = (prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(1);
+                const maxPrice = Math.max(...prices).toFixed(1);
+                const minPrice = Math.min(...prices).toFixed(1);
+                
+                // Update summary stats
+                document.getElementById(\`detailAvgPrice-\${propertyId}\`).textContent = avgPrice + '억원';
+                document.getElementById(\`detailMaxPrice-\${propertyId}\`).textContent = maxPrice + '억원';
+                document.getElementById(\`detailMinPrice-\${propertyId}\`).textContent = minPrice + '억원';
+                document.getElementById(\`detailTotal-\${propertyId}\`).textContent = data.totalResults + '건';
+                
+                // Prepare chart data (group by month)
+                const monthlyData = {};
+                data.trades.forEach(trade => {
+                  const month = \`\${trade.dealYear}.\${String(trade.dealMonth).padStart(2, '0')}\`;
+                  if (!monthlyData[month]) {
+                    monthlyData[month] = [];
+                  }
+                  monthlyData[month].push(trade.dealAmount);
+                });
+                
+                // Calculate average for each month
+                const chartLabels = Object.keys(monthlyData).sort().slice(-12); // Last 12 months
+                const chartData = chartLabels.map(month => {
+                  const values = monthlyData[month];
+                  return (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
+                });
+                
+                // Create chart
+                const ctx = document.getElementById(\`tradePriceChart-\${propertyId}\`);
+                new Chart(ctx, {
+                  type: 'line',
+                  data: {
+                    labels: chartLabels,
+                    datasets: [{
+                      label: '평균 실거래가 (억원)',
+                      data: chartData,
+                      borderColor: '#F97316',
+                      backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                      tension: 0.4,
+                      fill: true
+                    }]
+                  },
+                  options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                      legend: {
+                        display: true,
+                        position: 'top'
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y + '억원';
+                          }
+                        }
+                      }
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: false,
+                        ticks: {
+                          callback: function(value) {
+                            return value + '억';
+                          }
+                        }
+                      }
+                    }
+                  }
+                });
+                
+                // Show result
+                loadingDiv.classList.add('hidden');
+                resultDiv.classList.remove('hidden');
+                messageDiv.innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>실거래가 정보를 가져왔습니다. (총 ' + data.totalResults + '건)</span>';
+                messageDiv.classList.remove('hidden');
+              } else {
+                loadingDiv.classList.add('hidden');
+                const message = response.data.data?.message || '실거래가 정보를 찾을 수 없습니다.';
+                messageDiv.innerHTML = '<span class="text-yellow-600"><i class="fas fa-info-circle mr-1"></i>' + message + '</span>';
+                messageDiv.classList.remove('hidden');
+              }
+            } catch (error) {
+              console.error('실거래가 조회 오류:', error);
+              loadingDiv.classList.add('hidden');
+              messageDiv.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>오류: ' + (error.response?.data?.error || error.message) + '</span>';
+              messageDiv.classList.remove('hidden');
             }
           }
 

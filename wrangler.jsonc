@@ -17,5 +17,9 @@
       "bucket_name": "webapp-images",
       "preview_bucket_name": "webapp-images-dev"
     }
-  ]
+  ],
+  "vars": {
+    "GITHUB_OWNER": "seunghun2",
+    "GITHUB_REPO": "webapp"
+  }
 }
