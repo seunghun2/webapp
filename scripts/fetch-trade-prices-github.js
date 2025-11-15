@@ -113,6 +113,12 @@ async function main() {
     
     for (const date of dates) {
       const items = await fetchMOLITData(region.code, date.year, date.month);
+      
+      // sigungu_name 추가
+      items.forEach(item => {
+        item.sigungu_name = region.name;
+      });
+      
       allItems.push(...items);
       
       // API 호출 제한 방지 (1초 대기)
@@ -134,10 +140,10 @@ async function main() {
   for (let i = 0; i < allItems.length; i += BATCH_SIZE) {
     const batch = allItems.slice(i, i + BATCH_SIZE);
     const values = batch.map(item => 
-      `('${item.sigungu_code}', '${item.apt_name.replace(/'/g, "''")}', ${item.deal_amount}, ${item.deal_year}, ${item.deal_month}, ${item.deal_day}, ${item.area}, ${item.floor}, '${item.dong.replace(/'/g, "''")}', '${item.jibun.replace(/'/g, "''")}')`
+      `('${item.sigungu_code}', '${item.sigungu_name.replace(/'/g, "''")}', '${item.apt_name.replace(/'/g, "''")}', ${item.deal_amount}, ${item.deal_year}, ${item.deal_month}, ${item.deal_day}, ${item.area}, ${item.floor}, '${item.dong.replace(/'/g, "''")}', '${item.jibun.replace(/'/g, "''")}')`
     ).join(',\n  ');
     
-    batches.push(`INSERT OR IGNORE INTO trade_prices (sigungu_code, apt_name, deal_amount, deal_year, deal_month, deal_day, area, floor, dong, jibun) VALUES\n  ${values};`);
+    batches.push(`INSERT OR IGNORE INTO trade_prices (sigungu_code, sigungu_name, apt_name, deal_amount, deal_year, deal_month, deal_day, area, floor, dong, jibun) VALUES\n  ${values};`);
   }
   
   const sql = `-- 실거래가 데이터 삽입 (중복 무시)
