@@ -3466,6 +3466,53 @@ app.get('/admin', (c) => {
                     </div>
                 </div>
                 
+                <!-- Seoul Test Mockup Card -->
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-sm p-6 mb-8 border-2 border-blue-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-vial text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-gray-900">서울 강남 실거래가 테스트</h3>
+                                <p class="text-sm text-gray-600">실시간 조회 기능 테스트</p>
+                            </div>
+                        </div>
+                        <button onclick="testSeoulTradePrice()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-all">
+                            <i class="fas fa-play mr-2"></i>테스트 실행
+                        </button>
+                    </div>
+                    
+                    <div id="seoulTestResult" class="hidden mt-4">
+                        <div class="bg-white rounded-lg p-4 space-y-3">
+                            <div class="flex items-center justify-between pb-3 border-b">
+                                <span class="text-sm font-medium text-gray-600">아파트명</span>
+                                <span class="text-sm font-bold text-gray-900" id="seoulAptName">-</span>
+                            </div>
+                            <div class="flex items-center justify-between pb-3 border-b">
+                                <span class="text-sm font-medium text-gray-600">전용면적</span>
+                                <span class="text-sm font-bold text-gray-900" id="seoulArea">-</span>
+                            </div>
+                            <div class="flex items-center justify-between pb-3 border-b">
+                                <span class="text-sm font-medium text-gray-600">최근 실거래가</span>
+                                <span class="text-lg font-bold text-blue-600" id="seoulPrice">-</span>
+                            </div>
+                            <div class="flex items-center justify-between pb-3 border-b">
+                                <span class="text-sm font-medium text-gray-600">거래일</span>
+                                <span class="text-sm font-bold text-gray-900" id="seoulDate">-</span>
+                            </div>
+                            <div class="flex items-center justify-between pb-3 border-b">
+                                <span class="text-sm font-medium text-gray-600">위치</span>
+                                <span class="text-sm font-bold text-gray-900" id="seoulLocation">-</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-gray-600">총 거래 건수</span>
+                                <span class="text-sm font-bold text-green-600" id="seoulTotal">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Recent Activities -->
                 <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
                     <h3 class="text-lg font-bold text-gray-900 mb-4">최근 활동</h3>
@@ -4416,6 +4463,40 @@ app.get('/admin', (c) => {
                     document.getElementById('tradePriceTotal').textContent = '오류';
                     document.getElementById('tradePriceRegions').textContent = '오류';
                     document.getElementById('tradePriceLatest').textContent = '오류';
+                }
+            }
+            
+            // Test Seoul Trade Price
+            async function testSeoulTradePrice() {
+                const resultDiv = document.getElementById('seoulTestResult');
+                resultDiv.classList.add('hidden');
+                
+                try {
+                    const response = await axios.post('/api/admin/fetch-trade-price', {
+                        address: '서울특별시 강남구 대치동',
+                        exclusiveArea: 84.9
+                    });
+                    
+                    if (response.data.success && response.data.data.found) {
+                        const data = response.data.data;
+                        
+                        document.getElementById('seoulAptName').textContent = data.apartmentName;
+                        document.getElementById('seoulArea').textContent = data.exclusiveArea + '㎡';
+                        document.getElementById('seoulPrice').textContent = data.recentTradePrice + '억원';
+                        document.getElementById('seoulDate').textContent = data.recentTradeDate + '.' + String(data.dealDay).padStart(2, '0');
+                        document.getElementById('seoulLocation').textContent = data.location;
+                        document.getElementById('seoulTotal').textContent = data.totalResults + '건';
+                        
+                        resultDiv.classList.remove('hidden');
+                        
+                        // Success animation
+                        resultDiv.style.animation = 'fadeIn 0.3s ease-in';
+                    } else {
+                        alert('❌ 실거래가 데이터를 찾을 수 없습니다.');
+                    }
+                } catch (error) {
+                    console.error('Seoul Test Error:', error);
+                    alert('❌ 테스트 실패: ' + (error.response?.data?.error || error.message));
                 }
             }
             
