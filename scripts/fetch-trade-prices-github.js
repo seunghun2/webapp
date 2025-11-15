@@ -77,8 +77,8 @@ async function fetchMOLITData(regionCode, year, month) {
               deal_day: parseInt(item.dealDay),
               area: parseFloat(item.excluUseAr),
               floor: item.floor ? parseInt(item.floor) : null,
-              dong: item.aptDong?.trim() || '',
-              jibun: item.jibun || '',
+              dong: item.aptDong ? String(item.aptDong).trim() : '',
+              jibun: item.jibun ? String(item.jibun) : '',
             });
           }
         }
