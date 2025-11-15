@@ -22,19 +22,16 @@ const REGIONS = [
   { name: '경기도 평택시', code: '41220' },
 ];
 
-// 날짜 계산 (최근 3년: 2022-01 ~ 2024-11)
+// 날짜 계산 (최근 1년: 2024-01 ~ 2024-11)
 function getDateRange() {
   const dates = [];
   
-  // 2022년 1월부터 2024년 11월까지 (약 35개월)
-  for (let year = 2022; year <= 2024; year++) {
-    const endMonth = year === 2024 ? 11 : 12; // 2024년은 11월까지
-    for (let month = 1; month <= endMonth; month++) {
-      dates.push({
-        year: year,
-        month: String(month).padStart(2, '0')
-      });
-    }
+  // 2024년 1월부터 11월까지 (11개월)
+  for (let month = 1; month <= 11; month++) {
+    dates.push({
+      year: 2024,
+      month: String(month).padStart(2, '0')
+    });
   }
   
   return dates;
@@ -55,65 +52,48 @@ async function fetchMOLITData(regionCode, year, month) {
         numOfRows: 999,
       },
       timeout: 30000,
-      responseType: 'text', // 텍스트로 받기
     });
     
-    const xml = String(response.data);
+    const data = response.data;
     
-    // 디버깅: XML 길이 출력
-    console.log(`  📄 응답 크기: ${xml.length} bytes`);
-    
-    // 에러 체크
-    if (xml.includes('<resultCode>00</resultCode>')) {
-      console.log(`  ✅ API 응답 성공`);
-    } else if (xml.includes('SERVICE_KEY_IS_NOT_REGISTERED_ERROR')) {
-      console.error(`  ❌ API 키 오류`);
-      return [];
-    } else if (xml.includes('NO_DATA') || xml.includes('NODATA_ERROR')) {
-      console.log(`  ℹ️  데이터 없음 (NO_DATA)`);
-      return [];
-    } else if (!xml.includes('<item>')) {
-      console.log(`  ⚠️  item 태그 없음`);
-      console.log(`  첫 500자: ${xml.substring(0, 500)}`);
-      return [];
-    }
-    
-    // XML 파싱
-    const items = [];
-    const itemMatches = Array.from(xml.matchAll(/<item>[\s\S]*?<\/item>/g));
-    console.log(`  🔍 매칭된 item: ${itemMatches.length}개`);
-    
-    for (let i = 0; i < itemMatches.length; i++) {
-      const item = itemMatches[i][0];
+    // JSON 응답 확인
+    if (typeof data === 'object' && data.response) {
+      const body = data.response.body;
       
-      const aptName = item.match(/<아파트>(.*?)<\/아파트>/)?.[1]?.trim();
-      const dealAmount = item.match(/<거래금액>(.*?)<\/거래금액>/)?.[1]?.replace(/,/g, '').trim();
-      const dealYear = item.match(/<년>(.*?)<\/년>/)?.[1]?.trim();
-      const dealMonth = item.match(/<월>(.*?)<\/월>/)?.[1]?.trim();
-      const dealDay = item.match(/<일>(.*?)<\/일>/)?.[1]?.trim();
-      const area = item.match(/<전용면적>(.*?)<\/전용면적>/)?.[1]?.trim();
-      const floor = item.match(/<층>(.*?)<\/층>/)?.[1]?.trim();
-      const dong = item.match(/<법정동>(.*?)<\/법정동>/)?.[1]?.trim();
-      const jibun = item.match(/<지번>(.*?)<\/지번>/)?.[1]?.trim();
-      
-      if (aptName && dealAmount) {
-        items.push({
-          sigungu_code: regionCode,
-          apt_name: aptName,
-          deal_amount: parseInt(dealAmount) * 10000, // 만원 → 원
-          deal_year: parseInt(dealYear),
-          deal_month: parseInt(dealMonth),
-          deal_day: parseInt(dealDay),
-          area: parseFloat(area),
-          floor: floor ? parseInt(floor) : null,
-          dong: dong || '',
-          jibun: jibun || '',
-        });
+      if (body.items && body.items.item) {
+        const itemList = Array.isArray(body.items.item) ? body.items.item : [body.items.item];
+        console.log(`  ✅ JSON 파싱: ${itemList.length}건`);
+        
+        const items = [];
+        for (const item of itemList) {
+          const aptName = item.aptNm;
+          const dealAmount = String(item.dealAmount).replace(/,/g, '');
+          
+          if (aptName && dealAmount) {
+            items.push({
+              sigungu_code: regionCode,
+              apt_name: aptName,
+              deal_amount: parseInt(dealAmount) * 10000, // 만원 → 원
+              deal_year: parseInt(item.dealYear),
+              deal_month: parseInt(item.dealMonth),
+              deal_day: parseInt(item.dealDay),
+              area: parseFloat(item.excluUseAr),
+              floor: item.floor ? parseInt(item.floor) : null,
+              dong: item.aptDong?.trim() || '',
+              jibun: item.jibun || '',
+            });
+          }
+        }
+        
+        return items;
+      } else {
+        console.log(`  ℹ️  데이터 없음`);
+        return [];
       }
+    } else {
+      console.log(`  ⚠️  예상치 못한 응답 형식`);
+      return [];
     }
-    
-    console.log(`  ✅ 파싱 완료: ${items.length}건`);
-    return items;
   } catch (error) {
     console.error(`  ❌ API 호출 실패: ${error.message}`);
     return [];
