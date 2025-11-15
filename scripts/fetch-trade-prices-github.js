@@ -60,23 +60,31 @@ async function fetchMOLITData(regionCode, year, month) {
     
     const xml = String(response.data);
     
+    // 디버깅: XML 길이 출력
+    console.log(`  📄 응답 크기: ${xml.length} bytes`);
+    
     // 에러 체크
     if (xml.includes('<resultCode>00</resultCode>')) {
       console.log(`  ✅ API 응답 성공`);
     } else if (xml.includes('SERVICE_KEY_IS_NOT_REGISTERED_ERROR')) {
       console.error(`  ❌ API 키 오류`);
       return [];
-    } else if (xml.includes('NO_DATA')) {
-      console.log(`  ℹ️  데이터 없음`);
+    } else if (xml.includes('NO_DATA') || xml.includes('NODATA_ERROR')) {
+      console.log(`  ℹ️  데이터 없음 (NO_DATA)`);
+      return [];
+    } else if (!xml.includes('<item>')) {
+      console.log(`  ⚠️  item 태그 없음`);
+      console.log(`  첫 500자: ${xml.substring(0, 500)}`);
       return [];
     }
     
     // XML 파싱
     const items = [];
-    const itemMatches = xml.matchAll(/<item>[\s\S]*?<\/item>/g);
+    const itemMatches = Array.from(xml.matchAll(/<item>[\s\S]*?<\/item>/g));
+    console.log(`  🔍 매칭된 item: ${itemMatches.length}개`);
     
-    for (const itemMatch of itemMatches) {
-      const item = itemMatch[0];
+    for (let i = 0; i < itemMatches.length; i++) {
+      const item = itemMatches[i][0];
       
       const aptName = item.match(/<아파트>(.*?)<\/아파트>/)?.[1]?.trim();
       const dealAmount = item.match(/<거래금액>(.*?)<\/거래금액>/)?.[1]?.replace(/,/g, '').trim();
