@@ -617,14 +617,18 @@ app.get('/api/stats', async (c) => {
   try {
     const { DB } = c.env
     
+    // Get all non-deleted properties
     const result = await DB.prepare(`
       SELECT 
         type,
-        COUNT(*) as count
+        deadline
       FROM properties
       WHERE deleted_at IS NULL
-      GROUP BY type
     `).all()
+    
+    // Calculate stats with deadline filtering (same logic as frontend)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
     
     const stats = {
       rental: 0,
@@ -634,7 +638,29 @@ app.get('/api/stats', async (c) => {
     }
     
     result.results.forEach((row: any) => {
-      stats[row.type as keyof typeof stats] = row.count
+      let shouldCount = true
+      
+      // Apply deadline filtering (same as frontend loadProperties)
+      if (row.deadline) {
+        try {
+          const deadline = new Date(row.deadline)
+          deadline.setHours(0, 0, 0, 0)
+          
+          // deadline + 1일 계산
+          const deadlinePlusOne = new Date(deadline)
+          deadlinePlusOne.setDate(deadlinePlusOne.getDate() + 1)
+          
+          // today가 deadline + 1일 이전이면 카운트
+          shouldCount = today < deadlinePlusOne
+        } catch (e) {
+          // 파싱 실패하면 카운트
+          shouldCount = true
+        }
+      }
+      
+      if (shouldCount) {
+        stats[row.type as keyof typeof stats] = (stats[row.type as keyof typeof stats] || 0) + 1
+      }
     })
     
     return c.json(stats)
