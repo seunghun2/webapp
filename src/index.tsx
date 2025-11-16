@@ -6891,27 +6891,35 @@ app.get('/', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>똑똑한한채 - 스마트 부동산 분양 정보 | 줍줍분양 실시간 업데이트</title>
+        <title>똑똑한한채 - 전국 부동산 분양 정보 | 줍줍분양 실시간 업데이트</title>
         
         <!-- SEO Meta Tags -->
-        <meta name="description" content="전국 부동산 분양 정보를 한눈에! 줍줍분양(미분양), 조합원 모집, 실시간 마감임박 정보를 놓치지 마세요. 똑똑한한채에서 확인하세요.">
-        <meta name="keywords" content="부동산분양,줍줍분양,미분양,조합원모집,아파트분양,신규분양,분양정보,부동산,아파트,청약,분양가,부동산정보">
+        <meta name="description" content="전국 부동산 분양 정보를 한눈에! 줍줍분양(미분양), 조합원 모집, LH 청약, 신규분양 실시간 마감임박 정보. 똑똑한한채에서 확인하세요.">
+        <meta name="keywords" content="부동산분양,줍줍분양,미분양,조합원모집,아파트분양,신규분양,분양정보,부동산,아파트,청약,분양가,부동산정보,LH분양,LH청약,공공분양,민간분양,마감임박,실시간분양,분양단지,아파트청약,똑똑한한채,한채365,청약홈,청약정보,청약일정,분양일정,분양가격,분양조건,입주시기,분양상담,청약상담">
         <meta name="author" content="똑똑한한채">
-        <meta name="robots" content="index, follow">
-        <link rel="canonical" href="https://your-domain.pages.dev/">
+        <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+        <meta name="googlebot" content="index, follow">
+        <meta name="bingbot" content="index, follow">
+        <meta name="navbot" content="index, follow">
+        <link rel="canonical" href="https://hanchae365.com/">
         
         <!-- Open Graph Meta Tags (Facebook, KakaoTalk) -->
         <meta property="og:type" content="website">
-        <meta property="og:title" content="똑똑한한채 - 스마트 부동산 분양 정보">
-        <meta property="og:description" content="전국 부동산 분양 정보를 한눈에! 줍줍분양, 조합원 모집, 실시간 마감임박 정보">
-        <meta property="og:url" content="https://your-domain.pages.dev/">
+        <meta property="og:title" content="똑똑한한채 - 전국 부동산 분양 정보">
+        <meta property="og:description" content="전국 부동산 분양 정보를 한눈에! 줍줍분양, LH청약, 조합원 모집, 실시간 마감임박 정보">
+        <meta property="og:url" content="https://hanchae365.com/">
         <meta property="og:site_name" content="똑똑한한채">
         <meta property="og:locale" content="ko_KR">
+        <meta property="og:image" content="https://hanchae365.com/og-image.jpg">
+        <meta property="og:image:width" content="1200">
+        <meta property="og:image:height" content="630">
+        <meta property="og:image:alt" content="똑똑한한채 - 부동산 분양 정보">
         
         <!-- Twitter Card Meta Tags -->
         <meta name="twitter:card" content="summary_large_image">
-        <meta name="twitter:title" content="똑똑한한채 - 스마트 부동산 분양 정보">
-        <meta name="twitter:description" content="전국 부동산 분양 정보를 한눈에! 줍줍분양, 조합원 모집, 실시간 마감임박 정보">
+        <meta name="twitter:title" content="똑똑한한채 - 전국 부동산 분양 정보">
+        <meta name="twitter:description" content="전국 부동산 분양 정보를 한눈에! 줍줍분양, LH청약, 조합원 모집, 실시간 마감임박 정보">
+        <meta name="twitter:image" content="https://hanchae365.com/og-image.jpg">
         
         <!-- Google Search Console Verification -->
         <meta name="google-site-verification" content="WtjDvsKm64cdN8DHVNo95tjn1iQf2EEodfquYzSCcdE" />
@@ -6919,10 +6927,54 @@ app.get('/', (c) => {
         <!-- Naver Search Advisor Verification -->
         <meta name="naver-site-verification" content="84b2705d1e232018634d573e94e05c4e910baa96" />
         
+        <!-- Favicon -->
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+        
+        <!-- Theme Color -->
+        <meta name="theme-color" content="#3182F6">
+        <meta name="msapplication-TileColor" content="#3182F6">
+        
         <!-- Cache Control -->
         <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
         <meta http-equiv="Pragma" content="no-cache">
         <meta http-equiv="Expires" content="0">
+        
+        <!-- JSON-LD 구조화된 데이터 -->
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "name": "똑똑한한채",
+          "alternateName": "한채365",
+          "url": "https://hanchae365.com/",
+          "description": "전국 부동산 분양 정보를 한눈에! 줍줍분양, LH청약, 조합원 모집, 실시간 마감임박 정보",
+          "inLanguage": "ko-KR",
+          "publisher": {
+            "@type": "Organization",
+            "name": "똑똑한한채",
+            "url": "https://hanchae365.com/"
+          },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://hanchae365.com/?search={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        }
+        </script>
+        
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "RealEstateAgent",
+          "name": "똑똑한한채",
+          "url": "https://hanchae365.com/",
+          "description": "전국 부동산 분양 정보 제공 플랫폼",
+          "serviceType": "부동산 분양 정보",
+          "areaServed": "대한민국"
+        }
+        </script>
         
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">

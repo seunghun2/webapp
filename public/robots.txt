@@ -1,0 +1,23 @@
+# robots.txt for hanchae365.com
+# 똑똑한한채 - 전국 부동산 분양 정보
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+
+# 특정 검색엔진
+User-agent: Googlebot
+Allow: /
+
+User-agent: Yeti
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+# Sitemap
+Sitemap: https://hanchae365.com/sitemap.xml
+
+# Crawl-delay (초 단위)
+Crawl-delay: 1
