@@ -9470,13 +9470,13 @@ app.get('/', (c) => {
                       </div>
 
                       <!-- Investment Info for Unsold (줍줍분양) -->
-                      \${property.type === 'unsold' ? \`
+                      \${property.type === 'unsold' && property.original_price > 0 && property.recent_trade_price > 0 ? \`
                         <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-3">
                           <div class="text-xs font-bold text-gray-700 mb-3">
                             <i class="fas fa-chart-line text-blue-600 mr-2"></i>
                             투자 정보
                           </div>
-                          \${property.original_price > 0 && property.recent_trade_price > 0 ? \`
+                          \${true ? \`
                             <div class="grid grid-cols-3 gap-3 text-center">
                               <div>
                                 <div class="text-xs text-gray-500 mb-1">원분양가</div>
@@ -9521,14 +9521,7 @@ app.get('/', (c) => {
                                 })()}
                               </div>
                             </div>
-                          \` : \`
-                            <div class="text-center py-3">
-                              <div class="text-xs text-gray-500">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                실거래가 정보 준비 중
-                              </div>
-                            </div>
-                          \`}
+                          \` : ''}
                         </div>
                       \` : ''}
 
