@@ -2142,7 +2142,15 @@ app.delete('/api/properties/:id', async (c) => {
     const id = c.req.param('id')
     
     // 소프트 삭제: deleted_at을 현재 시간으로 설정
-    await DB.prepare(`UPDATE properties SET deleted_at = datetime('now') WHERE id = ?`).bind(id).run()
+    const result = await DB.prepare(`UPDATE properties SET deleted_at = datetime('now') WHERE id = ? AND deleted_at IS NULL`).bind(id).run()
+    
+    // 영향받은 row 수 확인
+    if (result.meta.changes === 0) {
+      return c.json({
+        success: false,
+        message: 'Property not found or already deleted'
+      }, 404)
+    }
     
     return c.json({
       success: true,
@@ -2215,8 +2223,16 @@ app.post('/api/properties/:id/restore', async (c) => {
     const { DB } = c.env
     const id = c.req.param('id')
     
-    // 복원: deleted_at을 NULL로 설정
-    await DB.prepare(`UPDATE properties SET deleted_at = NULL WHERE id = ?`).bind(id).run()
+    // 복원: deleted_at을 NULL로 설정 (삭제된 매물만 복원 가능)
+    const result = await DB.prepare(`UPDATE properties SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL`).bind(id).run()
+    
+    // 영향받은 row 수 확인
+    if (result.meta.changes === 0) {
+      return c.json({
+        success: false,
+        message: 'Property not found or not deleted'
+      }, 404)
+    }
     
     return c.json({
       success: true,
@@ -4134,47 +4150,6 @@ app.get('/admin', (c) => {
                                 <!-- Data will be loaded here -->
                             </tbody>
                         </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Deleted Properties Section -->
-            <div id="deletedSection" class="section-content p-4 sm:p-6 lg:p-8 hidden">
-                <!-- Search & Info -->
-                <div class="bg-white rounded-lg shadow-sm p-3 sm:p-4 mb-3 sm:mb-4 flex flex-col sm:flex-row gap-2 sm:gap-3 items-center">
-                    <div class="flex-1 text-left">
-                        <p class="text-sm text-gray-600">
-                            <i class="fas fa-info-circle mr-2 text-blue-500"></i>
-                            삭제된 매물을 복원하거나 영구 삭제할 수 있습니다.
-                        </p>
-                    </div>
-                    <button onclick="loadDeletedProperties()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
-                        <i class="fas fa-sync mr-2"></i>새로고침
-                    </button>
-                </div>
-
-                <!-- Deleted Properties Table -->
-                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full min-w-[640px]">
-                            <thead class="bg-gray-50 border-b">
-                                <tr>
-                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">단지명</th>
-                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">지역</th>
-                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">타입</th>
-                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">삭제일</th>
-                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">작업</th>
-                                </tr>
-                            </thead>
-                            <tbody id="deletedPropertiesTable" class="divide-y divide-gray-200">
-                                <!-- Data will be loaded here -->
-                            </tbody>
-                        </table>
-                    </div>
-                    <div id="noDeletedProperties" class="hidden p-8 text-center text-gray-500">
-                        <i class="fas fa-inbox text-4xl mb-3"></i>
-                        <p>삭제된 매물이 없습니다.</p>
                     </div>
                 </div>
             </div>
@@ -7540,6 +7515,11 @@ app.get('/', (c) => {
                         onkeyup="mainSearchOnType(event)"
                     >
                 </div>
+                
+                <!-- 검색 결과 카운트 -->
+                <div id="searchResultCount" class="text-center py-2 text-sm text-gray-600 hidden">
+                    <span id="searchResultText"></span>
+                </div>
             </div>
 
             <!-- 호갱노노 스타일 필터 -->
@@ -9197,6 +9177,16 @@ app.get('/', (c) => {
               });
               
               console.log('✅ Showing', properties.length, 'properties (after filtering expired)');
+              
+              // 검색 결과 카운트 업데이트
+              const countDiv = document.getElementById('searchResultCount');
+              const countText = document.getElementById('searchResultText');
+              if (searchQuery) {
+                countDiv.classList.remove('hidden');
+                countText.textContent = '"' + searchQuery + '" 검색 결과: ' + properties.length + '건';
+              } else {
+                countDiv.classList.add('hidden');
+              }
               
               if (properties.length === 0) {
                 container.innerHTML = \`
