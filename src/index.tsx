@@ -2234,6 +2234,41 @@ app.post('/api/properties/create', async (c) => {
     const { DB } = c.env
     const data = await c.req.json()
     
+    // Auto-calculate deadline from extended_data if not provided or if extended_data exists
+    let finalDeadline = data.deadline || ''
+    
+    try {
+      const extData = typeof data.extended_data === 'string' 
+        ? JSON.parse(data.extended_data) 
+        : data.extended_data;
+      
+      if (extData && extData.steps && Array.isArray(extData.steps) && extData.steps.length > 0) {
+        // 마지막 step의 끝 날짜를 deadline으로 사용
+        const lastStep = extData.steps[extData.steps.length - 1];
+        
+        if (lastStep && lastStep.date) {
+          const dateParts = lastStep.date.split('~');
+          
+          if (dateParts.length === 2) {
+            // 범위가 있으면 끝 날짜 사용
+            finalDeadline = dateParts[1].trim();
+          } else {
+            // 범위가 없으면 해당 날짜 사용
+            finalDeadline = dateParts[0].trim();
+          }
+        }
+        
+        console.log('📅 Auto-calculated deadline:', {
+          stepsCount: extData.steps.length,
+          lastStep: lastStep,
+          finalDeadline: finalDeadline
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to auto-calculate deadline:', e);
+      // 실패하면 원래 deadline 사용
+    }
+    
     const result = await DB.prepare(`
       INSERT INTO properties (
         title, type, location, full_address, deadline, announcement_date,
@@ -2246,7 +2281,7 @@ app.post('/api/properties/create', async (c) => {
       data.type,
       data.location || '',
       data.full_address || '',
-      data.deadline || '',
+      finalDeadline,
       data.announcement_date || '',
       data.move_in_date || '',
       data.households || '',
@@ -2264,7 +2299,8 @@ app.post('/api/properties/create', async (c) => {
     return c.json({
       success: true,
       message: 'Property created successfully',
-      id: result.meta.last_row_id
+      id: result.meta.last_row_id,
+      deadline: finalDeadline
     })
   } catch (error) {
     console.error('Error creating property:', error)
@@ -6350,18 +6386,33 @@ app.get('/admin', (c) => {
 
                 const tags = (document.getElementById('hashtags')?.value || '').split(',').map(t => t.trim()).filter(t => t);
                 
-                // Calculate deadline: 청약접수 시작일 그대로 사용 (마감일 = 청약시작일)
+                // Calculate deadline: steps 배열의 가장 마지막 step의 마지막 날짜
                 let calculatedDeadline = document.getElementById('announcementDate')?.value || new Date().toISOString().split('T')[0];
                 
-                // steps 배열에서 "청약접수 시작일" 찾기
-                const subscriptionStartStep = steps.find(step => 
-                    step.title.includes('청약접수') || step.title.includes('접수') || step.title.includes('신청')
-                );
-                
-                if (subscriptionStartStep && subscriptionStartStep.date) {
-                    // 마감일 = 청약접수 시작일
-                    calculatedDeadline = subscriptionStartStep.date;
+                // steps 배열에서 가장 마지막 step의 끝 날짜를 찾기
+                if (steps.length > 0) {
+                    // 마지막 step 가져오기
+                    const lastStep = steps[steps.length - 1];
+                    
+                    if (lastStep && lastStep.date) {
+                        // date 형식: "2025-11-14" 또는 "2025-11-14~2025-11-17"
+                        const dateParts = lastStep.date.split('~');
+                        
+                        if (dateParts.length === 2) {
+                            // 범위가 있으면 끝 날짜 사용
+                            calculatedDeadline = dateParts[1].trim();
+                        } else {
+                            // 범위가 없으면 해당 날짜 사용
+                            calculatedDeadline = dateParts[0].trim();
+                        }
+                    }
                 }
+                
+                console.log('📅 Calculated deadline:', {
+                    stepsCount: steps.length,
+                    lastStep: steps[steps.length - 1],
+                    calculatedDeadline: calculatedDeadline
+                });
 
                 // Collect trade price data for unsold type
                 const saleType = document.getElementById('saleType')?.value || 'rental';
@@ -8654,9 +8705,40 @@ app.get('/', (c) => {
               console.time('⏱️ API Request');
               const params = new URLSearchParams(filters);
               const response = await axios.get(\`/api/properties?\${params}\`);
-              const properties = response.data;
+              let properties = response.data;
               console.timeEnd('⏱️ API Request');
-              console.log('✅ Loaded', properties.length, 'properties');
+              console.log('✅ Loaded', properties.length, 'properties (before filtering)');
+              
+              // 카드 자동 제거: deadline + 1일이 지난 매물 필터링
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              
+              properties = properties.filter(property => {
+                if (!property.deadline) return true; // deadline이 없으면 표시
+                
+                try {
+                  const deadline = new Date(property.deadline);
+                  deadline.setHours(0, 0, 0, 0);
+                  
+                  // deadline + 1일 계산
+                  const deadlinePlusOne = new Date(deadline);
+                  deadlinePlusOne.setDate(deadlinePlusOne.getDate() + 1);
+                  
+                  // today가 deadline + 1일 이전이면 표시
+                  const shouldShow = today < deadlinePlusOne;
+                  
+                  if (!shouldShow) {
+                    console.log('🗑️ Hiding expired property:', property.title, 'deadline:', property.deadline);
+                  }
+                  
+                  return shouldShow;
+                } catch (e) {
+                  console.warn('Failed to parse deadline for property', property.id, ':', e);
+                  return true; // 파싱 실패하면 표시
+                }
+              });
+              
+              console.log('✅ Showing', properties.length, 'properties (after filtering expired)');
               
               if (properties.length === 0) {
                 container.innerHTML = \`
