@@ -3241,6 +3241,198 @@ app.post('/api/admin/fetch-trade-price', async (c) => {
   }
 })
 
+// Admin - Search apartments by address
+app.post('/api/admin/search-apartments', async (c) => {
+  try {
+    const { address } = await c.req.json()
+    const DB = c.env.DB
+    
+    if (!address) {
+      return c.json({ success: false, error: '주소를 입력해주세요.' }, 400)
+    }
+
+    // Extract sigungu code from address
+    const regionCodes = {
+      // 서울특별시 (16개 구)
+      '서울특별시 강남구': '11680', '서울 강남구': '11680',
+      '서울특별시 서초구': '11650', '서울 서초구': '11650',
+      '서울특별시 송파구': '11710', '서울 송파구': '11710',
+      '서울특별시 강동구': '11740', '서울 강동구': '11740',
+      '서울특별시 영등포구': '11560', '서울 영등포구': '11560',
+      '서울특별시 마포구': '11440', '서울 마포구': '11440',
+      '서울특별시 용산구': '11170', '서울 용산구': '11170',
+      '서울특별시 성동구': '11200', '서울 성동구': '11200',
+      '서울특별시 광진구': '11215', '서울 광진구': '11215',
+      '서울특별시 종로구': '11110', '서울 종로구': '11110',
+      '서울특별시 중구': '11140', '서울 중구': '11140',
+      '서울특별시 동대문구': '11230', '서울 동대문구': '11230',
+      '서울특별시 성북구': '11290', '서울 성북구': '11290',
+      '서울특별시 노원구': '11350', '서울 노원구': '11350',
+      '서울특별시 강북구': '11305', '서울 강북구': '11305',
+      '서울특별시 은평구': '11380', '서울 은평구': '11380',
+      
+      // 부산광역시 (8개 구/군)
+      '부산광역시 해운대구': '26350', '부산 해운대구': '26350',
+      '부산광역시 수영구': '26380', '부산 수영구': '26380',
+      '부산광역시 동래구': '26260', '부산 동래구': '26260',
+      '부산광역시 부산진구': '26230', '부산 부산진구': '26230',
+      '부산광역시 남구': '26200', '부산 남구': '26200',
+      '부산광역시 연제구': '26470', '부산 연제구': '26470',
+      '부산광역시 기장군': '26710', '부산 기장군': '26710',
+      '부산광역시 사상구': '26530', '부산 사상구': '26530',
+      
+      // 대구광역시 (4개 구)
+      '대구광역시 수성구': '27200', '대구 수성구': '27200',
+      '대구광역시 달서구': '27290', '대구 달서구': '27290',
+      '대구광역시 북구': '27230', '대구 북구': '27230',
+      '대구광역시 중구': '27140', '대구 중구': '27140',
+      
+      // 인천광역시 (5개 구/군)
+      '인천광역시 연수구': '28185', '인천 연수구': '28185',
+      '인천광역시 남동구': '28200', '인천 남동구': '28200',
+      '인천광역시 부평구': '28237', '인천 부평구': '28237',
+      '인천광역시 서구': '28260', '인천 서구': '28260',
+      '인천광역시 계양구': '28245', '인천 계양구': '28245',
+      
+      // 광주광역시 (2개 구)
+      '광주광역시 광산구': '29200', '광주 광산구': '29200',
+      '광주광역시 서구': '29155', '광주 서구': '29155',
+      
+      // 대전광역시 (3개 구)
+      '대전광역시 유성구': '30200', '대전 유성구': '30200',
+      '대전광역시 서구': '30170', '대전 서구': '30170',
+      '대전광역시 중구': '30110', '대전 중구': '30110',
+      
+      // 울산광역시 (2개 구)
+      '울산광역시 남구': '31140', '울산 남구': '31140',
+      '울산광역시 중구': '31110', '울산 중구': '31110',
+      
+      // 세종특별자치시
+      '세종특별자치시': '36110', '세종시': '36110', '세종': '36110',
+      
+      // 경기도 (18개 시)
+      '경기도 수원시': '41110', '수원시': '41110', '수원': '41110',
+      '경기도 성남시': '41130', '성남시': '41130', '성남': '41130',
+      '경기도 고양시': '41280', '고양시': '41280', '고양': '41280',
+      '경기도 용인시': '41460', '용인시': '41460', '용인': '41460',
+      '경기도 부천시': '41190', '부천시': '41190', '부천': '41190',
+      '경기도 안산시': '41270', '안산시': '41270', '안산': '41270',
+      '경기도 화성시': '41590', '화성시': '41590', '화성': '41590',
+      '경기도 남양주시': '41360', '남양주시': '41360', '남양주': '41360',
+      '경기도 평택시': '41220', '평택시': '41220', '평택': '41220',
+      '경기도 의정부시': '41150', '의정부시': '41150', '의정부': '41150',
+      '경기도 시흥시': '41390', '시흥시': '41390', '시흥': '41390',
+      '경기도 파주시': '41480', '파주시': '41480', '파주': '41480',
+      '경기도 김포시': '41570', '김포시': '41570', '김포': '41570',
+      '경기도 광명시': '41210', '광명시': '41210', '광명': '41210',
+      '경기도 광주시': '41610', '광주시': '41610', '광주': '41610',
+      '경기도 안양시': '41170', '안양시': '41170', '안양': '41170',
+      '경기도 하남시': '41450', '하남시': '41450', '하남': '41450',
+      '경기도 오산시': '41370', '오산시': '41370', '오산': '41370',
+      
+      // 강원도 (3개 시)
+      '강원특별자치도 춘천시': '42110', '강원도 춘천시': '42110', '춘천시': '42110', '춘천': '42110',
+      '강원특별자치도 원주시': '42130', '강원도 원주시': '42130', '원주시': '42130', '원주': '42130',
+      '강원특별자치도 강릉시': '42150', '강원도 강릉시': '42150', '강릉시': '42150', '강릉': '42150',
+      
+      // 충청북도 (2개 시)
+      '충청북도 청주시': '43110', '청주시': '43110', '청주': '43110',
+      '충청북도 충주시': '43130', '충주시': '43130', '충주': '43130',
+      
+      // 충청남도 (3개 시)
+      '충청남도 천안시': '44130', '천안시': '44130', '천안': '44130',
+      '충청남도 아산시': '44200', '아산시': '44200', '아산': '44200',
+      '충청남도 당진시': '44270', '당진시': '44270', '당진': '44270',
+      
+      // 전라북도 (3개 시)
+      '전북특별자치도 전주시': '45110', '전라북도 전주시': '45110', '전주시': '45110', '전주': '45110',
+      '전북특별자치도 익산시': '45140', '전라북도 익산시': '45140', '익산시': '45140', '익산': '45140',
+      '전북특별자치도 군산시': '45130', '전라북도 군산시': '45130', '군산시': '45130', '군산': '45130',
+      
+      // 전라남도 (3개 시)
+      '전라남도 여수시': '46130', '여수시': '46130', '여수': '46130',
+      '전라남도 순천시': '46150', '순천시': '46150', '순천': '46150',
+      '전라남도 목포시': '46110', '목포시': '46110', '목포': '46110',
+      
+      // 경상북도 (3개 시)
+      '경상북도 포항시': '47110', '포항시': '47110', '포항': '47110',
+      '경상북도 구미시': '47190', '구미시': '47190', '구미': '47190',
+      '경상북도 경산시': '47290', '경산시': '47290', '경산': '47290',
+      
+      // 경상남도 (4개 시)
+      '경상남도 창원시': '48120', '창원시': '48120', '창원': '48120',
+      '경상남도 김해시': '48250', '김해시': '48250', '김해': '48250',
+      '경상남도 양산시': '48330', '양산시': '48330', '양산': '48330',
+      '경상남도 진주시': '48170', '진주시': '48170', '진주': '48170',
+      
+      // 제주특별자치도 (2개 시)
+      '제주특별자치도 제주시': '50110', '제주도 제주시': '50110', '제주시': '50110', '제주': '50110',
+      '제주특별자치도 서귀포시': '50130', '제주도 서귀포시': '50130', '서귀포시': '50130', '서귀포': '50130',
+    }
+
+    let sigunguCode = null
+    for (const [region, code] of Object.entries(regionCodes)) {
+      if (address.includes(region)) {
+        sigunguCode = code
+        break
+      }
+    }
+
+    if (!sigunguCode) {
+      return c.json({ 
+        success: false, 
+        error: '지원하지 않는 지역입니다. 전국 83개 주요 시/구/군만 지원됩니다.' 
+      }, 400)
+    }
+
+    // Query database for apartments in this area
+    const result = await DB.prepare(`
+      SELECT 
+        apt_name,
+        COUNT(*) as trade_count,
+        MAX(deal_year) as recent_year,
+        MAX(deal_month) as recent_month,
+        deal_amount as recent_price,
+        MAX(deal_year || '-' || printf('%02d', deal_month)) as sort_date
+      FROM trade_prices
+      WHERE sigungu_code = ?
+      GROUP BY apt_name
+      ORDER BY sort_date DESC
+      LIMIT 50
+    `).bind(sigunguCode).all()
+
+    if (!result.success || result.results.length === 0) {
+      return c.json({ 
+        success: false, 
+        error: '해당 지역에 등록된 아파트가 없습니다.' 
+      })
+    }
+
+    // Format apartment list
+    const apartments = result.results.map(apt => {
+      // Get most recent price for this apartment and convert to 억 unit
+      return {
+        name: apt.apt_name,
+        count: apt.trade_count,
+        recentPrice: (apt.recent_price / 100000000).toFixed(2), // Convert to 억 and format
+        recentDate: `${apt.recent_year}.${String(apt.recent_month).padStart(2, '0')}`
+      }
+    })
+
+    return c.json({
+      success: true,
+      apartments: apartments,
+      region: sigunguCode
+    })
+  } catch (error) {
+    console.error('아파트 검색 오류:', error)
+    return c.json({ 
+      success: false, 
+      error: error.message || '아파트 검색 중 오류가 발생했습니다.' 
+    }, 500)
+  }
+})
+
 // GitHub Actions - Trigger Trade Price Collection
 app.post('/api/admin/trigger-trade-price-collection', async (c) => {
   try {
@@ -4198,11 +4390,23 @@ app.get('/admin', (c) => {
                                     </button>
                                 </div>
                                 
+                                <!-- 아파트명 입력 필드 (검색 아이콘 포함) -->
+                                <div class="mb-3">
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">아파트명</label>
+                                    <div class="relative">
+                                        <input type="text" id="apartmentName" class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg text-sm" placeholder="예) 아크로힐스논현" readonly>
+                                        <button type="button" onclick="openApartmentSearch()" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-blue-600 hover:text-blue-700 transition-colors">
+                                            <i class="fas fa-search text-lg"></i>
+                                        </button>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-1">💡 검색 아이콘(<i class="fas fa-search text-blue-600"></i>)을 클릭해서 아파트를 선택하세요</p>
+                                </div>
+                                
                                 <div id="tradePriceResult" class="hidden space-y-3">
                                     <div class="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label class="block text-xs font-medium text-gray-600 mb-1">최근 실거래가</label>
-                                            <input type="number" id="recentTradePrice" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="3.5">
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">최근 실거래가 (억원)</label>
+                                            <input type="number" id="recentTradePrice" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="24.8">
                                         </div>
                                         <div>
                                             <label class="block text-xs font-medium text-gray-600 mb-1">거래 년월</label>
@@ -4211,12 +4415,12 @@ app.get('/admin', (c) => {
                                     </div>
                                     <div class="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label class="block text-xs font-medium text-gray-600 mb-1">기존 분양가</label>
-                                            <input type="number" id="originalPrice" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="3.0">
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">기존 분양가 (억원)</label>
+                                            <input type="number" id="originalPrice" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="20.0">
                                         </div>
                                         <div>
-                                            <label class="block text-xs font-medium text-gray-600 mb-1">분양가 날짜</label>
-                                            <input type="text" id="salePriceDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="2023.5">
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">분양 날짜</label>
+                                            <input type="text" id="salePriceDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="2023.05">
                                         </div>
                                     </div>
                                 </div>
@@ -5140,10 +5344,182 @@ app.get('/admin', (c) => {
                 }
             });
 
+            // Open apartment search modal
+            function openApartmentSearch() {
+                const address = document.getElementById('fullAddress').value;
+                
+                if (!address) {
+                    alert('주소를 먼저 입력해주세요.');
+                    return;
+                }
+                
+                // Create modal
+                const modal = document.createElement('div');
+                modal.id = 'apartmentSearchModal';
+                modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+                modal.onclick = (e) => {
+                    if (e.target === modal) modal.remove();
+                };
+                
+                modal.innerHTML = \`
+                    <div class="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+                        <div class="p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-lg font-bold text-gray-900">아파트 검색</h3>
+                                <button onclick="document.getElementById('apartmentSearchModal').remove()" class="text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            
+                            <div class="mb-4 space-y-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">검색할 주소</label>
+                                    <input 
+                                        type="text" 
+                                        id="modalSearchAddress" 
+                                        value="\${address}"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="예) 서울특별시 강남구 또는 서초구"
+                                    >
+                                    <p class="text-xs text-gray-500 mt-1">💡 다른 지역을 검색하려면 주소를 직접 수정하세요</p>
+                                </div>
+                                <button onclick="searchApartmentsFromModal()" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-search mr-2"></i>아파트 검색
+                                </button>
+                            </div>
+                            
+                            <div id="apartmentSearchLoading" class="hidden text-center py-8">
+                                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                                <p class="text-sm text-gray-600 mt-3">아파트 검색 중...</p>
+                            </div>
+                            
+                            <div id="apartmentSearchResult" class="hidden">
+                                <h4 class="text-sm font-bold text-gray-900 mb-3">검색 결과</h4>
+                                <div id="apartmentList" class="space-y-2 max-h-96 overflow-y-auto"></div>
+                            </div>
+                            
+                            <div id="apartmentSearchMessage" class="text-sm text-gray-500 mt-2"></div>
+                        </div>
+                    </div>
+                \`;
+                
+                document.body.appendChild(modal);
+            }
+            
+            // Search apartments from modal (using modal's address input)
+            async function searchApartmentsFromModal() {
+                const address = document.getElementById('modalSearchAddress').value;
+                
+                if (!address || address.trim() === '') {
+                    alert('검색할 주소를 입력해주세요.');
+                    return;
+                }
+                
+                const loadingDiv = document.getElementById('apartmentSearchLoading');
+                const resultDiv = document.getElementById('apartmentSearchResult');
+                const messageDiv = document.getElementById('apartmentSearchMessage');
+                
+                loadingDiv.classList.remove('hidden');
+                resultDiv.classList.add('hidden');
+                messageDiv.classList.add('hidden');
+                
+                try {
+                    const response = await axios.post('/api/admin/search-apartments', {
+                        address: address
+                    });
+                    
+                    if (response.data.success && response.data.apartments.length > 0) {
+                        const apartments = response.data.apartments;
+                        const listDiv = document.getElementById('apartmentList');
+                        
+                        listDiv.innerHTML = apartments.map(apt => \`
+                            <button 
+                                onclick="selectApartment('\${apt.name.replace(/'/g, "\\\\'")}', '\${apt.recentPrice}', '\${apt.recentDate}')"
+                                class="w-full text-left px-4 py-3 bg-gray-50 hover:bg-blue-50 rounded-lg transition-colors border border-gray-200 hover:border-blue-300"
+                            >
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1">
+                                        <div class="font-bold text-gray-900">\${apt.name}</div>
+                                        <div class="text-xs text-gray-500 mt-1">거래 \${apt.count}건</div>
+                                    </div>
+                                    <div class="text-right ml-4">
+                                        <div class="text-sm font-bold text-orange-600">\${apt.recentPrice}억</div>
+                                        <div class="text-xs text-gray-500">\${apt.recentDate}</div>
+                                    </div>
+                                </div>
+                            </button>
+                        \`).join('');
+                        
+                        loadingDiv.classList.add('hidden');
+                        resultDiv.classList.remove('hidden');
+                        messageDiv.innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>' + apartments.length + '개의 아파트를 찾았습니다.</span>';
+                        messageDiv.classList.remove('hidden');
+                    } else {
+                        loadingDiv.classList.add('hidden');
+                        messageDiv.innerHTML = '<span class="text-yellow-600"><i class="fas fa-info-circle mr-1"></i>해당 지역에서 아파트를 찾을 수 없습니다.</span>';
+                        messageDiv.classList.remove('hidden');
+                    }
+                } catch (error) {
+                    console.error('아파트 검색 오류:', error);
+                    loadingDiv.classList.add('hidden');
+                    messageDiv.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>오류: ' + (error.response?.data?.error || error.message) + '</span>';
+                    messageDiv.classList.remove('hidden');
+                }
+            }
+            
+            // Select apartment from search result
+            async function selectApartment(name, price, date) {
+                // Update UI fields
+                document.getElementById('apartmentName').value = name;
+                document.getElementById('recentTradePrice').value = price;
+                document.getElementById('recentTradeDate').value = date;
+                document.getElementById('apartmentSearchModal').remove();
+                
+                // Show trade price result section
+                document.getElementById('tradePriceResult').classList.remove('hidden');
+                document.getElementById('tradePriceMessage').innerHTML = '<span class="text-blue-600"><i class="fas fa-spinner fa-spin mr-1"></i>아파트 정보를 저장하는 중...</span>';
+                
+                // Auto-save apartment name to database
+                const propertyId = document.getElementById('propertyId').value;
+                if (propertyId) {
+                    try {
+                        // Get current property data
+                        const response = await axios.get(\`/api/properties?type=all\`);
+                        const property = response.data.find(p => p.id === parseInt(propertyId));
+                        
+                        if (!property) {
+                            document.getElementById('tradePriceMessage').innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>매물 데이터를 찾을 수 없습니다.</span>';
+                            return;
+                        }
+                        
+                        // Update apartment_name field
+                        const updateResponse = await axios.put(\`/api/properties/\${propertyId}\`, {
+                            ...property,
+                            apartment_name: name,
+                            recent_trade_price: price,
+                            recent_trade_date: date
+                        });
+                        
+                        if (updateResponse.data.success) {
+                            document.getElementById('tradePriceMessage').innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>아파트 정보가 자동 저장되었습니다!</span>';
+                        } else {
+                            document.getElementById('tradePriceMessage').innerHTML = '<span class="text-yellow-600"><i class="fas fa-exclamation-triangle mr-1"></i>저장에 실패했습니다. 수동으로 저장해주세요.</span>';
+                        }
+                    } catch (error) {
+                        console.error('Auto-save error:', error);
+                        document.getElementById('tradePriceMessage').innerHTML = '<span class="text-yellow-600"><i class="fas fa-exclamation-triangle mr-1"></i>자동 저장 실패. 수동으로 저장해주세요.</span>';
+                    }
+                } else {
+                    // New property (not saved yet)
+                    document.getElementById('tradePriceMessage').innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>아파트가 선택되었습니다. 전체 저장 시 함께 저장됩니다.</span>';
+                }
+            }
+
             // Fetch trade price from MOLIT API
             async function fetchTradePrice() {
                 const address = document.getElementById('fullAddress').value;
                 const exclusiveArea = document.getElementById('detail_exclusiveArea')?.value;
+                const apartmentName = document.getElementById('apartmentName')?.value;
                 
                 if (!address) {
                     alert('주소를 먼저 입력해주세요.');
@@ -5155,16 +5531,23 @@ app.get('/admin', (c) => {
                 const messageDiv = document.getElementById('tradePriceMessage');
                 const btn = document.getElementById('fetchTradePriceBtn');
 
+                // Prevent duplicate calls
+                if (btn.disabled) {
+                    return;
+                }
+
                 // Show loading
                 loadingDiv.classList.remove('hidden');
                 resultDiv.classList.add('hidden');
                 messageDiv.classList.add('hidden');
                 btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> 조회 중...';
 
                 try {
                     const response = await axios.post('/api/admin/fetch-trade-price', {
                         address: address,
-                        exclusiveArea: exclusiveArea ? parseFloat(exclusiveArea) : null
+                        exclusiveArea: exclusiveArea ? parseFloat(exclusiveArea) : null,
+                        apartmentName: apartmentName || null
                     });
 
                     if (response.data.success && response.data.data.found) {
@@ -5190,6 +5573,7 @@ app.get('/admin', (c) => {
                 } finally {
                     loadingDiv.classList.add('hidden');
                     btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i> 실거래가 조회';
                 }
             }
 
