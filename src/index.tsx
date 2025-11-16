@@ -622,6 +622,7 @@ app.get('/api/stats', async (c) => {
         type,
         COUNT(*) as count
       FROM properties
+      WHERE deleted_at IS NULL
       GROUP BY type
     `).all()
     
@@ -9142,10 +9143,13 @@ app.get('/', (c) => {
             try {
               console.time('⏱️ API Request');
               const params = new URLSearchParams(filters);
+              console.log('🔍 Filters:', filters);
+              console.log('🔍 URL:', '/api/properties?' + params);
               const response = await axios.get(\`/api/properties?\${params}\`);
               let properties = response.data;
               console.timeEnd('⏱️ API Request');
               console.log('✅ Loaded', properties.length, 'properties (before filtering)');
+              console.log('📋 Properties:', properties.map(p => ({ id: p.id, title: p.title, type: p.type, deadline: p.deadline })));
               
               // 카드 자동 제거: deadline + 1일이 지난 매물 필터링
               const today = new Date();
