@@ -9305,7 +9305,32 @@ app.get('/', (c) => {
                     ? calculateSubscriptionStatus(extendedData.subscriptionStartDate, extendedData.subscriptionEndDate)
                     : null;
 
-                  const dday = calculateDDay(property.deadline);
+                  // D-Day 계산: steps가 있으면 가장 가까운 미래 스텝, 없으면 deadline 사용
+                  const ddayDate = (() => {
+                    if (extendedData.steps && Array.isArray(extendedData.steps) && extendedData.steps.length > 0) {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      
+                      // 미래 스텝들만 필터링
+                      const futureSteps = extendedData.steps
+                        .filter(step => {
+                          if (!step.date) return false;
+                          const stepDate = new Date(step.date);
+                          stepDate.setHours(0, 0, 0, 0);
+                          return stepDate >= today;
+                        })
+                        .sort((a, b) => new Date(a.date) - new Date(b.date));
+                      
+                      // 가장 가까운 미래 스텝 날짜 반환
+                      if (futureSteps.length > 0) {
+                        return futureSteps[0].date;
+                      }
+                    }
+                    // steps가 없거나 미래 스텝이 없으면 deadline 사용
+                    return property.deadline;
+                  })();
+                  
+                  const dday = calculateDDay(ddayDate);
                   const margin = formatMargin(property.expected_margin, property.margin_rate);
                   
                   return \`
