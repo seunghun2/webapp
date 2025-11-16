@@ -2308,6 +2308,49 @@ app.post('/api/properties/create', async (c) => {
   }
 })
 
+// Contact inquiry API (광고 문의)
+app.post('/api/contact/inquiry', async (c) => {
+  try {
+    const body = await c.req.json()
+    const { name, contact, message, type } = body
+    
+    // 이메일 내용 구성
+    const emailSubject = type === 'ad_inquiry' ? '[똑똑한한채] 광고 문의' : '[똑똑한한채] 문의하기'
+    const emailBody = `
+이름: ${name}
+연락처: ${contact}
+
+문의 내용:
+${message}
+
+---
+문의 유형: ${type}
+접수 시간: ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}
+    `.trim()
+    
+    // 실제 환경에서는 이메일 발송 서비스(SendGrid, AWS SES 등) 사용
+    // 여기서는 로그만 출력
+    console.log('📧 Contact Inquiry Received:')
+    console.log('To: wsh9991@naver.com')
+    console.log('Subject:', emailSubject)
+    console.log('Body:', emailBody)
+    
+    // TODO: 실제 이메일 발송 로직 구현
+    // 예시: await sendEmail('wsh9991@naver.com', emailSubject, emailBody)
+    
+    return c.json({
+      success: true,
+      message: '문의가 성공적으로 접수되었습니다.'
+    })
+  } catch (error) {
+    console.error('Contact inquiry error:', error)
+    return c.json({
+      success: false,
+      error: '문의 접수 중 오류가 발생했습니다.'
+    }, 500)
+  }
+})
+
 // Terms of Service page
 app.get('/terms', (c) => {
   return c.html(`
@@ -7188,10 +7231,12 @@ app.get('/', (c) => {
                     -->
                     
                     <div class="flex items-center gap-1 sm:gap-2">
-                        <button class="text-gray-600 hover:text-gray-900 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
-                            <i class="fas fa-bell text-base sm:text-lg"></i>
+                        <button 
+                            onclick="openAdInquiry()" 
+                            class="px-3 sm:px-4 py-1.5 sm:py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
+                        >
+                            광고 문의하기
                         </button>
-                        <!-- 로그인 버튼만 임시 비활성화 -->
                     </div>
                 </div>
             </div>
@@ -7597,6 +7642,98 @@ app.get('/', (c) => {
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <!-- 광고 문의 모달 (토스 스타일) -->
+        <div id="adInquiryModal" class="fixed inset-0 z-[100] hidden">
+            <!-- 백드롭 -->
+            <div class="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300" onclick="closeAdInquiry()"></div>
+            
+            <!-- 입력 시트 -->
+            <div id="adInquirySheet" class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl transform translate-y-full transition-transform duration-300 ease-out">
+                <div class="max-w-2xl mx-auto px-6 py-8">
+                    <!-- 핸들 바 -->
+                    <div class="flex justify-center mb-6">
+                        <div class="w-10 h-1 bg-gray-300 rounded-full"></div>
+                    </div>
+                    
+                    <!-- 제목 -->
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">광고 문의를 남겨주세요</h2>
+                    <p class="text-sm text-gray-500 mb-8">입력해주신 내용은 담당자에게 안전하게 전달돼요.</p>
+                    
+                    <!-- 입력 폼 -->
+                    <form id="adInquiryForm" class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">이름</label>
+                            <input 
+                                type="text" 
+                                id="adName" 
+                                required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                placeholder="이름을 입력해주세요"
+                            >
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">연락처 또는 이메일</label>
+                            <input 
+                                type="text" 
+                                id="adContact" 
+                                required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                placeholder="연락 가능한 정보를 입력해주세요"
+                            >
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">문의 내용</label>
+                            <textarea 
+                                id="adMessage" 
+                                required
+                                rows="4"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+                                placeholder="문의하실 내용을 자유롭게 작성해주세요"
+                            ></textarea>
+                        </div>
+                        
+                        <button 
+                            type="submit"
+                            class="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-all active:scale-[0.98] disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        >
+                            <span id="adSubmitText">보내기</span>
+                            <span id="adSubmitLoading" class="hidden">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>빠르게 처리 중…
+                            </span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- 완료 시트 -->
+            <div id="adSuccessSheet" class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl transform translate-y-full transition-transform duration-300 ease-out hidden">
+                <div class="max-w-2xl mx-auto px-6 py-12 text-center">
+                    <!-- 핸들 바 -->
+                    <div class="flex justify-center mb-6">
+                        <div class="w-10 h-1 bg-gray-300 rounded-full"></div>
+                    </div>
+                    
+                    <!-- 성공 아이콘 -->
+                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-check text-3xl text-blue-500"></i>
+                    </div>
+                    
+                    <!-- 제목 -->
+                    <h2 class="text-2xl font-bold text-gray-900 mb-3">문의가 잘 접수됐어요</h2>
+                    <p class="text-gray-600 mb-8">담당자가 확인 후 빠르게 연락드릴게요.</p>
+                    
+                    <button 
+                        onclick="closeAdInquiry()"
+                        class="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-all active:scale-[0.98]"
+                    >
+                        확인
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -10125,6 +10262,83 @@ app.get('/', (c) => {
             
             loadProperties();
           }
+
+          // 광고 문의 모달 함수들
+          function openAdInquiry() {
+            const modal = document.getElementById('adInquiryModal');
+            const sheet = document.getElementById('adInquirySheet');
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+              sheet.style.transform = 'translateY(0)';
+            }, 10);
+          }
+          
+          function closeAdInquiry() {
+            const modal = document.getElementById('adInquiryModal');
+            const inputSheet = document.getElementById('adInquirySheet');
+            const successSheet = document.getElementById('adSuccessSheet');
+            
+            inputSheet.style.transform = 'translateY(100%)';
+            successSheet.style.transform = 'translateY(100%)';
+            
+            setTimeout(() => {
+              modal.classList.add('hidden');
+              inputSheet.classList.remove('hidden');
+              successSheet.classList.add('hidden');
+              document.getElementById('adInquiryForm').reset();
+            }, 300);
+          }
+          
+          // 광고 문의 폼 제출
+          document.getElementById('adInquiryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('adName').value;
+            const contact = document.getElementById('adContact').value;
+            const message = document.getElementById('adMessage').value;
+            
+            // 버튼 로딩 상태
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const submitText = document.getElementById('adSubmitText');
+            const submitLoading = document.getElementById('adSubmitLoading');
+            
+            submitBtn.disabled = true;
+            submitText.classList.add('hidden');
+            submitLoading.classList.remove('hidden');
+            
+            try {
+              // 이메일 전송 API 호출
+              const response = await axios.post('/api/contact/inquiry', {
+                name,
+                contact,
+                message,
+                type: 'ad_inquiry'
+              });
+              
+              if (response.data.success) {
+                // 입력 시트 숨기고 완료 시트 표시
+                const inputSheet = document.getElementById('adInquirySheet');
+                const successSheet = document.getElementById('adSuccessSheet');
+                
+                inputSheet.style.transform = 'translateY(100%)';
+                setTimeout(() => {
+                  inputSheet.classList.add('hidden');
+                  successSheet.classList.remove('hidden');
+                  successSheet.style.transform = 'translateY(0)';
+                }, 300);
+              } else {
+                alert('문의 전송에 실패했습니다. 다시 시도해주세요.');
+              }
+            } catch (error) {
+              console.error('Ad inquiry error:', error);
+              alert('문의 전송 중 오류가 발생했습니다.');
+            } finally {
+              submitBtn.disabled = false;
+              submitText.classList.remove('hidden');
+              submitLoading.classList.add('hidden');
+            }
+          });
 
           // Initialize
           // checkLoginStatus(); // 로그인 기능 임시 비활성화
