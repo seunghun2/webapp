@@ -2,8 +2,8 @@ name: 실거래가 자동 업데이트
 
 on:
   schedule:
-    # 매일 한국시간 오전 11시 (UTC 2시)에 실행
-    - cron: '0 2 * * *'
+    # 매일 한국시간 새벽 4시 (UTC 19시 전날)에 실행
+    - cron: '0 19 * * *'
   workflow_dispatch:  # GitHub에서 수동 실행 가능
 
 jobs:
