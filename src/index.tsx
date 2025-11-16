@@ -7207,6 +7207,33 @@ app.get('/', (c) => {
         <!-- Main Content -->
         <main class="max-w-6xl mx-auto px-3 sm:px-4 pb-8 sm:pb-12">
             
+            <!-- 검색창 -->
+            <div class="bg-white px-4 py-3 mb-2">
+                <div class="relative max-w-2xl mx-auto">
+                    <input 
+                        type="text" 
+                        id="mainSearchInput" 
+                        placeholder="지역, 단지명, 태그로 검색 (예: 부천, 신혼부부, 행복주택)"
+                        class="w-full px-4 py-2.5 pr-24 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        onkeypress="if(event.key==='Enter') mainSearch()"
+                    >
+                    <div class="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
+                        <button 
+                            onclick="mainSearchClear()" 
+                            class="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                        >
+                            초기화
+                        </button>
+                        <button 
+                            onclick="mainSearch()" 
+                            class="px-3 py-1.5 text-xs text-white bg-blue-500 hover:bg-blue-600 rounded transition-colors"
+                        >
+                            <i class="fas fa-search mr-1"></i>검색
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- 호갱노노 스타일 필터 -->
             <div class="bg-white px-4 py-3 mb-2 relative">
                 <div class="overflow-x-auto pr-14" style="-webkit-overflow-scrolling: touch;">
@@ -7623,6 +7650,9 @@ app.get('/', (c) => {
             area: 'all',
             sort: 'deadline'
           };
+          
+          // Search state
+          let searchQuery = '';
 
           // Calculate D-Day
           function calculateDDay(deadlineStr) {
@@ -10076,6 +10106,30 @@ app.get('/', (c) => {
               target.innerHTML = originalHtml;
             }
           });
+
+          // 메인 페이지 검색 함수
+          function mainSearch() {
+            const input = document.getElementById('mainSearchInput');
+            searchQuery = input.value.trim();
+            console.log('🔍 Main search:', searchQuery);
+            
+            // 검색 시 filters에 추가
+            if (searchQuery) {
+              filters.search = searchQuery;
+            } else {
+              delete filters.search;
+            }
+            
+            loadProperties();
+          }
+          
+          function mainSearchClear() {
+            document.getElementById('mainSearchInput').value = '';
+            searchQuery = '';
+            delete filters.search;
+            console.log('🔄 Search cleared');
+            loadProperties();
+          }
 
           // Initialize
           // checkLoginStatus(); // 로그인 기능 임시 비활성화
