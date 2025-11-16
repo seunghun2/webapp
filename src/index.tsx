@@ -2308,39 +2308,29 @@ app.post('/api/properties/create', async (c) => {
   }
 })
 
-// Contact inquiry API (광고 문의)
+// Contact inquiry API (광고 문의 - DB 저장)
 app.post('/api/contact/inquiry', async (c) => {
   try {
+    const { DB } = c.env
     const body = await c.req.json()
-    const { name, contact, message, type } = body
+    const { name, contact, message } = body
     
-    // 이메일 내용 구성
-    const emailSubject = type === 'ad_inquiry' ? '[똑똑한한채] 광고 문의' : '[똑똑한한채] 문의하기'
-    const emailBody = `
-이름: ${name}
-연락처: ${contact}
-
-문의 내용:
-${message}
-
----
-문의 유형: ${type}
-접수 시간: ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}
-    `.trim()
+    // DB에 저장
+    const result = await DB.prepare(`
+      INSERT INTO ad_inquiries (name, contact, message, status)
+      VALUES (?, ?, ?, 'pending')
+    `).bind(name, contact, message).run()
     
-    // 실제 환경에서는 이메일 발송 서비스(SendGrid, AWS SES 등) 사용
-    // 여기서는 로그만 출력
-    console.log('📧 Contact Inquiry Received:')
-    console.log('To: wsh9991@naver.com')
-    console.log('Subject:', emailSubject)
-    console.log('Body:', emailBody)
-    
-    // TODO: 실제 이메일 발송 로직 구현
-    // 예시: await sendEmail('wsh9991@naver.com', emailSubject, emailBody)
+    console.log('📧 Ad Inquiry Saved to DB:', {
+      id: result.meta.last_row_id,
+      name,
+      contact
+    })
     
     return c.json({
       success: true,
-      message: '문의가 성공적으로 접수되었습니다.'
+      message: '문의가 성공적으로 접수되었습니다.',
+      id: result.meta.last_row_id
     })
   } catch (error) {
     console.error('Contact inquiry error:', error)
@@ -2348,6 +2338,58 @@ ${message}
       success: false,
       error: '문의 접수 중 오류가 발생했습니다.'
     }, 500)
+  }
+})
+
+// Get ad inquiries (Admin)
+app.get('/api/ad-inquiries', async (c) => {
+  try {
+    const { DB } = c.env
+    const status = c.req.query('status') || 'all'
+    
+    let query = 'SELECT * FROM ad_inquiries'
+    let params: any[] = []
+    
+    if (status !== 'all') {
+      query += ' WHERE status = ?'
+      params.push(status)
+    }
+    
+    query += ' ORDER BY created_at DESC'
+    
+    let stmt = DB.prepare(query)
+    if (params.length > 0) {
+      stmt = stmt.bind(...params)
+    }
+    
+    const result = await stmt.all()
+    return c.json(result.results)
+  } catch (error) {
+    console.error('Error fetching ad inquiries:', error)
+    return c.json({ error: 'Failed to fetch ad inquiries' }, 500)
+  }
+})
+
+// Update ad inquiry status (Admin)
+app.post('/api/ad-inquiries/:id/status', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    const { status, admin_note } = await c.req.json()
+    
+    await DB.prepare(`
+      UPDATE ad_inquiries 
+      SET status = ?,
+          admin_note = ?,
+          replied_at = CASE WHEN ? = 'replied' THEN datetime('now') ELSE replied_at END,
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).bind(status, admin_note || null, status, id).run()
+    
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error updating ad inquiry:', error)
+    return c.json({ error: 'Failed to update ad inquiry' }, 500)
   }
 })
 
@@ -4008,6 +4050,9 @@ app.get('/admin', (c) => {
                         <button onclick="switchTab('deleted')" class="tab-btn px-6 py-4 font-medium text-sm text-gray-600 whitespace-nowrap border-b-2 border-transparent" data-tab="deleted">
                             삭제된 매물
                         </button>
+                        <button onclick="switchTab('ad-inquiries')" class="tab-btn px-6 py-4 font-medium text-sm text-gray-600 whitespace-nowrap border-b-2 border-transparent" data-tab="ad-inquiries">
+                            광고 문의
+                        </button>
                     </div>
                 </div>
                 
@@ -4130,6 +4175,58 @@ app.get('/admin', (c) => {
                     <div id="noDeletedProperties" class="hidden p-8 text-center text-gray-500">
                         <i class="fas fa-inbox text-4xl mb-3"></i>
                         <p>삭제된 매물이 없습니다.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ad Inquiries Section -->
+            <div id="ad-inquiriesSection" class="section-content p-4 sm:p-6 lg:p-8 hidden">
+                <div class="bg-white rounded-xl shadow-sm mb-6 border border-gray-100 p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900">광고 문의</h3>
+                            <p class="text-sm text-gray-500 mt-1">사용자가 남긴 광고 문의를 확인하고 답변할 수 있습니다</p>
+                        </div>
+                        <button onclick="loadAdInquiries()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                            <i class="fas fa-sync-alt mr-2"></i>새로고침
+                        </button>
+                    </div>
+                    
+                    <!-- Status Filters -->
+                    <div class="flex gap-2 mb-6">
+                        <button onclick="filterAdInquiries('all')" class="ad-filter-btn px-4 py-2 text-sm rounded-lg bg-blue-100 text-blue-700 font-medium" data-status="all">
+                            전체
+                        </button>
+                        <button onclick="filterAdInquiries('pending')" class="ad-filter-btn px-4 py-2 text-sm rounded-lg bg-gray-100 text-gray-600" data-status="pending">
+                            대기중
+                        </button>
+                        <button onclick="filterAdInquiries('replied')" class="ad-filter-btn px-4 py-2 text-sm rounded-lg bg-gray-100 text-gray-600" data-status="replied">
+                            답변완료
+                        </button>
+                    </div>
+                    
+                    <!-- Ad Inquiries Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full min-w-[640px]">
+                            <thead class="bg-gray-50 border-b">
+                                <tr>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">이름</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">연락처</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">문의내용</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">접수일</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">작업</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adInquiriesTable" class="divide-y divide-gray-200">
+                                <!-- Data will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="noAdInquiries" class="hidden p-8 text-center text-gray-500">
+                        <i class="fas fa-inbox text-4xl mb-3"></i>
+                        <p>광고 문의가 없습니다.</p>
                     </div>
                 </div>
             </div>
@@ -5060,6 +5157,175 @@ app.get('/admin', (c) => {
                 }
             }
             
+            // Load Ad Inquiries
+            let currentAdInquiryStatus = 'all';
+            async function loadAdInquiries() {
+                try {
+                    const response = await axios.get(\`/api/ad-inquiries?status=\${currentAdInquiryStatus}\`);
+                    const inquiries = response.data;
+                    
+                    const tableBody = document.getElementById('adInquiriesTable');
+                    tableBody.innerHTML = '';
+                    
+                    if (inquiries.length === 0) {
+                        document.getElementById('noAdInquiries').classList.remove('hidden');
+                        return;
+                    }
+                    
+                    document.getElementById('noAdInquiries').classList.add('hidden');
+                    
+                    inquiries.forEach(inquiry => {
+                        const statusLabels = {
+                            'pending': '대기중',
+                            'replied': '답변완료'
+                        };
+                        
+                        const statusColors = {
+                            'pending': 'bg-yellow-100 text-yellow-800',
+                            'replied': 'bg-green-100 text-green-800'
+                        };
+                        
+                        const createdAt = new Date(inquiry.created_at).toLocaleString('ko-KR');
+                        const messagePreview = inquiry.message.length > 30 ? inquiry.message.substring(0, 30) + '...' : inquiry.message;
+                        
+                        const row = document.createElement('tr');
+                        row.className = 'hover:bg-gray-50';
+                        row.innerHTML = \`
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-900">#\${inquiry.id}</td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium text-gray-900">\${inquiry.name}</td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-600 hidden sm:table-cell">\${inquiry.contact}</td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-600">\${messagePreview}</td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4">
+                                <span class="px-2 py-1 text-xs font-medium rounded-full \${statusColors[inquiry.status]}">\${statusLabels[inquiry.status]}</span>
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-600 hidden md:table-cell">\${createdAt}</td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4">
+                                <button onclick="viewAdInquiry(\${inquiry.id})" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                                    <i class="fas fa-eye mr-1"></i>보기
+                                </button>
+                            </td>
+                        \`;
+                        tableBody.appendChild(row);
+                    });
+                } catch (error) {
+                    console.error('Failed to load ad inquiries:', error);
+                    alert('광고 문의 목록을 불러오는데 실패했습니다.');
+                }
+            }
+            
+            // Filter Ad Inquiries
+            function filterAdInquiries(status) {
+                currentAdInquiryStatus = status;
+                document.querySelectorAll('.ad-filter-btn').forEach(btn => {
+                    btn.classList.remove('bg-blue-100', 'text-blue-700', 'font-medium');
+                    btn.classList.add('bg-gray-100', 'text-gray-600');
+                });
+                document.querySelector(\`[data-status="\${status}"]\`).classList.remove('bg-gray-100', 'text-gray-600');
+                document.querySelector(\`[data-status="\${status}"]\`).classList.add('bg-blue-100', 'text-blue-700', 'font-medium');
+                loadAdInquiries();
+            }
+            
+            // View Ad Inquiry Detail
+            async function viewAdInquiry(id) {
+                try {
+                    const response = await axios.get(\`/api/ad-inquiries\`);
+                    const inquiry = response.data.find(i => i.id === id);
+                    
+                    if (!inquiry) {
+                        alert('문의 내용을 찾을 수 없습니다.');
+                        return;
+                    }
+                    
+                    const createdAt = new Date(inquiry.created_at).toLocaleString('ko-KR');
+                    const statusText = inquiry.status === 'pending' ? '대기중' : '답변완료';
+                    
+                    const adminNote = inquiry.admin_note ? \`
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <p class="text-sm font-medium text-green-800 mb-2">관리자 메모</p>
+                            <p class="text-sm text-green-700">\${inquiry.admin_note}</p>
+                        </div>
+                    \` : '';
+                    
+                    const modalHtml = \`
+                        <div class="fixed inset-0 z-[110] flex items-center justify-center p-4" style="background: rgba(0,0,0,0.5);">
+                            <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+                                <div class="flex justify-between items-start mb-6">
+                                    <h3 class="text-xl font-bold text-gray-900">광고 문의 #\${inquiry.id}</h3>
+                                    <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+                                        <i class="fas fa-times text-xl"></i>
+                                    </button>
+                                </div>
+                                
+                                <div class="space-y-4">
+                                    <div>
+                                        <p class="text-sm text-gray-500">이름</p>
+                                        <p class="text-base font-medium text-gray-900">\${inquiry.name}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">연락처</p>
+                                        <p class="text-base font-medium text-gray-900">\${inquiry.contact}</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">문의 내용</p>
+                                        <p class="text-base text-gray-900 whitespace-pre-wrap">\${inquiry.message}</p>
+                                    </div>
+                                    <div class="flex gap-4">
+                                        <div>
+                                            <p class="text-sm text-gray-500">상태</p>
+                                            <span class="inline-block px-3 py-1 text-sm font-medium rounded-full \${inquiry.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}">\${statusText}</span>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm text-gray-500">접수일</p>
+                                            <p class="text-base text-gray-900">\${createdAt}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    \${adminNote}
+                                    
+                                    <div class="pt-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">관리자 메모</label>
+                                        <textarea id="adminNoteInput" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" rows="3" placeholder="답변 내용을 입력하세요">\${inquiry.admin_note || ''}</textarea>
+                                    </div>
+                                    
+                                    <div class="flex gap-2">
+                                        <button onclick="updateAdInquiryStatus(\${inquiry.id}, 'replied')" class="flex-1 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-medium">
+                                            답변 완료
+                                        </button>
+                                        <button onclick="updateAdInquiryStatus(\${inquiry.id}, 'pending')" class="flex-1 py-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 font-medium">
+                                            대기중으로 변경
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    \`;
+                    
+                    document.body.insertAdjacentHTML('beforeend', modalHtml);
+                } catch (error) {
+                    console.error('Failed to view ad inquiry:', error);
+                    alert('문의 내용을 불러오는데 실패했습니다.');
+                }
+            }
+            
+            // Update Ad Inquiry Status
+            async function updateAdInquiryStatus(id, status) {
+                const adminNote = document.getElementById('adminNoteInput').value;
+                
+                try {
+                    await axios.post(\`/api/ad-inquiries/\${id}/status\`, {
+                        status,
+                        admin_note: adminNote
+                    });
+                    
+                    alert('상태가 업데이트되었습니다.');
+                    document.querySelector('.fixed.z-\\[110\\]').remove();
+                    loadAdInquiries();
+                } catch (error) {
+                    console.error('Failed to update status:', error);
+                    alert('상태 업데이트에 실패했습니다.');
+                }
+            }
+            
             // Export Data
             function exportData() {
                 alert('데이터 내보내기 기능은 준비 중입니다.');
@@ -5863,7 +6129,20 @@ app.get('/admin', (c) => {
                     btn.classList.remove('tab-active');
                 });
                 document.querySelector(\`[data-tab="\${tab}"]\`).classList.add('tab-active');
-                loadProperties();
+                
+                // Hide all sections
+                document.querySelectorAll('.section-content').forEach(section => {
+                    section.classList.add('hidden');
+                });
+                
+                // Show selected section
+                if (tab === 'ad-inquiries') {
+                    document.getElementById('ad-inquiriesSection').classList.remove('hidden');
+                    loadAdInquiries();
+                } else {
+                    document.getElementById('propertiesSection').classList.remove('hidden');
+                    loadProperties();
+                }
             }
 
             // Toggle accordion section
@@ -7231,11 +7510,8 @@ app.get('/', (c) => {
                     -->
                     
                     <div class="flex items-center gap-1 sm:gap-2">
-                        <button 
-                            onclick="openAdInquiry()" 
-                            class="px-3 sm:px-4 py-1.5 sm:py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
-                        >
-                            광고 문의하기
+                        <button class="text-gray-600 hover:text-gray-900 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
+                            <i class="fas fa-bell text-base sm:text-lg"></i>
                         </button>
                     </div>
                 </div>
@@ -7398,6 +7674,16 @@ app.get('/', (c) => {
                     </div>
                 </div>
                 <div class="border-t border-gray-800 mt-6 sm:mt-8 pt-6 sm:pt-8 text-center text-xs sm:text-sm">
+                    <!-- 광고 문의 버튼 -->
+                    <div class="mb-6">
+                        <button 
+                            onclick="openAdInquiry()" 
+                            class="px-6 py-3 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-xl transition-all active:scale-[0.98] shadow-lg"
+                        >
+                            광고 문의하기
+                        </button>
+                    </div>
+                    
                     <div class="flex flex-wrap justify-center gap-4 sm:gap-6 mb-3 sm:mb-4">
                         <a href="/terms" class="hover:text-white transition-colors">이용약관</a>
                         <a href="/privacy" class="hover:text-white transition-colors">개인정보처리방침</a>
@@ -7724,8 +8010,8 @@ app.get('/', (c) => {
                     </div>
                     
                     <!-- 제목 -->
-                    <h2 class="text-2xl font-bold text-gray-900 mb-3">문의가 잘 접수됐어요</h2>
-                    <p class="text-gray-600 mb-8">담당자가 확인 후 빠르게 연락드릴게요.</p>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-3">문의가 접수됐어요</h2>
+                    <p class="text-gray-600 mb-8">빠르게 회신드릴게요.</p>
                     
                     <button 
                         onclick="closeAdInquiry()"
