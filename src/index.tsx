@@ -649,6 +649,7 @@ app.get('/api/properties', async (c) => {
     const { DB } = c.env
     const type = c.req.query('type') || 'all'
     const sort = c.req.query('sort') || 'latest'
+    const search = c.req.query('search') || ''
     
     // Build query for admin - show all properties including expired (excluding soft-deleted)
     let query = "SELECT * FROM properties WHERE deleted_at IS NULL"
@@ -661,6 +662,13 @@ app.get('/api/properties', async (c) => {
     } else if (type !== 'all') {
       query += ' AND type = ?'
       params.push(type)
+    }
+    
+    // Search filter (단지명, 지역, 태그로 검색)
+    if (search) {
+      query += ' AND (title LIKE ? OR location LIKE ? OR tags LIKE ?)'
+      const searchParam = `%${search}%`
+      params.push(searchParam, searchParam, searchParam)
     }
     
     // Sorting
@@ -2150,12 +2158,26 @@ app.delete('/api/properties/:id', async (c) => {
 app.get('/api/properties/deleted', async (c) => {
   try {
     const { DB } = c.env
+    const search = c.req.query('search') || ''
     
-    const result = await DB.prepare(`
-      SELECT * FROM properties 
-      WHERE deleted_at IS NOT NULL 
-      ORDER BY deleted_at DESC
-    `).all()
+    let query = "SELECT * FROM properties WHERE deleted_at IS NOT NULL"
+    let params: any[] = []
+    
+    // Search filter
+    if (search) {
+      query += ' AND (title LIKE ? OR location LIKE ? OR tags LIKE ?)'
+      const searchParam = `%${search}%`
+      params.push(searchParam, searchParam, searchParam)
+    }
+    
+    query += ' ORDER BY deleted_at DESC'
+    
+    let stmt = DB.prepare(query)
+    if (params.length > 0) {
+      stmt = stmt.bind(...params)
+    }
+    
+    const result = await stmt.all()
     
     const properties = result.results.map((prop: any) => {
       let parsedTags = []
@@ -3686,78 +3708,6 @@ app.get('/admin', (c) => {
                     </div>
                 </div>
                 
-                <!-- Seoul Test Mockup Card -->
-                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-sm p-6 mb-8 border-2 border-blue-200">
-                    <div class="flex items-center justify-between mb-4">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
-                                <i class="fas fa-vial text-white text-xl"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-lg font-bold text-gray-900">서울 강남 실거래가 실시간 조회</h3>
-                                <p class="text-sm text-gray-600">D1 데이터베이스 실시간 조회 테스트</p>
-                            </div>
-                        </div>
-                        <button onclick="testSeoulTradePrice()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-all">
-                            <i class="fas fa-search mr-2"></i>실시간 조회
-                        </button>
-                    </div>
-                    
-                    <!-- Summary Stats -->
-                    <div id="seoulTestResult" class="hidden mt-4">
-                        <div class="bg-white rounded-lg p-4 mb-4">
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <div class="text-center">
-                                    <div class="text-xs text-gray-500 mb-1">아파트명</div>
-                                    <div class="text-sm font-bold text-gray-900" id="seoulAptName">-</div>
-                                </div>
-                                <div class="text-center">
-                                    <div class="text-xs text-gray-500 mb-1">전용면적</div>
-                                    <div class="text-sm font-bold text-gray-900" id="seoulArea">-</div>
-                                </div>
-                                <div class="text-center">
-                                    <div class="text-xs text-gray-500 mb-1">최근 실거래가</div>
-                                    <div class="text-lg font-bold text-blue-600" id="seoulPrice">-</div>
-                                </div>
-                                <div class="text-center">
-                                    <div class="text-xs text-gray-500 mb-1">총 거래 건수</div>
-                                    <div class="text-sm font-bold text-green-600" id="seoulTotal">-</div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Trade Price Table -->
-                        <div class="bg-white rounded-lg overflow-hidden">
-                            <div class="px-4 py-3 bg-gray-50 border-b">
-                                <h4 class="text-sm font-bold text-gray-900">
-                                    <i class="fas fa-list mr-2"></i>실거래 내역 (최근 10건)
-                                </h4>
-                            </div>
-                            <div class="overflow-x-auto">
-                                <table class="w-full">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-4 py-2 text-xs font-medium text-gray-500 text-left">거래일</th>
-                                            <th class="px-4 py-2 text-xs font-medium text-gray-500 text-left">아파트명</th>
-                                            <th class="px-4 py-2 text-xs font-medium text-gray-500 text-right">면적(㎡)</th>
-                                            <th class="px-4 py-2 text-xs font-medium text-gray-500 text-right">거래가(억)</th>
-                                            <th class="px-4 py-2 text-xs font-medium text-gray-500 text-center">층</th>
-                                            <th class="px-4 py-2 text-xs font-medium text-gray-500 text-left">위치</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="seoulTradeTable" class="divide-y divide-gray-200">
-                                        <tr>
-                                            <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500">
-                                                조회 버튼을 클릭하세요
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
                 <!-- Recent Activities -->
                 <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
                     <h3 class="text-lg font-bold text-gray-900 mb-4">최근 활동</h3>
@@ -3784,20 +3734,33 @@ app.get('/admin', (c) => {
                         <button onclick="switchTab('unsold')" class="tab-btn px-6 py-4 font-medium text-sm text-gray-600 whitespace-nowrap border-b-2 border-transparent" data-tab="unsold">
                             줍줍분양
                         </button>
+                        <button onclick="switchTab('deleted')" class="tab-btn px-6 py-4 font-medium text-sm text-gray-600 whitespace-nowrap border-b-2 border-transparent" data-tab="deleted">
+                            삭제된 매물
+                        </button>
                     </div>
                 </div>
                 
             <!-- Search & Actions -->
-            <div class="bg-white rounded-lg shadow-sm p-3 sm:p-4 mb-3 sm:mb-4 flex flex-col sm:flex-row gap-2 sm:gap-3">
-                <input type="text" id="searchInput" placeholder="단지명, 지역 검색..." 
-                       class="flex-1 px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
-                <div class="flex gap-2 sm:gap-3">
-                    <button onclick="searchProperties()" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm sm:text-base">
-                        <i class="fas fa-search sm:mr-2"></i><span class="hidden sm:inline">검색</span>
-                    </button>
-                    <button onclick="openAddModal()" class="flex-1 sm:flex-none sm:w-auto px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm sm:text-base whitespace-nowrap">
-                        <i class="fas fa-plus sm:mr-2"></i>신규등록
-                    </button>
+            <div class="bg-white rounded-lg shadow-sm p-3 sm:p-4 mb-3 sm:mb-4">
+                <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-2">
+                    <input type="text" id="searchInput" placeholder="단지명, 지역, 태그로 검색..." 
+                           onkeyup="handleSearchKeyup(event)"
+                           class="flex-1 px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                    <div class="flex gap-2 sm:gap-3">
+                        <button onclick="searchProperties()" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm sm:text-base">
+                            <i class="fas fa-search sm:mr-2"></i><span class="hidden sm:inline">검색</span>
+                        </button>
+                        <button onclick="clearSearch()" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm sm:text-base">
+                            <i class="fas fa-times sm:mr-2"></i><span class="hidden sm:inline">초기화</span>
+                        </button>
+                        <button onclick="openAddModal()" class="flex-1 sm:flex-none sm:w-auto px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm sm:text-base whitespace-nowrap">
+                            <i class="fas fa-plus sm:mr-2"></i>신규등록
+                        </button>
+                    </div>
+                </div>
+                <div id="searchResultCount" class="text-sm text-gray-600 hidden">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    <span id="searchResultText"></span>
                 </div>
             </div>
 
@@ -4863,63 +4826,6 @@ app.get('/admin', (c) => {
             }
             
             // Test Seoul Trade Price
-            async function testSeoulTradePrice() {
-                const resultDiv = document.getElementById('seoulTestResult');
-                const tableBody = document.getElementById('seoulTradeTable');
-                resultDiv.classList.add('hidden');
-                
-                try {
-                    const response = await axios.post('/api/admin/fetch-trade-price', {
-                        address: '서울특별시 강남구 대치동',
-                        exclusiveArea: 84.9
-                    });
-                    
-                    if (response.data.success && response.data.data.found) {
-                        const data = response.data.data;
-                        
-                        // Update summary stats
-                        document.getElementById('seoulAptName').textContent = data.apartmentName;
-                        document.getElementById('seoulArea').textContent = data.exclusiveArea + '㎡';
-                        document.getElementById('seoulPrice').textContent = data.recentTradePrice.toFixed(1) + '억원';
-                        document.getElementById('seoulTotal').textContent = data.totalResults + '건';
-                        
-                        // Update table
-                        if (data.trades && data.trades.length > 0) {
-                            tableBody.innerHTML = data.trades.map(trade => \`
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-4 py-3 text-sm text-gray-900">
-                                        \${trade.dealYear}.\${String(trade.dealMonth).padStart(2, '0')}.\${String(trade.dealDay).padStart(2, '0')}
-                                    </td>
-                                    <td class="px-4 py-3 text-sm font-medium text-gray-900">\${trade.apartmentName}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-600 text-right">\${trade.exclusiveArea.toFixed(2)}</td>
-                                    <td class="px-4 py-3 text-sm font-bold text-blue-600 text-right">\${trade.dealAmount.toFixed(1)}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-600 text-center">\${trade.floor || '-'}층</td>
-                                    <td class="px-4 py-3 text-sm text-gray-600">\${trade.location}</td>
-                                </tr>
-                            \`).join('');
-                        } else {
-                            tableBody.innerHTML = \`
-                                <tr>
-                                    <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500">
-                                        거래 내역이 없습니다
-                                    </td>
-                                </tr>
-                            \`;
-                        }
-                        
-                        resultDiv.classList.remove('hidden');
-                        
-                        // Success animation
-                        resultDiv.style.animation = 'fadeIn 0.3s ease-in';
-                    } else {
-                        alert('❌ 실거래가 데이터를 찾을 수 없습니다.');
-                    }
-                } catch (error) {
-                    console.error('Seoul Test Error:', error);
-                    alert('❌ 테스트 실패: ' + (error.response?.data?.error || error.message));
-                }
-            }
-            
             // Initialize dashboard on load
             window.addEventListener('DOMContentLoaded', () => {
                 loadDashboardStats();
@@ -5570,42 +5476,93 @@ app.get('/admin', (c) => {
             // Load properties
             async function loadProperties() {
                 try {
-                    const url = currentTab === 'all' ? '/api/properties' : \`/api/properties?type=\${currentTab}\`;
+                    let url;
+                    if (currentTab === 'deleted') {
+                        url = '/api/properties/deleted';
+                        if (currentSearchQuery) {
+                            url += \`?search=\${encodeURIComponent(currentSearchQuery)}\`;
+                        }
+                    } else if (currentTab === 'all') {
+                        url = '/api/properties';
+                        if (currentSearchQuery) {
+                            url += \`?search=\${encodeURIComponent(currentSearchQuery)}\`;
+                        }
+                    } else {
+                        url = \`/api/properties?type=\${currentTab}\`;
+                        if (currentSearchQuery) {
+                            url += \`&search=\${encodeURIComponent(currentSearchQuery)}\`;
+                        }
+                    }
                     const response = await axios.get(url);
                     const properties = response.data;
                     
+                    // 검색 결과 카운트 업데이트 (전체 개수는 별도 API 호출 없이 현재 탭의 전체 개수로 표시)
+                    updateSearchResultCount(properties.length, properties.length);
+                    
                     const tbody = document.getElementById('propertiesTable');
-                    tbody.innerHTML = properties.map(p => \`
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 text-sm text-gray-900">\${p.id}</td>
-                            <td class="px-6 py-4 text-sm font-medium text-gray-900">\${p.title}</td>
-                            <td class="px-6 py-4 text-sm text-gray-600 hidden sm:table-cell">\${p.location || '-'}</td>
-                            <td class="px-6 py-4 text-sm">
-                                <span class="px-2 py-1 text-xs font-medium rounded \${
-                                    p.type === 'rental' ? 'bg-blue-100 text-blue-700' :
-                                    p.type === 'unsold' ? 'bg-orange-100 text-orange-700' :
-                                    'bg-green-100 text-green-700'
-                                }">\${
-                                    p.type === 'rental' ? '임대' : p.type === 'unsold' ? '줍줍' : '청약'
-                                }</span>
-                            </td>
-                            <td class="px-6 py-4 text-sm text-gray-600 hidden md:table-cell">\${p.deadline || '-'}</td>
-                            <td class="px-6 py-4 text-sm text-gray-600 hidden lg:table-cell">\${
-                                p.created_at ? new Date(p.created_at).toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\\. /g, '-').replace('.', '') : '-'
-                            }</td>
-                            <td class="px-6 py-4 text-sm text-gray-600 hidden lg:table-cell">\${
-                                p.updated_at ? new Date(p.updated_at).toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\\. /g, '-').replace('.', '') : '-'
-                            }</td>
-                            <td class="px-6 py-4 text-sm">
-                                <button onclick="editProperty(\${p.id})" class="text-blue-600 hover:text-blue-800 mr-3">
-                                    <i class="fas fa-edit"></i> 수정
-                                </button>
-                                <button onclick="deleteProperty(\${p.id})" class="text-red-600 hover:text-red-800">
-                                    <i class="fas fa-trash"></i> 삭제
-                                </button>
-                            </td>
-                        </tr>
-                    \`).join('');
+                    
+                    // 삭제된 매물 탭인 경우
+                    if (currentTab === 'deleted') {
+                        tbody.innerHTML = properties.map(p => \`
+                            <tr class="hover:bg-gray-50 bg-red-50">
+                                <td class="px-6 py-4 text-sm text-gray-900">\${p.id}</td>
+                                <td class="px-6 py-4 text-sm font-medium text-gray-900">\${p.title}</td>
+                                <td class="px-6 py-4 text-sm text-gray-600 hidden sm:table-cell">\${p.location || '-'}</td>
+                                <td class="px-6 py-4 text-sm">
+                                    <span class="px-2 py-1 text-xs font-medium rounded \${
+                                        p.type === 'rental' ? 'bg-blue-100 text-blue-700' :
+                                        p.type === 'unsold' ? 'bg-orange-100 text-orange-700' :
+                                        'bg-green-100 text-green-700'
+                                    }">\${
+                                        p.type === 'rental' ? '임대' : p.type === 'unsold' ? '줍줍' : '청약'
+                                    }</span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-600 hidden md:table-cell">\${p.deadline || '-'}</td>
+                                <td class="px-6 py-4 text-sm text-gray-600 hidden lg:table-cell">\${
+                                    p.deleted_at ? new Date(p.deleted_at).toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\\. /g, '-').replace('.', '') : '-'
+                                }</td>
+                                <td class="px-6 py-4 text-sm text-gray-600 hidden lg:table-cell">삭제됨</td>
+                                <td class="px-6 py-4 text-sm">
+                                    <button onclick="restoreProperty(\${p.id})" class="text-green-600 hover:text-green-800">
+                                        <i class="fas fa-undo"></i> 복원
+                                    </button>
+                                </td>
+                            </tr>
+                        \`).join('');
+                    } else {
+                        // 일반 매물 탭
+                        tbody.innerHTML = properties.map(p => \`
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 text-sm text-gray-900">\${p.id}</td>
+                                <td class="px-6 py-4 text-sm font-medium text-gray-900">\${p.title}</td>
+                                <td class="px-6 py-4 text-sm text-gray-600 hidden sm:table-cell">\${p.location || '-'}</td>
+                                <td class="px-6 py-4 text-sm">
+                                    <span class="px-2 py-1 text-xs font-medium rounded \${
+                                        p.type === 'rental' ? 'bg-blue-100 text-blue-700' :
+                                        p.type === 'unsold' ? 'bg-orange-100 text-orange-700' :
+                                        'bg-green-100 text-green-700'
+                                    }">\${
+                                        p.type === 'rental' ? '임대' : p.type === 'unsold' ? '줍줍' : '청약'
+                                    }</span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-600 hidden md:table-cell">\${p.deadline || '-'}</td>
+                                <td class="px-6 py-4 text-sm text-gray-600 hidden lg:table-cell">\${
+                                    p.created_at ? new Date(p.created_at).toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\\. /g, '-').replace('.', '') : '-'
+                                }</td>
+                                <td class="px-6 py-4 text-sm text-gray-600 hidden lg:table-cell">\${
+                                    p.updated_at ? new Date(p.updated_at).toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\\. /g, '-').replace('.', '') : '-'
+                                }</td>
+                                <td class="px-6 py-4 text-sm">
+                                    <button onclick="editProperty(\${p.id})" class="text-blue-600 hover:text-blue-800 mr-3">
+                                        <i class="fas fa-edit"></i> 수정
+                                    </button>
+                                    <button onclick="deleteProperty(\${p.id})" class="text-red-600 hover:text-red-800">
+                                        <i class="fas fa-trash"></i> 삭제
+                                    </button>
+                                </td>
+                            </tr>
+                        \`).join('');
+                    }
                 } catch (error) {
                     console.error('Failed to load properties:', error);
                     alert('데이터 로드 실패');
@@ -5870,15 +5827,55 @@ app.get('/admin', (c) => {
                 }
             }
 
-            // Search properties
-            function searchProperties() {
-                const query = document.getElementById('searchInput').value.toLowerCase();
-                const rows = document.querySelectorAll('#propertiesTable tr');
+            // Restore deleted property
+            async function restoreProperty(id) {
+                if (!confirm('이 매물을 복원하시겠습니까?')) return;
                 
-                rows.forEach(row => {
-                    const text = row.textContent.toLowerCase();
-                    row.style.display = text.includes(query) ? '' : 'none';
-                });
+                try {
+                    await axios.post(\`/api/properties/\${id}/restore\`);
+                    alert('복원되었습니다');
+                    loadProperties();
+                } catch (error) {
+                    console.error('Failed to restore:', error);
+                    alert('복원 실패');
+                }
+            }
+
+            // Search properties
+            // 검색어 저장 변수
+            let currentSearchQuery = '';
+
+            // Enter 키 입력 시 검색
+            function handleSearchKeyup(event) {
+                if (event.key === 'Enter') {
+                    searchProperties();
+                }
+            }
+
+            // 검색 실행
+            async function searchProperties() {
+                currentSearchQuery = document.getElementById('searchInput').value.trim();
+                await loadProperties();
+            }
+
+            // 검색 초기화
+            async function clearSearch() {
+                currentSearchQuery = '';
+                document.getElementById('searchInput').value = '';
+                await loadProperties();
+            }
+
+            // 검색 결과 카운트 표시
+            function updateSearchResultCount(count, total) {
+                const countElement = document.getElementById('searchResultCount');
+                const textElement = document.getElementById('searchResultText');
+                
+                if (currentSearchQuery) {
+                    countElement.classList.remove('hidden');
+                    textElement.textContent = \`검색결과: \${count}개 매물 (전체 \${total}개 중)\`;
+                } else {
+                    countElement.classList.add('hidden');
+                }
             }
 
             // Collect form data
