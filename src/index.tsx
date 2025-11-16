@@ -7210,27 +7210,14 @@ app.get('/', (c) => {
             <!-- 검색창 -->
             <div class="bg-white px-4 py-3 mb-2">
                 <div class="relative max-w-2xl mx-auto">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
                     <input 
                         type="text" 
                         id="mainSearchInput" 
-                        placeholder="지역, 단지명, 태그로 검색 (예: 부천, 신혼부부, 행복주택)"
-                        class="w-full px-4 py-2.5 pr-24 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        onkeypress="if(event.key==='Enter') mainSearch()"
+                        placeholder="지역, 단지명으로 검색"
+                        class="w-full pl-11 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        onkeyup="mainSearchOnType(event)"
                     >
-                    <div class="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
-                        <button 
-                            onclick="mainSearchClear()" 
-                            class="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-                        >
-                            초기화
-                        </button>
-                        <button 
-                            onclick="mainSearch()" 
-                            class="px-3 py-1.5 text-xs text-white bg-blue-500 hover:bg-blue-600 rounded transition-colors"
-                        >
-                            <i class="fas fa-search mr-1"></i>검색
-                        </button>
-                    </div>
                 </div>
             </div>
 
@@ -10107,27 +10094,35 @@ app.get('/', (c) => {
             }
           });
 
-          // 메인 페이지 검색 함수
+          // 메인 페이지 검색 함수 (타이핑 시 자동 검색)
+          let searchTimeout;
+          function mainSearchOnType(event) {
+            clearTimeout(searchTimeout);
+            
+            // Enter 키면 즉시 검색
+            if (event.key === 'Enter') {
+              mainSearch();
+              return;
+            }
+            
+            // 타이핑 후 500ms 대기 후 검색
+            searchTimeout = setTimeout(() => {
+              mainSearch();
+            }, 500);
+          }
+          
           function mainSearch() {
             const input = document.getElementById('mainSearchInput');
             searchQuery = input.value.trim();
-            console.log('🔍 Main search:', searchQuery);
             
             // 검색 시 filters에 추가
             if (searchQuery) {
               filters.search = searchQuery;
+              console.log('🔍 Searching:', searchQuery);
             } else {
               delete filters.search;
             }
             
-            loadProperties();
-          }
-          
-          function mainSearchClear() {
-            document.getElementById('mainSearchInput').value = '';
-            searchQuery = '';
-            delete filters.search;
-            console.log('🔄 Search cleared');
             loadProperties();
           }
 
