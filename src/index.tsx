@@ -6386,31 +6386,49 @@ app.get('/admin', (c) => {
 
                 const tags = (document.getElementById('hashtags')?.value || '').split(',').map(t => t.trim()).filter(t => t);
                 
-                // Calculate deadline: steps 배열의 가장 마지막 step의 마지막 날짜
+                // Calculate deadline: "청약접수", "접수", "신청"이 포함된 step의 마지막 날짜
                 let calculatedDeadline = document.getElementById('announcementDate')?.value || new Date().toISOString().split('T')[0];
                 
-                // steps 배열에서 가장 마지막 step의 끝 날짜를 찾기
+                // steps 배열에서 청약접수/접수/신청 관련 step 찾기
                 if (steps.length > 0) {
-                    // 마지막 step 가져오기
-                    const lastStep = steps[steps.length - 1];
+                    // "청약접수", "접수", "신청" 키워드가 포함된 step 찾기
+                    const applicationStep = steps.find(step => 
+                        step.title && (
+                            step.title.includes('청약접수') || 
+                            step.title.includes('청약 접수') ||
+                            step.title.includes('접수') || 
+                            step.title.includes('신청')
+                        )
+                    );
                     
-                    if (lastStep && lastStep.date) {
+                    if (applicationStep && applicationStep.date) {
                         // date 형식: "2025-11-14" 또는 "2025-11-14~2025-11-17"
-                        const dateParts = lastStep.date.split('~');
+                        const dateParts = applicationStep.date.split('~');
                         
                         if (dateParts.length === 2) {
-                            // 범위가 있으면 끝 날짜 사용
+                            // 범위가 있으면 끝 날짜 사용 (예: 2025-11-17)
                             calculatedDeadline = dateParts[1].trim();
                         } else {
                             // 범위가 없으면 해당 날짜 사용
                             calculatedDeadline = dateParts[0].trim();
+                        }
+                    } else {
+                        // 청약접수 관련 step이 없으면 마지막 step 사용
+                        const lastStep = steps[steps.length - 1];
+                        if (lastStep && lastStep.date) {
+                            const dateParts = lastStep.date.split('~');
+                            if (dateParts.length === 2) {
+                                calculatedDeadline = dateParts[1].trim();
+                            } else {
+                                calculatedDeadline = dateParts[0].trim();
+                            }
                         }
                     }
                 }
                 
                 console.log('📅 Calculated deadline:', {
                     stepsCount: steps.length,
-                    lastStep: steps[steps.length - 1],
+                    applicationStep: steps.find(s => s.title?.includes('청약접수') || s.title?.includes('접수') || s.title?.includes('신청')),
                     calculatedDeadline: calculatedDeadline
                 });
 
