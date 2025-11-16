@@ -1300,7 +1300,15 @@ function extractSubscriptionSchedule(pdfText: string): {
 }
 
 // ===== LH 크롤러 API =====
+// 크롤링 임시 비활성화 (2025-11-16)
 app.post('/api/crawl/lh', async (c) => {
+  return c.json({ 
+    success: false, 
+    message: '크롤링이 일시적으로 비활성화되었습니다.' 
+  }, 503)
+  
+  /* 
+  // 원래 크롤링 코드 (비활성화됨)
   try {
     const { DB } = c.env
     
@@ -1527,6 +1535,7 @@ app.post('/api/crawl/lh', async (c) => {
       message: error instanceof Error ? error.message : 'Unknown error'
     }, 500)
   }
+  */
 })
 
 // API endpoint to update KB market price
