@@ -9397,7 +9397,7 @@ app.get('/', (c) => {
                                 }
                               })()
                             }</div>
-                            <div class="font-bold text-gray-900">\${property.deadline}</div>
+                            <div class="font-bold text-gray-900">\${ddayDate}</div>
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">\${
