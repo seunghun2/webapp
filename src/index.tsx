@@ -8406,52 +8406,6 @@ app.get('/', (c) => {
                     </div>
                   </div>
                   
-                  <!-- 실거래가 정보 (줍줍분양 전용) - 자동 로드 -->
-                  \${property.type === 'unsold' && property.apartment_name ? \`
-                    <div class="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg p-4 sm:p-5 border-2 border-orange-200">
-                      <div class="mb-3">
-                        <h3 class="text-sm sm:text-base font-bold text-gray-900">
-                          <i class="fas fa-chart-line text-orange-600 mr-2"></i>
-                          실거래가 정보
-                        </h3>
-                        <p class="text-xs text-gray-500 mt-1">\${property.apartment_name}</p>
-                      </div>
-                      
-                      <div id="detailTradePriceLoading-\${property.id}" class="text-center py-6">
-                        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-600 mx-auto"></div>
-                        <p class="text-sm text-gray-600 mt-3">실거래가 데이터 로딩 중...</p>
-                      </div>
-                      
-                      <div id="detailTradePriceResult-\${property.id}" class="hidden">
-                        <!-- 그래프 영역 -->
-                        <div class="bg-white rounded-lg p-4 shadow-sm mb-4">
-                          <canvas id="tradePriceChart-\${property.id}" style="max-height: 300px;"></canvas>
-                        </div>
-                        
-                        <!-- 요약 정보 -->
-                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                          <div class="bg-white rounded-lg p-3 shadow-sm">
-                            <div class="text-xs text-gray-500 mb-1">평균 거래가</div>
-                            <div id="detailAvgPrice-\${property.id}" class="text-sm font-bold text-gray-900">-</div>
-                          </div>
-                          <div class="bg-white rounded-lg p-3 shadow-sm">
-                            <div class="text-xs text-gray-500 mb-1">최고가</div>
-                            <div id="detailMaxPrice-\${property.id}" class="text-sm font-bold text-green-600">-</div>
-                          </div>
-                          <div class="bg-white rounded-lg p-3 shadow-sm">
-                            <div class="text-xs text-gray-500 mb-1">최저가</div>
-                            <div id="detailMinPrice-\${property.id}" class="text-sm font-bold text-blue-600">-</div>
-                          </div>
-                          <div class="bg-white rounded-lg p-3 shadow-sm">
-                            <div class="text-xs text-gray-500 mb-1">총 거래</div>
-                            <div id="detailTotal-\${property.id}" class="text-sm font-bold text-gray-900">-</div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div id="detailTradePriceMessage-\${property.id}" class="hidden text-xs text-gray-600 mt-2"></div>
-                    </div>
-                  \` : ''}
                   
                   <!-- Supply Info from extended_data -->
                   \${extendedData.supplyInfo && extendedData.supplyInfo.length > 0 ? \`
