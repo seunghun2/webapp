@@ -9373,7 +9373,7 @@ app.get('/', (c) => {
                           <i class="fas fa-map-marker-alt text-gray-400 text-xs flex-shrink-0"></i>
                           <span class="truncate">\${property.full_address || property.location}</span>
                         </div>
-                        \${property.full_address ? \`
+                        \${property.full_address && property.lat && property.lng ? \`
                           <button onclick="openMap('\${property.full_address.replace(/'/g, "\\\\'")}', \${property.lat}, \${property.lng})" 
                                   class="text-gray-400 hover:text-gray-600 active:text-gray-800 transition-colors p-2 -m-2 flex-shrink-0"
                                   title="지도에서 보기">
