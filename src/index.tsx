@@ -9814,25 +9814,23 @@ app.get('/', (c) => {
                             })()}</div>
                           </div>
                           <div>
-                            <div class="text-xs text-gray-500 mb-1">📐 공급면적</div>
+                            <div class="text-xs text-gray-500 mb-1">📞 전화번호</div>
                             <div class="font-bold text-gray-900">\${
                               (() => {
-                                // supply_area에 범위(~)가 포함되어 있으면 잘못된 데이터이므로 전용면적 기반 계산
-                                if (property.supply_area && property.supply_area.includes('~')) {
-                                  if (property.exclusive_area) {
-                                    const exclusiveNum = parseFloat(property.exclusive_area);
-                                    if (!isNaN(exclusiveNum)) {
-                                      const supplyNum = (exclusiveNum * 1.33).toFixed(2);
-                                      return supplyNum + '㎡';
+                                // Get contactPhone from extended_data.details
+                                try {
+                                  if (property.extended_data) {
+                                    const extendedData = typeof property.extended_data === 'string' 
+                                      ? JSON.parse(property.extended_data) 
+                                      : property.extended_data;
+                                    if (extendedData.details && extendedData.details.contactPhone) {
+                                      return extendedData.details.contactPhone;
                                     }
                                   }
-                                  return '-';
+                                } catch (e) {
+                                  // Parsing failed
                                 }
-                                // 정상 데이터는 그대로 표시
-                                const area = property.supply_area || '-';
-                                if (area === '-') return area;
-                                // 이미 '㎡'가 붙어있으면 그대로, 없으면 추가
-                                return area.toString().includes('㎡') ? area : area + '㎡';
+                                return '-';
                               })()
                             }</div>
                           </div>
