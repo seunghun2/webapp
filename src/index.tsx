@@ -617,13 +617,15 @@ app.get('/api/stats', async (c) => {
   try {
     const { DB } = c.env
     
-    // Get all non-deleted properties
+    // Get all active non-deleted properties
     const result = await DB.prepare(`
       SELECT 
         type,
-        deadline
+        deadline,
+        extended_data
       FROM properties
       WHERE deleted_at IS NULL
+        AND status = 'active'
     `).all()
     
     // Calculate stats with deadline filtering (same logic as frontend)
@@ -640,10 +642,28 @@ app.get('/api/stats', async (c) => {
     result.results.forEach((row: any) => {
       let shouldCount = true
       
-      // Apply deadline filtering (same as frontend loadProperties)
-      if (row.deadline) {
+      // Get the last step date from extended_data.steps
+      let finalDeadline = row.deadline
+      try {
+        if (row.extended_data) {
+          const extendedData = JSON.parse(row.extended_data)
+          if (extendedData.steps && Array.isArray(extendedData.steps) && extendedData.steps.length > 0) {
+            const lastStep = extendedData.steps[extendedData.steps.length - 1]
+            if (lastStep.date) {
+              // Handle date ranges (e.g., "2025-11-08~2025-11-10")
+              const dateParts = lastStep.date.split('~')
+              finalDeadline = dateParts.length === 2 ? dateParts[1].trim() : dateParts[0].trim()
+            }
+          }
+        }
+      } catch (e) {
+        // If parsing fails, use row.deadline
+      }
+      
+      // Apply deadline filtering
+      if (finalDeadline) {
         try {
-          const deadline = new Date(row.deadline)
+          const deadline = new Date(finalDeadline)
           deadline.setHours(0, 0, 0, 0)
           
           // deadline + 1일 계산
@@ -9566,10 +9586,32 @@ app.get('/', (c) => {
               today.setHours(0, 0, 0, 0);
               
               properties = properties.filter(property => {
-                if (!property.deadline) return true; // deadline이 없으면 표시
+                // Get the last step date from extended_data.steps
+                let finalDeadline = property.deadline;
                 
                 try {
-                  const deadline = new Date(property.deadline);
+                  if (property.extended_data) {
+                    const extendedData = typeof property.extended_data === 'string' 
+                      ? JSON.parse(property.extended_data) 
+                      : property.extended_data;
+                    
+                    if (extendedData.steps && Array.isArray(extendedData.steps) && extendedData.steps.length > 0) {
+                      const lastStep = extendedData.steps[extendedData.steps.length - 1];
+                      if (lastStep.date) {
+                        // Handle date ranges (e.g., "2025-11-08~2025-11-10")
+                        const dateParts = lastStep.date.split('~');
+                        finalDeadline = dateParts.length === 2 ? dateParts[1].trim() : dateParts[0].trim();
+                      }
+                    }
+                  }
+                } catch (e) {
+                  // If parsing fails, use property.deadline
+                }
+                
+                if (!finalDeadline) return true; // deadline이 없으면 표시
+                
+                try {
+                  const deadline = new Date(finalDeadline);
                   deadline.setHours(0, 0, 0, 0);
                   
                   // deadline + 1일 계산
@@ -9580,7 +9622,7 @@ app.get('/', (c) => {
                   const shouldShow = today < deadlinePlusOne;
                   
                   if (!shouldShow) {
-                    console.log('🗑️ Hiding expired property:', property.title, 'deadline:', property.deadline);
+                    console.log('🗑️ Hiding expired property:', property.title, 'final deadline:', finalDeadline);
                   }
                   
                   return shouldShow;
