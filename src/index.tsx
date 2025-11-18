@@ -3096,8 +3096,18 @@ Required JSON structure (based on best practice format):
     {"date":"YYYY-MM-DD","title":"계약체결일","details":"견본주택 방문 계약"}
   ],
   "supplyInfo": [
-    {"type":"26㎡","area":"26㎡","households":"60세대","price":"보증금 1,527만원 / 월 8만원"},
-    {"type":"51㎡","area":"51㎡","households":"60세대","price":"보증금 4,000만원 / 월 21만원"}
+    {
+      "type": "CRITICAL: 타입/평형 (예: 26㎡, 51㎡, 59A, 84, 전용59㎡)",
+      "area": "CRITICAL: 면적 (예: 26.00㎡, 51.83㎡, 59.98㎡ - 반드시 ㎡ 단위 포함)",
+      "households": "CRITICAL: 세대수 (예: 60세대, 120세대, 407세대 - 반드시 '세대' 포함)",
+      "price": "CRITICAL: 가격 - 반드시 n억n,nnn만원 형식 (예: 보증금 1억5,270만원 / 월 8만원, 11억1,830만원, 5억5,690만원 ~ 16억2,600만원)"
+    }
+  ],
+  "supplyInfo_examples": [
+    {"type":"26㎡","area":"26.00㎡","households":"60세대","price":"보증금 1,527만원 / 월 8만원"},
+    {"type":"51㎡","area":"51.83㎡","households":"120세대","price":"보증금 4,000만원 / 월 21만원"},
+    {"type":"59A","area":"59.83㎡","households":"407세대","price":"11억1,830만원"},
+    {"type":"84","area":"84.99㎡","households":"2세대","price":"5억5,690만원 ~ 16억2,600만원"}
   ],
   "details": {
     "location": "IMPORTANT: 위치 - 상세 주소 (예: 충청북도 청주시 흥덕구 가경로 161)",
@@ -3139,7 +3149,18 @@ Rules:
 - Response must be valid JSON only
 - Extract ALL schedule dates into steps array
 - Use newline \\n for multi-line text in notices
-- 모든 가격은 "n억n,nnn만원" 형식 필수`
+- 모든 가격은 "n억n,nnn만원" 형식 필수
+
+CRITICAL - supplyInfo array requirements:
+- MUST extract ALL 공급세대 information from PDF
+- MUST include type, area, households, and price for EACH 타입/평형
+- Look for tables with headers like: 주택형, 면적, 세대수, 공급금액, 분양가격
+- Example table formats:
+  • 타입 | 전용면적 | 공급세대수 | 분양가격
+  • 주택형 | ㎡ | 세대 | 금액
+- If multiple types exist (e.g., 26㎡, 51㎡, 59A, 84), create separate entries for each
+- Price format: "n억n,nnn만원" or "보증금 n억n,nnn만원 / 월 n만원"
+- DO NOT leave supplyInfo empty unless PDF has NO 공급세대 information at all`
 
     let parsedData = null
     let usedModel = 'none'
