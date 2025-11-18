@@ -677,10 +677,16 @@ app.get('/api/properties', async (c) => {
     const type = c.req.query('type') || 'all'
     const sort = c.req.query('sort') || 'latest'
     const search = c.req.query('search') || ''
+    const includeAll = c.req.query('includeAll') || 'false' // Admin에서 사용
     
-    // Build query for admin - show all properties including expired (excluding soft-deleted)
+    // Build query - excluding soft-deleted
     let query = "SELECT * FROM properties WHERE deleted_at IS NULL"
     let params: any[] = []
+    
+    // Admin이 아니면 active 상태만 표시 (draft 필터링)
+    if (includeAll !== 'true') {
+      query += " AND status = 'active'"
+    }
     
     // Type filter
     if (type === 'today') {
@@ -1562,6 +1568,218 @@ app.post('/api/crawl/lh', async (c) => {
     }, 500)
   }
   */
+})
+
+// 청약홈 HTML 크롤링 (마감되지 않은 매물만, 로컬 DB에만 저장)
+app.post('/api/crawl/applyhome', async (c) => {
+  try {
+    const { DB } = c.env
+    
+    console.log('🏠 청약홈 크롤링 시작...')
+    
+    let newCount = 0
+    let updateCount = 0
+    let skipCount = 0
+    let totalProcessed = 0
+    
+    const todayDate = new Date()
+    todayDate.setHours(0, 0, 0, 0)
+    
+    // 페이지네이션: 여러 페이지 크롤링
+    const maxPages = 27 // 최대 27페이지까지 (전체 페이지)
+    
+    for (let page = 1; page <= maxPages; page++) {
+      try {
+        console.log(`\n📄 ${page}페이지 크롤링 중...`)
+        
+        const applyHomeUrl = `https://www.applyhome.co.kr/ai/aia/selectAPTLttotPblancListView.do?pageIndex=${page}`
+        
+        const response = await fetch(applyHomeUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+          }
+        })
+        
+        if (!response.ok) {
+          console.log(`⚠️  ${page}페이지 접속 실패: ${response.status}`)
+          break
+        }
+        
+        const html = await response.text()
+        
+        // HTML 테이블 파싱 - data-honm 속성을 가진 행만 추출
+        const rowRegex = /<tr[^>]*data-honm="([^"]+)"[^>]*>(.*?)<\/tr>/gs
+        const rows = [...html.matchAll(rowRegex)]
+        
+        if (rows.length === 0) {
+          console.log(`📭 ${page}페이지에 더 이상 공고 없음`)
+          break
+        }
+        
+        console.log(`📊 ${page}페이지: ${rows.length}개 공고 발견`)
+        
+        // 각 행 처리
+        for (const row of rows) {
+      try {
+        const titleText = row[1] // data-honm 속성 값
+        const rowHtml = row[2] // <tr> 내부 HTML
+        
+        console.log(`📝 처리 중: ${titleText}`)
+        
+        // <td> 태그들 추출
+        const tdRegex = /<td[^>]*>(.*?)<\/td>/gs
+        const tds = [...rowHtml.matchAll(tdRegex)].map(m => m[1].replace(/<[^>]+>/g, '').trim())
+        
+        if (tds.length < 8) {
+          console.log(`⏭️  데이터 부족, 스킵: ${titleText}`)
+          skipCount++
+          continue
+        }
+        
+        // TD 구조: [0]=지역, [1]=민영/공공, [2]=분양유형, [3]=주택명, [4]=시공사, [5]=전화번호, [6]=공고일, [7]=청약기간, [8]=당첨자발표
+        const location = tds[0] // 지역 (예: 전북, 경기)
+        const houseType = tds[1] // 민영/공공
+        const saleType = tds[2] // 분양주택/임대주택
+        const announcementDate = tds[6] // 모집공고일
+        const applicationPeriod = tds[7] // 청약기간 (2025-11-19 ~ 2025-11-21)
+        
+        // 청약 마감일 추출 (청약기간에서 끝 날짜)
+        const periodMatch = applicationPeriod.match(/(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})/)
+        if (!periodMatch) {
+          console.log(`⏭️  청약기간 형식 오류, 스킵: ${titleText}`)
+          skipCount++
+          continue
+        }
+        
+        const deadlineStr = periodMatch[2] // 청약 마감일
+        
+        // 마감일 체크 - 오늘 이후인 것만
+        const deadlineDate = new Date(deadlineStr)
+        if (deadlineDate < todayDate) {
+          console.log(`⏭️  마감된 공고 스킵: ${titleText} (마감: ${deadlineStr})`)
+          skipCount++
+          continue
+        }
+        
+        // 상태 판단
+        const announcementStatus = '접수중'
+        
+        // 유형 판단 (houseType과 saleType 기반)
+        let propertyType = 'general' // 기본값: 일반분양
+        let announcementType = saleType // 기본값: 분양주택/임대주택
+        
+        if (houseType === '공공' || titleText.includes('LH')) {
+          propertyType = 'unsold'
+          announcementType = '공공분양'
+        } else if (houseType === '민영') {
+          propertyType = 'general'
+          announcementType = '민간분양'
+        }
+        
+        if (saleType.includes('임대')) {
+          propertyType = 'rental'
+        }
+        
+        // 지역 정규화 (location은 이미 지역명: 전북, 경기, 충남 등)
+        let normalizedRegion = location
+        
+        // 세부 지역 매핑
+        if (location === '경북') normalizedRegion = '경북'
+        else if (location === '경남') normalizedRegion = '경남'
+        else if (location === '전북') normalizedRegion = '전북'
+        else if (location === '전남') normalizedRegion = '전남'
+        else if (location === '충북') normalizedRegion = '충북'
+        else if (location === '충남') normalizedRegion = '충남'
+        else normalizedRegion = location // 서울, 부산, 대구, 인천, 광주, 대전, 울산, 세종, 경기, 강원, 제주
+        
+        // 중복 체크 (제목 기반)
+        const existing = await DB.prepare(
+          'SELECT id FROM properties WHERE title = ? AND deleted_at IS NULL LIMIT 1'
+        ).bind(titleText).first()
+        
+        const now = new Date().toISOString()
+        
+        if (existing) {
+          // 업데이트
+          await DB.prepare(`
+            UPDATE properties SET
+              announcement_status = ?,
+              deadline = ?,
+              updated_at = ?
+            WHERE id = ?
+          `).bind(announcementStatus, deadlineStr, now, existing.id).run()
+          
+          console.log(`🔄 기존 매물 업데이트: ${titleText}`)
+          updateCount++
+        } else {
+          // 새로 삽입 (로컬 DB에만) - draft 상태로 저장 (메인 카드 비노출)
+          await DB.prepare(`
+            INSERT INTO properties (
+              type, title, location, status, deadline, price, households, tags,
+              region, announcement_type, announcement_status, announcement_date,
+              source, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).bind(
+            propertyType,
+            titleText,
+            location,
+            'draft', // 크롤링된 매물은 임시저장 상태
+            deadlineStr,
+            '미정',
+            '미정',
+            JSON.stringify(['청약홈']),
+            normalizedRegion,
+            announcementType,
+            announcementStatus,
+            announcementDate,
+            'applyhome',
+            now,
+            now
+          ).run()
+          
+          console.log(`✅ 신규 매물 추가 (임시저장): ${titleText}`)
+          newCount++
+        }
+        
+        totalProcessed++
+        
+      } catch (itemError) {
+        console.error(`❌ 매물 처리 실패:`, itemError)
+      }
+    } // end of row loop
+    
+    console.log(`✅ ${page}페이지 완료: 신규 ${newCount}건, 업데이트 ${updateCount}건, 스킵 ${skipCount}건`)
+    
+  } catch (pageError) {
+    console.error(`❌ ${page}페이지 처리 오류:`, pageError)
+    break
+  }
+} // end of page loop
+    
+    console.log(`\n🎉 전체 크롤링 완료!`)
+    console.log(`📊 총 처리: ${totalProcessed}건`)
+    console.log(`✅ 신규 추가: ${newCount}건`)
+    console.log(`🔄 업데이트: ${updateCount}건`)
+    console.log(`⏭️  마감 스킵: ${skipCount}건`)
+    
+    return c.json({
+      success: true,
+      message: `청약홈 크롤링 완료 (로컬 DB): 총 ${totalProcessed}건 처리, 신규 ${newCount}건, 업데이트 ${updateCount}건, 마감 스킵 ${skipCount}건`,
+      totalProcessed,
+      newCount,
+      updateCount,
+      skipCount,
+      timestamp: new Date().toISOString()
+    })
+    
+  } catch (error) {
+    console.error('❌ 청약홈 크롤링 오류:', error)
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, 500)
+  }
 })
 
 // API endpoint to update KB market price
@@ -6236,12 +6454,12 @@ app.get('/admin', (c) => {
                             url += \`?search=\${encodeURIComponent(currentSearchQuery)}\`;
                         }
                     } else if (currentTab === 'all') {
-                        url = '/api/properties';
+                        url = '/api/properties?includeAll=true';
                         if (currentSearchQuery) {
-                            url += \`?search=\${encodeURIComponent(currentSearchQuery)}\`;
+                            url += \`&search=\${encodeURIComponent(currentSearchQuery)}\`;
                         }
                     } else {
-                        url = \`/api/properties?type=\${currentTab}\`;
+                        url = \`/api/properties?type=\${currentTab}&includeAll=true\`;
                         if (currentSearchQuery) {
                             url += \`&search=\${encodeURIComponent(currentSearchQuery)}\`;
                         }
@@ -6285,9 +6503,13 @@ app.get('/admin', (c) => {
                     } else {
                         // 일반 매물 탭
                         tbody.innerHTML = properties.map(p => \`
-                            <tr class="hover:bg-gray-50">
+                            <tr class="hover:bg-gray-50 \${p.status === 'draft' ? 'bg-yellow-50' : ''}">
                                 <td class="px-6 py-4 text-sm text-gray-900">\${p.id}</td>
-                                <td class="px-6 py-4 text-sm font-medium text-gray-900">\${p.title}</td>
+                                <td class="px-6 py-4 text-sm font-medium text-gray-900">
+                                    \${p.title}
+                                    \${p.status === 'draft' ? '<span class="ml-2 px-2 py-1 text-xs font-medium rounded bg-yellow-100 text-yellow-700">임시저장</span>' : ''}
+                                    \${p.source === 'applyhome' ? '<span class="ml-2 px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-700">청약홈</span>' : ''}
+                                </td>
                                 <td class="px-6 py-4 text-sm text-gray-600 hidden sm:table-cell">\${p.location || '-'}</td>
                                 <td class="px-6 py-4 text-sm">
                                     <span class="px-2 py-1 text-xs font-medium rounded \${
@@ -6300,10 +6522,10 @@ app.get('/admin', (c) => {
                                 </td>
                                 <td class="px-6 py-4 text-sm text-gray-600 hidden md:table-cell">\${p.deadline || '-'}</td>
                                 <td class="px-6 py-4 text-sm text-gray-600 hidden lg:table-cell">\${
-                                    p.created_at ? new Date(p.created_at).toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\\. /g, '-').replace('.', '') : '-'
+                                    p.created_at ? new Date(p.created_at).toLocaleString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false}).replace(/\\. /g, '-').replace('.', '').replace(', ', ' ') : '-'
                                 }</td>
                                 <td class="px-6 py-4 text-sm text-gray-600 hidden lg:table-cell">\${
-                                    p.updated_at ? new Date(p.updated_at).toLocaleDateString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\\. /g, '-').replace('.', '') : '-'
+                                    p.updated_at ? new Date(p.updated_at).toLocaleString('ko-KR', {year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false}).replace(/\\. /g, '-').replace('.', '').replace(', ', ' ') : '-'
                                 }</td>
                                 <td class="px-6 py-4 text-sm">
                                     <button onclick="editProperty(\${p.id})" class="text-blue-600 hover:text-blue-800 mr-3">
@@ -6342,7 +6564,7 @@ app.get('/admin', (c) => {
             // Edit property
             async function editProperty(id) {
                 try {
-                    const response = await axios.get(\`/api/properties?type=all\`);
+                    const response = await axios.get(\`/api/properties?type=all&includeAll=true\`);
                     const property = response.data.find(p => p.id === id);
                     
                     if (!property) {
@@ -6362,52 +6584,54 @@ app.get('/admin', (c) => {
                         console.warn('Failed to parse extended_data:', e);
                     }
 
+                    // Safe value setter helper (정의를 먼저)
+                    const safeSetValue = (id, value) => {
+                        const el = document.getElementById(id);
+                        if (el) el.value = value || '';
+                    };
+                    
                     document.getElementById('modalTitle').textContent = '수정';
                     document.getElementById('propertyId').value = property.id;
                     
                     // Main fields
-                    document.getElementById('projectName').value = property.title || '';
-                    document.getElementById('saleType').value = property.type || 'rental';
+                    safeSetValue('projectName', property.title);
+                    safeSetValue('saleType', property.type || 'rental');
                     
                     // Show/hide trade price section based on type
                     const tradePriceSection = document.getElementById('tradePriceSection');
-                    if (property.type === 'unsold') {
+                    if (property.type === 'unsold' && tradePriceSection) {
                         tradePriceSection.style.display = 'block';
                         
                         // Fill trade price fields
-                        if (property.original_price) {
-                            document.getElementById('originalPrice').value = property.original_price;
-                        }
-                        if (property.recent_trade_price) {
-                            document.getElementById('recentTradePrice').value = property.recent_trade_price;
-                        }
-                        if (property.sale_price_date) {
-                            document.getElementById('salePriceDate').value = property.sale_price_date;
-                        }
-                        if (property.recent_trade_date) {
-                            document.getElementById('recentTradeDate').value = property.recent_trade_date;
-                        }
-                    } else {
+                        safeSetValue('originalPrice', property.original_price);
+                        safeSetValue('recentTradePrice', property.recent_trade_price);
+                        safeSetValue('salePriceDate', property.sale_price_date);
+                        safeSetValue('recentTradeDate', property.recent_trade_date);
+                    } else if (tradePriceSection) {
                         tradePriceSection.style.display = 'none';
                     }
                     
-                    document.getElementById('supplyType').value = extData.supplyType || '';
-                    document.getElementById('region').value = property.location || '';
-                    document.getElementById('fullAddress').value = property.full_address || '';
-                    document.getElementById('constructor').value = property.builder || '';
-                    document.getElementById('mainImage').value = extData.mainImage || '';
-                    document.getElementById('mainPrice').value = property.price || '';
-                    document.getElementById('priceLabel').value = property.price_label || '분양가격';
-                    document.getElementById('supplyInfoImage').value = extData.supplyInfoImage || '';
+                    safeSetValue('supplyType', extData.supplyType || property.announcement_type);
+                    safeSetValue('region', property.location || property.region);
+                    safeSetValue('fullAddress', property.full_address);
+                    safeSetValue('constructor', property.constructor || property.builder);
+                    safeSetValue('announcementDate', property.announcement_date);
+                    safeSetValue('moveInDate', property.move_in_date);
+                    safeSetValue('mainImage', extData.mainImage);
+                    safeSetValue('mainPrice', property.price);
+                    safeSetValue('priceLabel', property.price_label || '분양가격');
+                    safeSetValue('supplyInfoImage', extData.supplyInfoImage);
                     
                     // Load supply info image preview if exists
-                    if (extData.supplyInfoImage) {
+                    const supplyInfoImagePreview = document.getElementById('supplyInfoImagePreview');
+                    const supplyInfoImagePreviewArea = document.getElementById('supplyInfoImagePreviewArea');
+                    if (extData.supplyInfoImage && supplyInfoImagePreview && supplyInfoImagePreviewArea) {
                         uploadedSupplyInfoImageUrl = extData.supplyInfoImage;
-                        document.getElementById('supplyInfoImagePreview').src = extData.supplyInfoImage;
-                        document.getElementById('supplyInfoImagePreviewArea').classList.remove('hidden');
-                    } else {
-                        document.getElementById('supplyInfoImagePreview').src = '';
-                        document.getElementById('supplyInfoImagePreviewArea').classList.add('hidden');
+                        supplyInfoImagePreview.src = extData.supplyInfoImage;
+                        supplyInfoImagePreviewArea.classList.remove('hidden');
+                    } else if (supplyInfoImagePreview && supplyInfoImagePreviewArea) {
+                        supplyInfoImagePreview.src = '';
+                        supplyInfoImagePreviewArea.classList.add('hidden');
                     }
                     
                     // 해시태그 처리 - 배열/문자열/JSON 모두 처리
@@ -6424,22 +6648,25 @@ app.get('/admin', (c) => {
                             }
                         }
                     }
-                    document.getElementById('hashtags').value = hashtagsValue;
+                    safeSetValue('hashtags', hashtagsValue);
                     
                     // Target audience lines
                     if (extData.targetAudienceLines && Array.isArray(extData.targetAudienceLines)) {
-                        document.getElementById('targetAudience1').value = extData.targetAudienceLines[0] || '';
-                        document.getElementById('targetAudience2').value = extData.targetAudienceLines[1] || '';
-                        document.getElementById('targetAudience3').value = extData.targetAudienceLines[2] || '';
+                        safeSetValue('targetAudience1', extData.targetAudienceLines[0]);
+                        safeSetValue('targetAudience2', extData.targetAudienceLines[1]);
+                        safeSetValue('targetAudience3', extData.targetAudienceLines[2]);
                     } else {
-                        document.getElementById('targetAudience1').value = '';
-                        document.getElementById('targetAudience2').value = '';
-                        document.getElementById('targetAudience3').value = '';
+                        safeSetValue('targetAudience1', '');
+                        safeSetValue('targetAudience2', '');
+                        safeSetValue('targetAudience3', '');
                     }
 
                     // Steps
                     document.getElementById('stepsContainer').innerHTML = '';
-                    if (extData.steps && Array.isArray(extData.steps)) {
+                    stepCounter = 0;
+                    
+                    if (extData.steps && Array.isArray(extData.steps) && extData.steps.length > 0) {
+                        // 기존 steps 데이터가 있는 경우
                         extData.steps.forEach(step => {
                             // 날짜 범위 파싱 (2025-01-01~2025-01-03 형식)
                             let startDate = '';
@@ -6469,7 +6696,30 @@ app.get('/admin', (c) => {
                                 </button>
                             \`;
                             document.getElementById('stepsContainer').appendChild(div);
+                            stepCounter++;
                         });
+                    } else if (property.source === 'applyhome' && property.deadline) {
+                        // 크롤링 데이터인 경우 deadline을 기반으로 기본 step 생성
+                        const div = document.createElement('div');
+                        div.className = 'flex gap-2 items-center';
+                        div.innerHTML = \`
+                            <div class="flex-1 space-y-2">
+                                <div class="flex gap-2">
+                                    <input type="text" value="청약접수" placeholder="스텝 제목 (예: 청약신청)" class="step-title flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                </div>
+                                <div class="flex gap-2 items-center">
+                                    <input type="date" value="\${property.deadline}" class="step-date-start flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="시작일">
+                                    <span class="text-gray-500 text-sm">~</span>
+                                    <input type="date" value="\${property.deadline}" class="step-date-end flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="종료일 (선택)">
+                                </div>
+                                <input type="text" value="청약홈에서 크롤링된 데이터입니다. 상세 일정을 입력해주세요." placeholder="상세 설명 (예: 현장·인터넷·모바일)" class="step-details w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            </div>
+                            <button type="button" onclick="removeStep(this)" class="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm self-start">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        \`;
+                        document.getElementById('stepsContainer').appendChild(div);
+                        stepCounter++;
                     }
 
                     // Supply rows
@@ -6493,38 +6743,38 @@ app.get('/admin', (c) => {
 
                     // Detail fields
                     const details = extData.details || {};
-                    document.getElementById('detail_location').value = details.location || '';
-                    document.getElementById('detail_landArea').value = details.landArea || '';
-                    document.getElementById('detail_totalHouseholds').value = details.totalHouseholds || '';
-                    document.getElementById('detail_parking').value = details.parking || '';
-                    document.getElementById('detail_parkingRatio').value = details.parkingRatio || '';
-                    document.getElementById('detail_architect').value = details.architect || '';
-                    document.getElementById('detail_constructor').value = details.constructor || '';
-                    document.getElementById('detail_website').value = details.website || '';
+                    safeSetValue('detail_location', details.location);
+                    safeSetValue('detail_landArea', details.landArea);
+                    safeSetValue('detail_totalHouseholds', details.totalHouseholds);
+                    safeSetValue('detail_parking', details.parking);
+                    safeSetValue('detail_parkingRatio', details.parkingRatio);
+                    safeSetValue('detail_architect', details.architect);
+                    safeSetValue('detail_constructor', details.constructor);
+                    safeSetValue('detail_website', details.website);
                     
-                    document.getElementById('detail_targetTypes').value = details.targetTypes || '';
-                    document.getElementById('detail_incomeLimit').value = details.incomeLimit || '';
-                    document.getElementById('detail_assetLimit').value = details.assetLimit || '';
-                    document.getElementById('detail_homelessPeriod').value = details.homelessPeriod || '';
-                    document.getElementById('detail_savingsAccount').value = details.savingsAccount || '';
+                    safeSetValue('detail_targetTypes', details.targetTypes);
+                    safeSetValue('detail_incomeLimit', details.incomeLimit);
+                    safeSetValue('detail_assetLimit', details.assetLimit);
+                    safeSetValue('detail_homelessPeriod', details.homelessPeriod);
+                    safeSetValue('detail_savingsAccount', details.savingsAccount);
                     
-                    document.getElementById('detail_selectionMethod').value = details.selectionMethod || '';
-                    document.getElementById('detail_scoringCriteria').value = details.scoringCriteria || '';
-                    document.getElementById('detail_notices').value = details.notices || '';
+                    safeSetValue('detail_selectionMethod', details.selectionMethod);
+                    safeSetValue('detail_scoringCriteria', details.scoringCriteria);
+                    safeSetValue('detail_notices', details.notices);
                     
-                    document.getElementById('detail_applicationMethod').value = details.applicationMethod || '';
-                    document.getElementById('detail_applicationUrl').value = details.applicationUrl || '';
-                    document.getElementById('detail_requiredDocs').value = details.requiredDocs || '';
+                    safeSetValue('detail_applicationMethod', details.applicationMethod);
+                    safeSetValue('detail_applicationUrl', details.applicationUrl);
+                    safeSetValue('detail_requiredDocs', details.requiredDocs);
                     
-                    document.getElementById('detail_contactDept').value = details.contactDept || '';
-                    document.getElementById('detail_contactPhone').value = details.contactPhone || '';
-                    document.getElementById('detail_contactEmail').value = details.contactEmail || '';
-                    document.getElementById('detail_contactAddress').value = details.contactAddress || '';
+                    safeSetValue('detail_contactDept', details.contactDept);
+                    safeSetValue('detail_contactPhone', details.contactPhone);
+                    safeSetValue('detail_contactEmail', details.contactEmail);
+                    safeSetValue('detail_contactAddress', details.contactAddress);
                     
-                    document.getElementById('detail_features').value = details.features || '';
-                    document.getElementById('detail_surroundings').value = details.surroundings || '';
-                    document.getElementById('detail_transportation').value = details.transportation || '';
-                    document.getElementById('detail_education').value = details.education || '';
+                    safeSetValue('detail_features', details.features);
+                    safeSetValue('detail_surroundings', details.surroundings);
+                    safeSetValue('detail_transportation', details.transportation);
+                    safeSetValue('detail_education', details.education);
                     
                     // Auto-resize textareas after loading content
                     ['detail_features', 'detail_surroundings', 'detail_transportation', 'detail_education'].forEach(id => {
