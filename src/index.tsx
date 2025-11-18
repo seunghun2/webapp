@@ -3033,24 +3033,26 @@ app.post('/api/admin/login', async (c) => {
   }
 })
 
-// PDF parsing with Google Gemini API
+// PDF parsing with Gemini → Claude fallback
 app.post('/api/admin/parse-pdf', async (c) => {
   try {
     const { pdfBase64, filename } = await c.req.json()
     const GEMINI_API_KEY = c.env.GEMINI_API_KEY
+    const CLAUDE_API_KEY = c.env.CLAUDE_API_KEY
     
-    if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your_gemini_api_key_here') {
-      return c.json({ 
-        success: false, 
-        error: 'Gemini API 키가 설정되지 않았습니다. .dev.vars 파일에 GEMINI_API_KEY를 추가해주세요.' 
-      }, 500)
-    }
-
-    console.log('PDF 파싱 시작:', filename)
+    console.log('🏠 PDF 파싱 시작:', filename)
     
+    // 공통 프롬프트 (숫자 포맷: n억n,nnn만원)
     const promptText = `Analyze this real estate sales announcement PDF and extract information in STRICT JSON format.
 
 CRITICAL: Your response must be ONLY valid JSON. No explanations, no markdown, no code blocks. Just pure JSON.
+
+NUMBER FORMAT RULES (매우 중요):
+- 모든 가격/금액은 반드시 "n억n,nnn만원" 형식으로 표기
+- 예시: "3억2,500만원", "1억5,000만원", "8,500만원" (1억 미만)
+- 억 단위가 없으면: "5,000만원", "800만원"
+- 천 단위 구분 쉼표는 만원 단위에만 사용
+- 예: "보증금 1억2,000만원 / 월 50만원"
 
 Required JSON structure (based on best practice format):
 {
@@ -3106,132 +3108,212 @@ Rules:
 - targetAudienceLines must have 3 items (key selling points for main card)
 - Response must be valid JSON only
 - Extract ALL schedule dates into steps array
-- Use newline \\n for multi-line text in notices`
-    
-    // Gemini API 호출 with retry for 503 errors (reduced retries to avoid timeout)
-    const maxRetries = 3
-    let response
-    let lastError
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+- Use newline \\n for multi-line text in notices
+- 모든 가격은 "n억n,nnn만원" 형식 필수`
+
+    let parsedData = null
+    let usedModel = 'none'
+    let geminiError = null
+
+    // ============================================
+    // 1차 시도: Gemini API
+    // ============================================
+    if (GEMINI_API_KEY && GEMINI_API_KEY !== 'your_gemini_api_key_here') {
+      console.log('📊 1차 파싱: Gemini API 시도...')
+      
       try {
-        // Faster retry: 1s, 2s (total max ~45s for PDF parsing)
-        const retryDelay = attempt > 1 ? 1000 * attempt : 0
+        const maxRetries = 3
+        let response
+        let lastError
         
-        if (attempt > 1) {
-          console.log(`재시도 ${attempt}/${maxRetries} (${retryDelay/1000}초 대기 후)`)
-          await new Promise(resolve => setTimeout(resolve, retryDelay))
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            const retryDelay = attempt > 1 ? 1000 * attempt : 0
+            
+            if (attempt > 1) {
+              console.log(`  ↻ Gemini 재시도 ${attempt}/${maxRetries} (${retryDelay/1000}초 대기)`)
+              await new Promise(resolve => setTimeout(resolve, retryDelay))
+            }
+            
+            response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [
+                    { text: promptText },
+                    { inline_data: { mime_type: 'application/pdf', data: pdfBase64 } }
+                  ]
+                }],
+                generationConfig: {
+                  temperature: 0.1,
+                  maxOutputTokens: 8192,
+                  responseMimeType: "application/json"
+                }
+              })
+            })
+            
+            // 429 (할당량 초과)는 재시도 불필요 - 바로 Claude로 fallback
+            if (response.status === 429) {
+              console.log(`  ⚠️ 429 할당량 초과 - Claude로 즉시 전환`)
+              geminiError = 'Quota exceeded (429)'
+              break
+            }
+            
+            // 503 (서버 과부하)만 재시도
+            if (response.status === 503 && attempt < maxRetries) {
+              console.log(`  ⚠️ 503 에러, 재시도 예정...`)
+              continue
+            }
+            
+            break
+            
+          } catch (error) {
+            lastError = error
+            if (attempt < maxRetries) {
+              console.log(`  ⚠️ 네트워크 에러, 재시도 예정...`)
+            }
+          }
+        }
+
+        if (response && response.ok) {
+          const result = await response.json()
+          
+          if (result.candidates && result.candidates.length > 0) {
+            const candidate = result.candidates[0]
+            
+            if (candidate.finishReason !== 'MAX_TOKENS') {
+              const content = candidate.content.parts[0].text
+              
+              let jsonText = content
+                .replace(/```json\s*/g, '')
+                .replace(/```\s*/g, '')
+                .replace(/^[^{]*({[\s\S]*})[^}]*$/, '$1')
+                .trim()
+              
+              parsedData = JSON.parse(jsonText)
+              usedModel = 'gemini'
+              console.log('✅ Gemini 파싱 성공!')
+            } else {
+              geminiError = 'MAX_TOKENS 초과'
+            }
+          } else {
+            geminiError = '응답 생성 실패'
+          }
+        } else if (response) {
+          // response가 있지만 ok가 아닌 경우
+          const errorText = await response.text()
+          geminiError = `API 오류 (${response.status}): ${errorText.substring(0, 200)}`
+          console.log(`  ⚠️ Gemini 오류 상세:`, errorText.substring(0, 300))
         } else {
-          console.log(`Gemini API 호출 시도 ${attempt}/${maxRetries}`)
+          // response가 없는 경우 (네트워크 에러)
+          geminiError = `네트워크 에러: ${lastError?.message || 'Unknown'}`
         }
         
-        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      } catch (e) {
+        geminiError = `예외 발생: ${e.message}`
+        console.error('❌ Gemini 파싱 실패:', e)
+      }
+    } else {
+      console.log('⚠️ Gemini API 키 없음, Claude로 바로 시도')
+    }
+
+    // ============================================
+    // 2차 시도: Claude API (Gemini 실패시)
+    // ============================================
+    if (!parsedData) {
+      if (geminiError) {
+        console.log(`⚠️ Gemini 실패 (${geminiError}), Claude 폴백 시작...`)
+      }
+      
+      if (!CLAUDE_API_KEY || CLAUDE_API_KEY === 'your_claude_api_key_here') {
+        return c.json({ 
+          success: false, 
+          error: `Gemini 실패: ${geminiError || '알 수 없음'}. Claude API 키도 설정되지 않았습니다. .dev.vars에 CLAUDE_API_KEY를 추가해주세요.` 
+        }, 500)
+      }
+      
+      console.log('🤖 2차 파싱: Claude API 시도...')
+      
+      try {
+        // Claude API는 PDF를 직접 지원하지만 beta feature입니다
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'x-api-key': CLAUDE_API_KEY,
+            'anthropic-version': '2023-06-01',
+            'anthropic-beta': 'pdfs-2024-09-25'
           },
           body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: promptText },
+            model: 'claude-3-haiku-20240307',
+            max_tokens: 8192,
+            temperature: 0.1,
+            messages: [{
+              role: 'user',
+              content: [
                 {
-                  inline_data: {
-                    mime_type: 'application/pdf',
+                  type: 'document',
+                  source: {
+                    type: 'base64',
+                    media_type: 'application/pdf',
                     data: pdfBase64
-                  }
+                  },
+                  cache_control: { type: 'ephemeral' }
+                },
+                {
+                  type: 'text',
+                  text: promptText
                 }
               ]
-            }],
-            generationConfig: {
-              temperature: 0.1,
-              maxOutputTokens: 8192,
-              responseMimeType: "application/json"
-            }
+            }]
           })
         })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`Claude API 오류 (${response.status}): ${errorText}`)
+        }
+
+        const result = await response.json()
         
-        // 503 또는 429 에러면 재시도
-        if ((response.status === 503 || response.status === 429) && attempt < maxRetries) {
-          console.log(`${response.status} 에러 발생, 재시도 예정...`)
-          continue
+        if (result.content && result.content.length > 0) {
+          const content = result.content[0].text
+          
+          let jsonText = content
+            .replace(/```json\s*/g, '')
+            .replace(/```\s*/g, '')
+            .replace(/^[^{]*({[\s\S]*})[^}]*$/, '$1')
+            .trim()
+          
+          parsedData = JSON.parse(jsonText)
+          usedModel = 'claude'
+          console.log('✅ Claude 파싱 성공!')
+        } else {
+          throw new Error('Claude 응답에 컨텐츠가 없습니다')
         }
         
-        // 다른 에러나 성공이면 break
-        break
-        
-      } catch (error) {
-        lastError = error
-        if (attempt < maxRetries) {
-          console.log(`네트워크 에러, 재시도 예정...`)
-        }
-      }
-    }
-
-    if (!response || !response.ok) {
-      const errorText = response ? await response.text() : lastError?.message || 'Unknown error'
-      console.error('Gemini API 오류:', errorText)
-      return c.json({ 
-        success: false, 
-        error: `Gemini API 오류: ${response?.status || 'Network error'} - ${errorText}` 
-      }, 500)
-    }
-
-    const result = await response.json()
-    console.log('Gemini 응답:', result)
-    
-    // Extract JSON from Gemini's response
-    let parsedData
-    try {
-      // Check if response has candidates
-      if (!result.candidates || result.candidates.length === 0) {
+      } catch (e) {
+        console.error('❌ Claude 파싱도 실패:', e)
         return c.json({ 
           success: false, 
-          error: 'AI가 응답을 생성하지 못했습니다.',
-          raw: JSON.stringify(result)
+          error: `모든 AI 파싱 실패. Gemini: ${geminiError || '시도 안함'}, Claude: ${e.message}` 
         }, 500)
       }
-
-      const candidate = result.candidates[0]
-      
-      // Check finish reason
-      if (candidate.finishReason === 'MAX_TOKENS') {
-        return c.json({ 
-          success: false, 
-          error: 'PDF가 너무 크거나 복잡합니다. 더 짧은 PDF를 시도해주세요.',
-          finishReason: candidate.finishReason
-        }, 500)
-      }
-
-      const content = candidate.content.parts[0].text
-      console.log('AI 원본 응답:', content.substring(0, 500))
-      
-      // Remove markdown code blocks and extra whitespace
-      let jsonText = content
-        .replace(/```json\s*/g, '')
-        .replace(/```\s*/g, '')
-        .replace(/^[^{]*({[\s\S]*})[^}]*$/, '$1')
-        .trim()
-      
-      console.log('정제된 JSON 텍스트 시작:', jsonText.substring(0, 200))
-      parsedData = JSON.parse(jsonText)
-    } catch (e) {
-      console.error('JSON 파싱 오류:', e)
-      console.error('원본 응답:', result.candidates?.[0]?.content?.parts?.[0]?.text)
-      return c.json({ 
-        success: false, 
-        error: 'AI 응답을 JSON으로 파싱하는 데 실패했습니다.',
-        raw: result.candidates?.[0]?.content?.parts?.[0]?.text || JSON.stringify(result),
-        parseError: e.message
-      }, 500)
     }
 
+    // ============================================
+    // 최종 성공
+    // ============================================
     return c.json({
       success: true,
       data: parsedData,
-      raw: result.candidates[0].content.parts[0].text
+      model: usedModel,
+      message: usedModel === 'gemini' ? 'Gemini로 파싱 완료' : 'Claude로 파싱 완료 (Gemini 실패 후 fallback)'
     })
+    
   } catch (error) {
-    console.error('PDF 파싱 오류:', error)
+    console.error('❌ PDF 파싱 전체 오류:', error)
     return c.json({ 
       success: false, 
       error: error.message || 'PDF 파싱 중 오류가 발생했습니다.' 
@@ -5176,6 +5258,9 @@ app.get('/admin', (c) => {
                             <button type="button" onclick="closeEditModal()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
                                 취소
                             </button>
+                            <button type="button" onclick="saveDraft()" class="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 font-medium">
+                                임시저장
+                            </button>
                             <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
                                 저장
                             </button>
@@ -6882,7 +6967,7 @@ app.get('/admin', (c) => {
             }
 
             // Collect form data
-            function collectFormData() {
+            function collectFormData(statusValue = 'active') {
                 // Collect steps
                 const stepElements = document.querySelectorAll('#stepsContainer > div');
                 const steps = Array.from(stepElements).map(el => {
@@ -7086,9 +7171,33 @@ app.get('/admin', (c) => {
                     description: details.features || '',
                     tags: tags.join(', '),
                     extended_data: JSON.stringify(extendedData),
-                    status: 'active',
+                    status: statusValue,
                     ...tradePriceData
                 };
+            }
+
+            // Save as draft
+            async function saveDraft() {
+                const id = document.getElementById('propertyId')?.value;
+                const data = collectFormData('draft'); // draft 상태로 저장
+
+                try {
+                    if (id && id !== '') {
+                        // Update
+                        const response = await axios.post(\`/api/properties/\${id}/update-parsed\`, { updates: data });
+                        alert('임시저장되었습니다');
+                    } else {
+                        // Create
+                        const response = await axios.post('/api/properties/create', data);
+                        alert('임시저장되었습니다');
+                    }
+                    
+                    closeEditModal();
+                    loadProperties();
+                } catch (error) {
+                    console.error('❌ Failed to save draft:', error);
+                    alert('임시저장 실패: ' + (error.response?.data?.error || error.message || '알 수 없는 오류'));
+                }
             }
 
             // Form submit
@@ -7096,7 +7205,7 @@ app.get('/admin', (c) => {
                 e.preventDefault();
                 
                 const id = document.getElementById('propertyId')?.value;
-                const data = collectFormData();
+                const data = collectFormData('active'); // active 상태로 저장
 
                 try {
                     console.log('💾 Saving data...', {
