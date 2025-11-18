@@ -1628,8 +1628,8 @@ app.post('/api/crawl/applyhome', async (c) => {
         
         const html = await response.text()
         
-        // HTML 테이블 파싱 - data-honm 속성을 가진 행만 추출
-        const rowRegex = /<tr[^>]*data-honm="([^"]+)"[^>]*>(.*?)<\/tr>/gs
+        // HTML 테이블 파싱 - data-pbno와 data-honm 속성을 가진 행 추출
+        const rowRegex = /<tr[^>]*data-pbno="([^"]+)"[^>]*data-honm="([^"]+)"[^>]*>(.*?)<\/tr>/gs
         const rows = [...html.matchAll(rowRegex)]
         
         if (rows.length === 0) {
@@ -1642,10 +1642,11 @@ app.post('/api/crawl/applyhome', async (c) => {
         // 각 행 처리
         for (const row of rows) {
       try {
-        const titleText = row[1] // data-honm 속성 값
-        const rowHtml = row[2] // <tr> 내부 HTML
+        const applyHomeId = row[1] // data-pbno 속성 값 (고유번호)
+        const titleText = row[2] // data-honm 속성 값
+        const rowHtml = row[3] // <tr> 내부 HTML
         
-        console.log(`📝 처리 중: ${titleText}`)
+        console.log(`📝 처리 중: ${titleText} (고유번호: ${applyHomeId})`)
         
         // <td> 태그들 추출
         const tdRegex = /<td[^>]*>(.*?)<\/td>/gs
@@ -1713,24 +1714,25 @@ app.post('/api/crawl/applyhome', async (c) => {
         else if (location === '충남') normalizedRegion = '충남'
         else normalizedRegion = location // 서울, 부산, 대구, 인천, 광주, 대전, 울산, 세종, 경기, 강원, 제주
         
-        // 중복 체크 (제목 기반)
+        // 중복 체크 (청약홈 고유번호 기반)
         const existing = await DB.prepare(
-          'SELECT id FROM properties WHERE title = ? AND deleted_at IS NULL LIMIT 1'
-        ).bind(titleText).first()
+          'SELECT id FROM properties WHERE applyhome_id = ? AND deleted_at IS NULL LIMIT 1'
+        ).bind(applyHomeId).first()
         
         const now = new Date().toISOString()
         
         if (existing) {
-          // 업데이트
+          // 업데이트 - 제목도 함께 업데이트 (청약홈에서 제목이 변경될 수 있음)
           await DB.prepare(`
             UPDATE properties SET
+              title = ?,
               announcement_status = ?,
               deadline = ?,
               updated_at = ?
             WHERE id = ?
-          `).bind(announcementStatus, deadlineStr, now, existing.id).run()
+          `).bind(titleText, announcementStatus, deadlineStr, now, existing.id).run()
           
-          console.log(`🔄 기존 매물 업데이트: ${titleText}`)
+          console.log(`🔄 기존 매물 업데이트: ${titleText} (고유번호: ${applyHomeId})`)
           updateCount++
         } else {
           // 새로 삽입 (로컬 DB에만) - draft 상태로 저장 (메인 카드 비노출)
@@ -1738,8 +1740,8 @@ app.post('/api/crawl/applyhome', async (c) => {
             INSERT INTO properties (
               type, title, location, status, deadline, price, households, tags,
               region, announcement_type, announcement_status, announcement_date,
-              source, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              source, applyhome_id, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).bind(
             propertyType,
             titleText,
@@ -1754,11 +1756,12 @@ app.post('/api/crawl/applyhome', async (c) => {
             announcementStatus,
             announcementDate,
             'applyhome',
+            applyHomeId, // 청약홈 고유번호
             now,
             now
           ).run()
           
-          console.log(`✅ 신규 매물 추가 (임시저장): ${titleText}`)
+          console.log(`✅ 신규 매물 추가 (임시저장): ${titleText} (고유번호: ${applyHomeId})`)
           newCount++
         }
         
@@ -4742,6 +4745,18 @@ app.get('/admin', (c) => {
                             </h3>
                             <p class="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4 ml-7 sm:ml-8">메인 페이지에 표시될 카드 정보를 입력하세요. (* 필수 항목)</p>
                             
+                            <!-- 청약홈 고유번호 (읽기 전용) -->
+                            <div id="applyhomeIdSection" class="mb-3 sm:mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg hidden">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-hashtag text-blue-600"></i>
+                                    <label class="text-xs sm:text-sm font-medium text-gray-700">
+                                        청약홈 고유번호
+                                        <span class="text-gray-400 font-normal ml-1">(청약홈 크롤링)</span>
+                                    </label>
+                                </div>
+                                <input type="text" id="applyhomeId" readonly class="mt-2 w-full px-3 py-2 text-sm bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed" placeholder="예: 2025000565">
+                            </div>
+                            
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                                 <div>
                                     <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
@@ -6728,6 +6743,15 @@ app.get('/admin', (c) => {
                     
                     document.getElementById('modalTitle').textContent = '수정';
                     document.getElementById('propertyId').value = property.id;
+                    
+                    // Show applyhome_id if exists (청약홈 크롤링 매물)
+                    const applyhomeIdSection = document.getElementById('applyhomeIdSection');
+                    if (property.applyhome_id && applyhomeIdSection) {
+                        applyhomeIdSection.classList.remove('hidden');
+                        safeSetValue('applyhomeId', property.applyhome_id);
+                    } else if (applyhomeIdSection) {
+                        applyhomeIdSection.classList.add('hidden');
+                    }
                     
                     // Main fields
                     safeSetValue('projectName', property.title);
