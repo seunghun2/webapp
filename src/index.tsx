@@ -1716,7 +1716,7 @@ app.post('/api/crawl/applyhome', async (c) => {
         
         // 중복 체크 (청약홈 고유번호 기반)
         const existing = await DB.prepare(
-          'SELECT id FROM properties WHERE applyhome_id = ? AND deleted_at IS NULL LIMIT 1'
+          'SELECT id FROM properties WHERE applyhome_pan_id = ? AND deleted_at IS NULL LIMIT 1'
         ).bind(applyHomeId).first()
         
         const now = new Date().toISOString()
@@ -1740,7 +1740,7 @@ app.post('/api/crawl/applyhome', async (c) => {
             INSERT INTO properties (
               type, title, location, status, deadline, price, households, tags,
               region, announcement_type, announcement_status, announcement_date,
-              source, applyhome_id, created_at, updated_at
+              source, applyhome_pan_id, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).bind(
             propertyType,
@@ -6744,11 +6744,11 @@ app.get('/admin', (c) => {
                     document.getElementById('modalTitle').textContent = '수정';
                     document.getElementById('propertyId').value = property.id;
                     
-                    // Show applyhome_id if exists (청약홈 크롤링 매물)
+                    // Show applyhome_pan_id if exists (청약홈 크롤링 매물)
                     const applyhomeIdSection = document.getElementById('applyhomeIdSection');
-                    if (property.applyhome_id && applyhomeIdSection) {
+                    if (property.applyhome_pan_id && applyhomeIdSection) {
                         applyhomeIdSection.classList.remove('hidden');
-                        safeSetValue('applyhomeId', property.applyhome_id);
+                        safeSetValue('applyhomeId', property.applyhome_pan_id);
                     } else if (applyhomeIdSection) {
                         applyhomeIdSection.classList.add('hidden');
                     }
