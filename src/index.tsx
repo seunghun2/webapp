@@ -705,6 +705,9 @@ app.get('/api/properties', async (c) => {
     const type = c.req.query('type') || 'all'
     const sort = c.req.query('sort') || 'latest'
     const search = c.req.query('search') || ''
+    const region = c.req.query('region') || 'all'
+    const household = c.req.query('household') || 'all'
+    const area = c.req.query('area') || 'all'
     const includeAll = c.req.query('includeAll') || 'false' // Admin에서 사용
     
     // Build query - excluding soft-deleted
@@ -723,6 +726,23 @@ app.get('/api/properties', async (c) => {
     } else if (type !== 'all') {
       query += ' AND type = ?'
       params.push(type)
+    }
+    
+    // Region filter
+    if (region !== 'all') {
+      query += ' AND location LIKE ?'
+      params.push(`%${region}%`)
+    }
+    
+    // Household filter (세대수)
+    if (household !== 'all') {
+      if (household === '500-') {
+        query += ' AND CAST(total_households AS INTEGER) < 500'
+      } else if (household === '500-1000') {
+        query += ' AND CAST(total_households AS INTEGER) >= 500 AND CAST(total_households AS INTEGER) < 1000'
+      } else if (household === '1000+') {
+        query += ' AND CAST(total_households AS INTEGER) >= 1000'
+      }
     }
     
     // Search filter (단지명, 지역, 태그로 검색)
@@ -748,7 +768,7 @@ app.get('/api/properties', async (c) => {
     
     const result = await stmt.all()
     
-    const properties = result.results.map((prop: any) => {
+    let properties = result.results.map((prop: any) => {
       let parsedTags = []
       try {
         if (typeof prop.tags === 'string') {
@@ -772,6 +792,44 @@ app.get('/api/properties', async (c) => {
         tags: parsedTags
       }
     })
+    
+    // Area filter (평형) - Filter in memory after query
+    if (area !== 'all') {
+      properties = properties.filter((prop: any) => {
+        try {
+          const extendedData = typeof prop.extended_data === 'string' 
+            ? JSON.parse(prop.extended_data) 
+            : prop.extended_data
+          
+          if (!extendedData || !extendedData.supplyInfo || !Array.isArray(extendedData.supplyInfo)) {
+            return false
+          }
+          
+          // Check if any supply info matches the area filter
+          return extendedData.supplyInfo.some((supply: any) => {
+            const areaStr = String(supply.area || '').replace(/[^0-9]/g, '')
+            const areaNum = parseInt(areaStr)
+            
+            if (isNaN(areaNum)) return false
+            
+            switch (area) {
+              case '30-':
+                return areaNum < 30
+              case '30-40':
+                return areaNum >= 30 && areaNum < 40
+              case '40-50':
+                return areaNum >= 40 && areaNum < 50
+              case '50+':
+                return areaNum >= 50
+              default:
+                return true
+            }
+          })
+        } catch (e) {
+          return false
+        }
+      })
+    }
     
     return c.json(properties)
   } catch (error) {
@@ -8237,7 +8295,7 @@ app.get('/', (c) => {
                     
                     <div class="flex items-center flex-shrink-0">
                         <button class="text-gray-600 hover:text-gray-900 p-2 sm:px-3 sm:py-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
-                            <i class="fas fa-bell text-base sm:text-lg"></i>
+                            <i class="far fa-bell text-base sm:text-lg"></i>
                         </button>
                     </div>
                 </div>
@@ -8410,6 +8468,16 @@ app.get('/', (c) => {
                 </div>
             </div>
         </footer>
+
+        <!-- Scroll to Top Button -->
+        <button 
+            id="scrollToTopBtn" 
+            onclick="scrollToTop()" 
+            class="fixed bottom-6 right-6 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 hover:border-gray-400 w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 opacity-0 invisible z-40 active:scale-95"
+            aria-label="맨 위로"
+        >
+            <i class="fas fa-chevron-up text-lg sm:text-xl"></i>
+        </button>
 
         <!-- Detail Modal -->
         <div id="detailModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-2 sm:p-4">
@@ -8770,7 +8838,7 @@ app.get('/', (c) => {
           });
 
           // Filter state
-          const filters = {
+          let filters = {
             region: 'all',
             type: 'all',
             household: 'all',
@@ -8893,6 +8961,28 @@ app.get('/', (c) => {
 
             return { text: '진행중', class: 'bg-blue-500' };
           }
+
+          // Scroll to Top Button
+          const scrollToTopBtn = document.getElementById('scrollToTopBtn');
+          
+          // Show/hide button based on scroll position
+          window.addEventListener('scroll', function() {
+            if (window.pageYOffset > 300) {
+              scrollToTopBtn.classList.remove('opacity-0', 'invisible');
+              scrollToTopBtn.classList.add('opacity-100', 'visible');
+            } else {
+              scrollToTopBtn.classList.remove('opacity-100', 'visible');
+              scrollToTopBtn.classList.add('opacity-0', 'invisible');
+            }
+          });
+          
+          // Scroll to top function
+          window.scrollToTop = function() {
+            window.scrollTo({
+              top: 0,
+              behavior: 'smooth'
+            });
+          };
 
           // Open map (Naver Map)
           function openMap(address, lat, lng) {
@@ -10147,7 +10237,17 @@ app.get('/', (c) => {
                                   ? '💰 조합가격'
                                   : '💰 분양가격')
                             }</div>
-                            <div class="font-bold text-gray-900" style="font-size: 14px;">\${property.price || '-'}</div>
+                            <div class="font-bold text-gray-900" style="font-size: 14px;">
+                              \${(() => {
+                                const price = property.price || '-';
+                                // 모바일에서 ~ 포함 시 줄바꿈 처리
+                                if (price.includes('~')) {
+                                  const parts = price.split('~');
+                                  return \`<span class="block sm:inline">\${parts[0].trim()}</span><span class="block sm:inline">~\${parts[1].trim()}</span>\`;
+                                }
+                                return price;
+                              })()}
+                            </div>
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">🏗️ 시공사</div>
