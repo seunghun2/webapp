@@ -8355,18 +8355,18 @@ app.get('/', (c) => {
                     <!-- 평형 필터 -->
                     <select id="filterArea" class="filter-chip">
                         <option value="all">평형</option>
-                        <option value="small">소형</option>
-                        <option value="medium">중형</option>
-                        <option value="large">대형</option>
+                        <option value="30-">30평 미만</option>
+                        <option value="30-40">30-40평</option>
+                        <option value="40-50">40-50평</option>
+                        <option value="50+">50평 이상</option>
                     </select>
                     
                     <!-- 세대수 필터 -->
                     <select id="filterHousehold" class="filter-chip">
                         <option value="all">세대수</option>
-                        <option value="0-50">50↓</option>
-                        <option value="50-300">50-300</option>
-                        <option value="300-1000">300-1000</option>
-                        <option value="1000-+">1000↑</option>
+                        <option value="500-">500세대 미만</option>
+                        <option value="500-1000">500-1000세대</option>
+                        <option value="1000+">1000세대 이상</option>
                     </select>
                     
                     </div>
