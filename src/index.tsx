@@ -1352,14 +1352,9 @@ function extractSubscriptionSchedule(pdfText: string): {
 }
 
 // ===== LH 크롤러 API =====
-// 크롤링 임시 비활성화 (2025-11-16)
-app.post('/api/crawl/lh', async (c) => {
-  return c.json({ 
-    success: false, 
-    message: '크롤링이 일시적으로 비활성화되었습니다.' 
-  }, 503)
-  
-  /* 
+// LH 크롤링 (OLD - 삭제 예정)
+/*
+app.post('/api/crawl/lh_OLD', async (c) => {
   // 원래 크롤링 코드 (비활성화됨)
   try {
     const { DB } = c.env
@@ -1587,8 +1582,8 @@ app.post('/api/crawl/lh', async (c) => {
       message: error instanceof Error ? error.message : 'Unknown error'
     }, 500)
   }
-  */
 })
+*/
 
 // 청약홈 HTML 크롤링 (마감되지 않은 매물만, 로컬 DB에만 저장)
 app.post('/api/crawl/applyhome', async (c) => {
@@ -1798,6 +1793,221 @@ app.post('/api/crawl/applyhome', async (c) => {
     
   } catch (error) {
     console.error('❌ 청약홈 크롤링 오류:', error)
+    return c.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, 500)
+  }
+})
+
+// LH 크롤링 API
+app.post('/api/crawl/lh', async (c) => {
+  try {
+    const { DB } = c.env
+    
+    console.log('\n🚀 LH 크롤링 시작...')
+    
+    let totalProcessed = 0
+    let newCount = 0
+    let updateCount = 0
+    let skipCount = 0
+    
+    const now = new Date().toISOString()
+    const todayDate = new Date()
+    todayDate.setHours(0, 0, 0, 0)
+    
+    // LH 페이지 목록 (분양주택, 임대주택)
+    const lhPages = [
+      { mi: '1027', type: 'sale', name: '분양주택' },
+      { mi: '1026', type: 'rental', name: '임대주택' }
+    ]
+    
+    for (const page of lhPages) {
+      try {
+        console.log(`\n📄 ${page.name} 페이지 크롤링 중... (mi=${page.mi})`)
+        
+        const url = `https://apply.lh.or.kr/lhapply/apply/wt/wrtanc/selectWrtancList.do?mi=${page.mi}`
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Referer': 'https://apply.lh.or.kr/',
+            'Connection': 'keep-alive'
+          }
+        })
+        const html = await response.text()
+        
+        console.log(`📦 HTML 크기: ${html.length} bytes`)
+        
+        // <tr> 태그 전체 추출
+        const trRegex = /<tr[^>]*>[\s\S]*?<\/tr>/g
+        const allRows = [...html.matchAll(trRegex)]
+        
+        console.log(`📊 ${page.name}: ${allRows.length}개 tr 태그 발견`)
+        
+        // data-id1을 가진 행만 필터링
+        const validRows = allRows.filter(match => match[0].includes('data-id1='))
+        
+        if (validRows.length === 0) {
+          console.log(`📭 ${page.name} 페이지에 공고 없음`)
+          continue
+        }
+        
+        console.log(`✅ ${page.name}: ${validRows.length}개 유효 공고 발견`)
+        
+        for (const trMatch of validRows) {
+          try {
+            const trHtml = trMatch[0]
+            
+            // data-id1 추출 (LH 고유번호)
+            const idMatch = trHtml.match(/data-id1="([^"]+)"/)
+            if (!idMatch) continue
+            const lhId = idMatch[1]
+            
+            // 모든 <td> 태그 추출
+            const tdMatches = trHtml.match(/<td[^>]*>(.*?)<\/td>/gs)
+            if (!tdMatches || tdMatches.length < 7) continue
+            
+            // 각 td 내용 추출
+            const tdContents = tdMatches.map(td => td.replace(/<\/?td[^>]*>/g, ''))
+            
+            // TD[1]: 유형 (분양주택, 공공분양 등)
+            const category = tdContents[1].replace(/<[^>]+>/g, '').trim()
+            
+            // TD[2]: 제목 (<span> 안의 텍스트, "N일전" 제거)
+            const titleMatch = tdContents[2].match(/<span[^>]*>(.*?)<\/span>/)
+            let titleText = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim() : ''
+            titleText = titleText.replace(/\s*\d+일전\s*$/, '').trim()
+            if (!titleText) continue
+            
+            // TD[3]: 지역
+            const location = tdContents[3].replace(/<[^>]+>/g, '').trim()
+            
+            // TD[5]: 게시일
+            const announcementDate = tdContents[5].replace(/<[^>]+>/g, '').trim()
+            
+            // TD[6]: 마감일
+            const deadlineStr = tdContents[6].replace(/<[^>]+>/g, '').trim()
+            
+            console.log(`📝 처리 중: ${titleText} (고유번호: ${lhId})`)
+            
+            // 마감일 체크
+            const deadlineDate = new Date(deadlineStr)
+            if (deadlineDate < todayDate) {
+              console.log(`⏭️  마감된 공고 스킵: ${titleText} (마감일: ${deadlineStr})`)
+              skipCount++
+              continue
+            }
+            
+            // 타입 결정
+            let propertyType = page.type // 기본값: sale or rental
+            if (category.includes('임대')) {
+              propertyType = 'rental'
+            } else if (category.includes('분양')) {
+              propertyType = 'sale'
+            }
+            
+            // 지역 정규화
+            let normalizedRegion = location
+            if (location.includes('서울')) normalizedRegion = '서울'
+            else if (location.includes('부산')) normalizedRegion = '부산'
+            else if (location.includes('대구')) normalizedRegion = '대구'
+            else if (location.includes('인천')) normalizedRegion = '인천'
+            else if (location.includes('광주')) normalizedRegion = '광주'
+            else if (location.includes('대전')) normalizedRegion = '대전'
+            else if (location.includes('울산')) normalizedRegion = '울산'
+            else if (location.includes('세종')) normalizedRegion = '세종'
+            else if (location.includes('경기')) normalizedRegion = '경기'
+            else if (location.includes('강원')) normalizedRegion = '강원'
+            else if (location.includes('충청북도') || location.includes('충북')) normalizedRegion = '충북'
+            else if (location.includes('충청남도') || location.includes('충남')) normalizedRegion = '충남'
+            else if (location.includes('전라북도') || location.includes('전북')) normalizedRegion = '전북'
+            else if (location.includes('전라남도') || location.includes('전남')) normalizedRegion = '전남'
+            else if (location.includes('경상북도') || location.includes('경북')) normalizedRegion = '경북'
+            else if (location.includes('경상남도') || location.includes('경남')) normalizedRegion = '경남'
+            else if (location.includes('제주')) normalizedRegion = '제주'
+            
+            // 중복 체크 (LH 고유번호 기반)
+            const existing = await DB.prepare(
+              'SELECT id FROM properties WHERE lh_announcement_id = ? AND deleted_at IS NULL LIMIT 1'
+            ).bind(lhId).first()
+            
+            if (existing) {
+              // 업데이트 - 제목, 상태, 마감일 갱신
+              await DB.prepare(`
+                UPDATE properties SET
+                  title = ?,
+                  deadline = ?,
+                  announcement_date = ?,
+                  updated_at = ?
+                WHERE id = ?
+              `).bind(titleText, deadlineStr, announcementDate, now, existing.id).run()
+              
+              console.log(`🔄 기존 매물 업데이트: ${titleText} (고유번호: ${lhId})`)
+              updateCount++
+            } else {
+              // 새로 삽입 (draft 상태로 저장)
+              await DB.prepare(`
+                INSERT INTO properties (
+                  type, title, location, status, deadline, price, households, tags,
+                  region, announcement_type, announcement_date,
+                  source, lh_announcement_id, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `).bind(
+                propertyType,
+                titleText,
+                location,
+                'draft', // 크롤링된 매물은 임시저장 상태
+                deadlineStr,
+                '미정',
+                '미정',
+                JSON.stringify(['LH']),
+                normalizedRegion,
+                category, // 유형 (분양주택, 공공분양 등)
+                announcementDate,
+                'lh',
+                lhId, // LH 고유번호
+                now,
+                now
+              ).run()
+              
+              console.log(`✅ 신규 매물 추가 (임시저장): ${titleText} (고유번호: ${lhId})`)
+              newCount++
+            }
+            
+            totalProcessed++
+            
+          } catch (itemError) {
+            console.error(`❌ 매물 처리 실패:`, itemError)
+          }
+        } // end of row loop
+        
+        console.log(`✅ ${page.name} 완료: 신규 ${newCount}건, 업데이트 ${updateCount}건, 스킵 ${skipCount}건`)
+        
+      } catch (pageError) {
+        console.error(`❌ ${page.name} 처리 오류:`, pageError)
+      }
+    } // end of page loop
+    
+    console.log(`\n🎉 LH 크롤링 완료!`)
+    console.log(`📊 총 처리: ${totalProcessed}건`)
+    console.log(`✅ 신규 추가: ${newCount}건`)
+    console.log(`🔄 업데이트: ${updateCount}건`)
+    console.log(`⏭️  마감 스킵: ${skipCount}건`)
+    
+    return c.json({
+      success: true,
+      message: `LH 크롤링 완료 (로컬 DB): 총 ${totalProcessed}건 처리, 신규 ${newCount}건, 업데이트 ${updateCount}건, 마감 스킵 ${skipCount}건`,
+      totalProcessed,
+      newCount,
+      updateCount,
+      skipCount,
+      timestamp: new Date().toISOString()
+    })
+    
+  } catch (error) {
+    console.error('❌ LH 크롤링 오류:', error)
     return c.json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
