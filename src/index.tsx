@@ -7455,6 +7455,7 @@ app.get('/admin', (c) => {
                     sale_price_max: salePriceMax,
                     description: details.features || '',
                     tags: tags.join(', '),
+                    image_url: document.getElementById('mainImage')?.value || '', // 대표이미지를 image_url 컬럼에도 저장
                     extended_data: JSON.stringify(extendedData),
                     status: statusValue,
                     ...tradePriceData
@@ -8937,6 +8938,16 @@ app.get('/', (c) => {
               const modalContent = document.getElementById('modalContent');
               modalContent.innerHTML = \`
                 <div class="space-y-4 sm:space-y-6">
+                  <!-- Thumbnail Image (대표이미지) -->
+                  \${property.image_url ? \`
+                    <div class="w-full rounded-lg overflow-hidden">
+                      <img src="\${property.image_url}" 
+                           alt="\${property.title} 대표이미지"
+                           class="w-full h-auto object-cover"
+                           onerror="this.parentElement.style.display='none'" />
+                    </div>
+                  \` : ''}
+                  
                   <!-- Header -->
                   <div>
                     <div class="flex items-start justify-between mb-2 gap-3">
@@ -9955,6 +9966,16 @@ app.get('/', (c) => {
                   
                   return \`
                   <div class="toss-card bg-white rounded-xl shadow-sm overflow-hidden fade-in">
+                    <!-- Thumbnail Image (대표이미지) -->
+                    \${property.image_url ? \`
+                      <div class="w-full h-48 sm:h-56 overflow-hidden bg-gray-100">
+                        <img src="\${property.image_url}" 
+                             alt="\${property.title} 대표이미지"
+                             class="w-full h-full object-cover"
+                             onerror="this.parentElement.style.display='none'" />
+                      </div>
+                    \` : ''}
+                    
                     <div class="p-4 sm:p-5">
                       <!-- Header -->
                       <div class="flex items-start justify-between mb-2.5 sm:mb-3 gap-2">
@@ -10043,8 +10064,24 @@ app.get('/', (c) => {
                             <div class="font-bold text-gray-900">\${(() => {
                               const area = property.area_type || property.exclusive_area_range || property.exclusive_area || '-';
                               if (area === '-') return area;
+                              
+                              // 복잡한 면적 간소화: "59.9722, 68.8390A, ..." → "59 ~ 135㎡"
+                              const areaStr = area.toString();
+                              
+                              // 쉼표나 여러 타입이 포함된 경우 (예: "59.9722, 68.8390A, 84.9542B...")
+                              if (areaStr.includes(',') || /[A-Z]/.test(areaStr)) {
+                                // 모든 숫자 추출 (소수점 포함)
+                                const numbers = areaStr.match(/\\d+\\.?\\d*/g);
+                                if (numbers && numbers.length > 0) {
+                                  const nums = numbers.map(n => parseFloat(n));
+                                  const min = Math.floor(Math.min(...nums));
+                                  const max = Math.floor(Math.max(...nums));
+                                  return min === max ? \`\${min}㎡\` : \`\${min} ~ \${max}㎡\`;
+                                }
+                              }
+                              
                               // 이미 '㎡'가 붙어있으면 그대로, 없으면 추가
-                              return area.toString().includes('㎡') ? area : area + '㎡';
+                              return areaStr.includes('㎡') ? areaStr : areaStr + '㎡';
                             })()}</div>
                           </div>
                           <div>
@@ -10078,11 +10115,11 @@ app.get('/', (c) => {
                                   ? '💰 조합가격'
                                   : '💰 분양가격')
                             }</div>
-                            <div class="font-bold text-gray-900 text-xs">\${property.price || '-'}</div>
+                            <div class="font-bold text-gray-900" style="font-size: 14px;">\${property.price || '-'}</div>
                           </div>
                           <div>
                             <div class="text-xs text-gray-500 mb-1">🏗️ 시공사</div>
-                            <div class="font-bold text-gray-900 text-xs">\${property.builder || extendedData.details?.constructor || '-'}</div>
+                            <div class="font-bold text-gray-900" style="font-size: 14px;">\${property.builder || extendedData.details?.constructor || '-'}</div>
                           </div>
                         </div>
                       </div>
