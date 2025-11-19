@@ -18,6 +18,14 @@ const app = new Hono<{ Bindings: Bindings }>()
 // Enable CORS
 app.use('/api/*', cors())
 
+// Helper function: Get current time in KST (Korea Standard Time, UTC+9)
+function getKST(): string {
+  const now = new Date()
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000)
+  const kst = new Date(utc + (9 * 60 * 60 * 1000))
+  return kst.toISOString().slice(0, 19).replace('T', ' ')
+}
+
 // ==================== 카카오 로그인 API ====================
 
 // 1. 카카오 로그인 시작 (로그인 버튼 클릭 시)
@@ -1510,7 +1518,7 @@ app.post('/api/crawl/lh_OLD', async (c) => {
         'SELECT id FROM properties WHERE lh_announcement_id = ? OR title = ?'
       ).bind(lhId, titleText).first()
       
-      const now = new Date().toISOString()
+      const now = getKST()
       
       if (existing) {
         // 업데이트
@@ -1714,7 +1722,7 @@ app.post('/api/crawl/applyhome', async (c) => {
           'SELECT id FROM properties WHERE applyhome_pan_id = ? AND deleted_at IS NULL LIMIT 1'
         ).bind(applyHomeId).first()
         
-        const now = new Date().toISOString()
+        const now = getKST()
         
         if (existing) {
           // 업데이트 - 제목도 함께 업데이트 (청약홈에서 제목이 변경될 수 있음)
@@ -1812,7 +1820,7 @@ app.post('/api/crawl/lh', async (c) => {
     let updateCount = 0
     let skipCount = 0
     
-    const now = new Date().toISOString()
+    const now = getKST()
     const todayDate = new Date()
     todayDate.setHours(0, 0, 0, 0)
     
@@ -3635,7 +3643,7 @@ app.post('/api/admin/upload-image', async (c) => {
     
     return c.json({
       success: true,
-      url: imageUrl,  // Changed from imageUrl to url to match frontend
+      imageUrl: imageUrl,  // Changed back to imageUrl to match frontend
       filename: filename,
       message: '이미지 업로드 완료'
     })
@@ -6110,7 +6118,7 @@ app.get('/admin', (c) => {
                     });
 
                     if (response.data.success) {
-                        uploadedSupplyInfoImageUrl = response.data.url;
+                        uploadedSupplyInfoImageUrl = response.data.imageUrl;
                         document.getElementById('supplyInfoImage').value = response.data.url;
                         statusDiv.innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle mr-2"></i>업로드 완료!</span>';
                     } else {
@@ -6188,7 +6196,7 @@ app.get('/admin', (c) => {
                         });
 
                         if (response.data.success) {
-                            detailImagesArray.push(response.data.url);
+                            detailImagesArray.push(response.data.imageUrl);
                             successCount++;
                             updateDetailImagesPreview();
                         } else {
@@ -8938,16 +8946,6 @@ app.get('/', (c) => {
               const modalContent = document.getElementById('modalContent');
               modalContent.innerHTML = \`
                 <div class="space-y-4 sm:space-y-6">
-                  <!-- Thumbnail Image (대표이미지) -->
-                  \${property.image_url ? \`
-                    <div class="w-full rounded-lg overflow-hidden">
-                      <img src="\${property.image_url}" 
-                           alt="\${property.title} 대표이미지"
-                           class="w-full h-auto object-cover"
-                           onerror="this.parentElement.style.display='none'" />
-                    </div>
-                  \` : ''}
-                  
                   <!-- Header -->
                   <div>
                     <div class="flex items-start justify-between mb-2 gap-3">
@@ -8977,6 +8975,16 @@ app.get('/', (c) => {
                       <span class="text-sm text-gray-600">\${property.deadline}까지</span>
                     </div>
                   </div>
+
+                  <!-- Thumbnail Image (대표이미지) - 제목과 위치 다음 -->
+                  \${property.image_url ? \`
+                    <div class="w-full rounded-lg overflow-hidden">
+                      <img src="\${property.image_url}" 
+                           alt="\${property.title} 대표이미지"
+                           class="w-full h-auto object-cover"
+                           onerror="this.parentElement.style.display='none'" />
+                    </div>
+                  \` : ''}
 
                   <!-- Basic Info (Toss Simple Style) -->
                   <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
@@ -9966,16 +9974,6 @@ app.get('/', (c) => {
                   
                   return \`
                   <div class="toss-card bg-white rounded-xl shadow-sm overflow-hidden fade-in">
-                    <!-- Thumbnail Image (대표이미지) -->
-                    \${property.image_url ? \`
-                      <div class="w-full h-48 sm:h-56 overflow-hidden bg-gray-100">
-                        <img src="\${property.image_url}" 
-                             alt="\${property.title} 대표이미지"
-                             class="w-full h-full object-cover"
-                             onerror="this.parentElement.style.display='none'" />
-                      </div>
-                    \` : ''}
-                    
                     <div class="p-4 sm:p-5">
                       <!-- Header -->
                       <div class="flex items-start justify-between mb-2.5 sm:mb-3 gap-2">
@@ -10022,6 +10020,16 @@ app.get('/', (c) => {
                           </button>
                         \` : ''}
                       </div>
+                      
+                      <!-- Thumbnail Image (대표이미지) - 위치 정보 다음 -->
+                      \${property.image_url ? \`
+                        <div class="w-full rounded-lg overflow-hidden mb-3 sm:mb-4">
+                          <img src="\${property.image_url}" 
+                               alt="\${property.title} 대표이미지"
+                               class="w-full h-48 sm:h-56 object-cover"
+                               onerror="this.parentElement.style.display='none'" />
+                        </div>
+                      \` : ''}
                       
                       <!-- Key Info Grid -->
                       <div class="bg-gray-50 rounded-lg p-3 sm:p-4 mb-2.5 sm:mb-3">
