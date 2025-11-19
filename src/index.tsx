@@ -4510,23 +4510,50 @@ app.get('/admin', (c) => {
         <div id="mainContent" class="main-content lg:ml-[260px]">
             <!-- Header -->
             <header class="bg-white shadow-sm sticky top-0 z-30">
-                <div class="px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-                    <div class="flex items-center gap-4">
-                        <button onclick="toggleSidebar()" class="hidden lg:block text-gray-600 hover:text-gray-900">
-                            <i class="fas fa-bars text-xl"></i>
-                        </button>
-                        <div>
-                            <h1 class="text-2xl font-bold text-gray-900" id="pageTitle">대시보드</h1>
-                            <p class="text-sm text-gray-500" id="pageSubtitle">전체 현황을 확인하세요</p>
+                <div class="px-4 sm:px-6 lg:px-8 py-4">
+                    <!-- Top Row: Logo and User -->
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-4">
+                            <button onclick="toggleSidebar()" class="hidden lg:block text-gray-600 hover:text-gray-900">
+                                <i class="fas fa-bars text-xl"></i>
+                            </button>
+                            <div>
+                                <h1 class="text-2xl font-bold text-gray-900" id="pageTitle">대시보드</h1>
+                                <p class="text-sm text-gray-500" id="pageSubtitle">전체 현황을 확인하세요</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button class="hidden sm:block px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
+                                <i class="fas fa-bell mr-2"></i>알림
+                            </button>
+                            <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                                A
+                            </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <button class="hidden sm:block px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
-                            <i class="fas fa-bell mr-2"></i>알림
-                        </button>
-                        <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-                            A
+                    
+                    <!-- Search Bar (Center) -->
+                    <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 max-w-4xl mx-auto">
+                        <input type="text" id="searchInput" placeholder="단지명, 지역, 태그로 검색..." 
+                               onkeyup="handleSearchKeyup(event)"
+                               class="flex-1 px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                        <div class="flex gap-2 sm:gap-3">
+                            <button onclick="searchProperties()" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm sm:text-base">
+                                <i class="fas fa-search sm:mr-2"></i><span class="hidden sm:inline">검색</span>
+                            </button>
+                            <button onclick="clearSearch()" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm sm:text-base">
+                                <i class="fas fa-times sm:mr-2"></i><span class="hidden sm:inline">초기화</span>
+                            </button>
+                            <button onclick="openAddModal()" class="flex-1 sm:flex-none sm:w-auto px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm sm:text-base whitespace-nowrap">
+                                <i class="fas fa-plus sm:mr-2"></i>신규등록
+                            </button>
                         </div>
+                    </div>
+                    
+                    <!-- Search Result Count -->
+                    <div id="searchResultCount" class="text-sm text-gray-600 hidden mt-2 text-center">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        <span id="searchResultText"></span>
                     </div>
                 </div>
             </header>
@@ -4679,30 +4706,6 @@ app.get('/admin', (c) => {
                         </button>
                     </div>
                 </div>
-                
-            <!-- Search & Actions -->
-            <div class="bg-white rounded-lg shadow-sm p-3 sm:p-4 mb-3 sm:mb-4">
-                <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-2">
-                    <input type="text" id="searchInput" placeholder="단지명, 지역, 태그로 검색..." 
-                           onkeyup="handleSearchKeyup(event)"
-                           class="flex-1 px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
-                    <div class="flex gap-2 sm:gap-3">
-                        <button onclick="searchProperties()" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm sm:text-base">
-                            <i class="fas fa-search sm:mr-2"></i><span class="hidden sm:inline">검색</span>
-                        </button>
-                        <button onclick="clearSearch()" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm sm:text-base">
-                            <i class="fas fa-times sm:mr-2"></i><span class="hidden sm:inline">초기화</span>
-                        </button>
-                        <button onclick="openAddModal()" class="flex-1 sm:flex-none sm:w-auto px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm sm:text-base whitespace-nowrap">
-                            <i class="fas fa-plus sm:mr-2"></i>신규등록
-                        </button>
-                    </div>
-                </div>
-                <div id="searchResultCount" class="text-sm text-gray-600 hidden">
-                    <i class="fas fa-info-circle mr-1"></i>
-                    <span id="searchResultText"></span>
-                </div>
-            </div>
 
             <!-- Properties Table -->
             <div class="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -8207,29 +8210,41 @@ app.get('/', (c) => {
         <!-- Header -->
         <header class="bg-white sticky top-0 z-50 shadow-sm border-b border-gray-200">
             <div class="max-w-6xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-1.5 sm:gap-3">
+                <!-- Single Row: Logo, Search, Bell -->
+                <div class="flex items-center gap-4 sm:gap-6">
+                    <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                         <!-- Hamburger Menu Button (Mobile Only) -->
-                        <button onclick="openMobileMenu()" class="lg:hidden text-gray-600 hover:text-gray-900 px-2 py-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
+                        <button onclick="openMobileMenu()" class="lg:hidden text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
                             <i class="fas fa-bars text-lg"></i>
                         </button>
-                        <a href="/" class="text-lg sm:text-xl font-bold text-gray-900 hover:text-blue-600 transition-colors cursor-pointer">똑똑한한채</a>
-                        <span class="text-xs text-gray-500 hidden md:inline">스마트 부동산 분양 정보</span>
+                        <div class="flex flex-col">
+                            <a href="/" class="text-lg sm:text-xl font-bold text-gray-900 hover:text-blue-600 transition-colors cursor-pointer whitespace-nowrap">똑똑한한채</a>
+                            <span class="text-xs text-gray-500 hidden sm:block whitespace-nowrap">스마트 부동산 분양 정보</span>
+                        </div>
                     </div>
                     
-                    <!-- Desktop Navigation (홈/찜한매물 모두 비활성화 - 로고로 홈 이동) -->
-                    <!--
-                    <nav class="hidden lg:flex items-center gap-1">
-                        <a href="/" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">홈</a>
-                        <a href="#" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">찜한 매물</a>
-                    </nav>
-                    -->
+                    <!-- Search Bar (Center, flex-1) -->
+                    <div class="relative flex-1 max-w-2xl mx-auto">
+                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input 
+                            type="text" 
+                            id="mainSearchInput" 
+                            placeholder="지역, 단지명으로 검색"
+                            class="w-full pl-11 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                            onkeyup="mainSearchOnType(event)"
+                        >
+                    </div>
                     
-                    <div class="flex items-center gap-1 sm:gap-2">
-                        <button class="text-gray-600 hover:text-gray-900 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
+                    <div class="flex items-center flex-shrink-0">
+                        <button class="text-gray-600 hover:text-gray-900 p-2 sm:px-3 sm:py-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
                             <i class="fas fa-bell text-base sm:text-lg"></i>
                         </button>
                     </div>
+                </div>
+                
+                <!-- 검색 결과 카운트 -->
+                <div id="searchResultCount" class="text-center py-2 text-sm text-gray-600 hidden">
+                    <span id="searchResultText"></span>
                 </div>
             </div>
         </header>
@@ -8244,25 +8259,6 @@ app.get('/', (c) => {
         <!-- Main Content -->
         <main class="max-w-6xl mx-auto px-3 sm:px-4 pb-8 sm:pb-12">
             
-            <!-- 검색창 -->
-            <div class="bg-white px-4 py-3 mb-2">
-                <div class="relative max-w-2xl mx-auto">
-                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                    <input 
-                        type="text" 
-                        id="mainSearchInput" 
-                        placeholder="지역, 단지명으로 검색"
-                        class="w-full pl-11 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        onkeyup="mainSearchOnType(event)"
-                    >
-                </div>
-                
-                <!-- 검색 결과 카운트 -->
-                <div id="searchResultCount" class="text-center py-2 text-sm text-gray-600 hidden">
-                    <span id="searchResultText"></span>
-                </div>
-            </div>
-
             <!-- 호갱노노 스타일 필터 -->
             <div class="bg-white px-4 py-3 mb-2 relative">
                 <div class="overflow-x-auto pr-14" style="-webkit-overflow-scrolling: touch;">
@@ -8898,12 +8894,14 @@ app.get('/', (c) => {
             return { text: '진행중', class: 'bg-blue-500' };
           }
 
-          // Open map
+          // Open map (Naver Map)
           function openMap(address, lat, lng) {
             if (lat && lng && lat !== 0 && lng !== 0) {
-              window.open(\`https://map.kakao.com/link/map/\${encodeURIComponent(address)},\${lat},\${lng}\`, '_blank');
+              // 네이버 지도 - 좌표로 열기
+              window.open(\`https://map.naver.com/p?c=\${lng},\${lat},15,0,0,0,dh&title=\${encodeURIComponent(address)}\`, '_blank');
             } else {
-              window.open(\`https://map.kakao.com/link/search/\${encodeURIComponent(address)}\`, '_blank');
+              // 네이버 지도 - 주소 검색
+              window.open(\`https://map.naver.com/p/search/\${encodeURIComponent(address)}\`, '_blank');
             }
           }
 
@@ -8940,7 +8938,33 @@ app.get('/', (c) => {
               console.log('🖼️ Supply Info Image URL:', extendedData.supplyInfoImage);
               console.log('📊 Supply Info Data:', extendedData.supplyInfo);
               
-              const dday = calculateDDay(property.deadline);
+              // D-day 계산 (메인 카드와 동일한 로직)
+              const ddayDate = (() => {
+                // steps가 있으면 가장 가까운 미래 스텝 날짜 사용
+                if (extendedData.steps && Array.isArray(extendedData.steps) && extendedData.steps.length > 0) {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  
+                  // 미래 스텝들만 필터링
+                  const futureSteps = extendedData.steps
+                    .filter(step => {
+                      if (!step.date) return false;
+                      const stepDate = new Date(step.date);
+                      stepDate.setHours(0, 0, 0, 0);
+                      return stepDate >= today;
+                    })
+                    .sort((a, b) => new Date(a.date) - new Date(b.date));
+                  
+                  // 가장 가까운 미래 스텝 날짜 반환
+                  if (futureSteps.length > 0) {
+                    return futureSteps[0].date;
+                  }
+                }
+                // steps가 없거나 미래 스텝이 없으면 deadline 사용
+                return property.deadline;
+              })();
+              
+              const dday = calculateDDay(ddayDate);
               const margin = formatMargin(property.expected_margin, property.margin_rate);
               
               const modalContent = document.getElementById('modalContent');
@@ -8972,7 +8996,7 @@ app.get('/', (c) => {
                       <span class="\${dday.class} text-white text-xs font-bold px-3 py-1 rounded-full">
                         \${dday.text}
                       </span>
-                      <span class="text-sm text-gray-600">\${property.deadline}까지</span>
+                      <span class="text-sm text-gray-600">\${ddayDate}까지</span>
                     </div>
                   </div>
 
