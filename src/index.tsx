@@ -8323,8 +8323,8 @@ app.get('/', (c) => {
                     <div class="flex gap-2 items-center min-w-max">
                     <!-- 정렬 (맨 앞) -->
                     <select id="filterSort" class="filter-chip">
-                        <option value="deadline">마감순</option>
                         <option value="latest">최신순</option>
+                        <option value="deadline">마감순</option>
                         <option value="price-low">낮은가격</option>
                         <option value="price-high">높은가격</option>
                     </select>
@@ -8843,7 +8843,7 @@ app.get('/', (c) => {
             type: 'all',
             household: 'all',
             area: 'all',
-            sort: 'deadline'
+            sort: 'latest'
           };
           
           // Search state
