@@ -132,6 +132,148 @@ function getKST(): string {
   return kst.toISOString().slice(0, 19).replace('T', ' ')
 }
 
+// ==================== 이메일 로그인 API ====================
+
+// Helper: Hash password using Web Crypto API (for Cloudflare Workers)
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(password)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  return hashHex
+}
+
+// Helper: Verify password
+async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+  const hash = await hashPassword(password)
+  return hash === hashedPassword
+}
+
+// Email Signup
+app.post('/api/auth/email/signup', async (c) => {
+  try {
+    const { DB } = c.env
+    const { email, password, nickname } = await c.req.json()
+    
+    // Validate input
+    if (!email || !password || !nickname) {
+      return c.json({ success: false, message: '모든 필드를 입력해주세요.' }, 400)
+    }
+    
+    if (password.length < 8) {
+      return c.json({ success: false, message: '비밀번호는 8자 이상이어야 합니다.' }, 400)
+    }
+    
+    // Check if email already exists
+    const existingUser = await DB.prepare(`
+      SELECT id FROM users WHERE email = ?
+    `).bind(email).first()
+    
+    if (existingUser) {
+      return c.json({ success: false, message: '이미 가입된 이메일입니다.' }, 400)
+    }
+    
+    // Hash password
+    const hashedPassword = await hashPassword(password)
+    
+    // Create user
+    const result = await DB.prepare(`
+      INSERT INTO users (email, password, nickname, created_at, updated_at)
+      VALUES (?, ?, ?, datetime('now'), datetime('now'))
+    `).bind(email, hashedPassword, nickname).run()
+    
+    const userId = result.meta.last_row_id
+    
+    // Create default notification settings
+    await DB.prepare(`
+      INSERT INTO notification_settings (user_id, notification_enabled)
+      VALUES (?, 1)
+    `).bind(userId).run()
+    
+    return c.json({ 
+      success: true, 
+      message: '회원가입이 완료되었습니다! 로그인해주세요.' 
+    })
+    
+  } catch (error) {
+    console.error('Signup error:', error)
+    return c.json({ success: false, message: '회원가입 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// Email Login
+app.post('/api/auth/email/login', async (c) => {
+  try {
+    const { DB } = c.env
+    const { email, password } = await c.req.json()
+    
+    // Validate input
+    if (!email || !password) {
+      return c.json({ success: false, message: '이메일과 비밀번호를 입력해주세요.' }, 400)
+    }
+    
+    // Find user by email
+    const user = await DB.prepare(`
+      SELECT * FROM users WHERE email = ?
+    `).bind(email).first()
+    
+    if (!user) {
+      return c.json({ success: false, message: '등록되지 않은 이메일입니다.' }, 400)
+    }
+    
+    // Check if user has password (might be kakao/naver user without password)
+    if (!user.password) {
+      return c.json({ 
+        success: false, 
+        message: '소셜 로그인으로 가입한 계정입니다. 카카오 또는 네이버로 로그인해주세요.' 
+      }, 400)
+    }
+    
+    // Verify password
+    const isPasswordValid = await verifyPassword(password, user.password as string)
+    
+    if (!isPasswordValid) {
+      return c.json({ success: false, message: '비밀번호가 일치하지 않습니다.' }, 400)
+    }
+    
+    // Update last login
+    await DB.prepare(`
+      UPDATE users SET last_login = datetime('now') WHERE id = ?
+    `).bind(user.id).run()
+    
+    // Set user cookie
+    const userCookie = JSON.stringify({
+      id: user.id,
+      email: user.email,
+      nickname: user.nickname,
+      profile_image: user.profile_image
+    })
+    
+    setCookie(c, 'user', userCookie, {
+      path: '/',
+      httpOnly: false,
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+      sameSite: 'Lax'
+    })
+    
+    return c.json({ 
+      success: true, 
+      message: `${user.nickname}님, 환영합니다!`,
+      user: {
+        id: user.id,
+        email: user.email,
+        nickname: user.nickname,
+        profile_image: user.profile_image
+      }
+    })
+    
+  } catch (error) {
+    console.error('Login error:', error)
+    return c.json({ success: false, message: '로그인 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
 // ==================== 카카오 로그인 API ====================
 
 // 1. 카카오 로그인 시작 (로그인 버튼 클릭 시)
@@ -380,136 +522,6 @@ app.get('/auth/naver/callback', async (c) => {
         window.location.href = '/';
       </script>
     `)
-  }
-})
-
-// ==================== 이메일 로그인 API ====================
-
-// Password hashing using Web Crypto API (compatible with Cloudflare Workers)
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(password)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-  return hashHex
-}
-
-async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
-  const hash = await hashPassword(password)
-  return hash === hashedPassword
-}
-
-// 1. 이메일 회원가입
-app.post('/auth/email/signup', async (c) => {
-  try {
-    const { email, password, nickname } = await c.req.json()
-    const { DB } = c.env
-
-    // 입력 검증
-    if (!email || !password || !nickname) {
-      return c.json({ error: '이메일, 비밀번호, 닉네임을 모두 입력해주세요.' }, 400)
-    }
-
-    // 이메일 형식 검증
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return c.json({ error: '올바른 이메일 형식이 아닙니다.' }, 400)
-    }
-
-    // 비밀번호 길이 검증
-    if (password.length < 6) {
-      return c.json({ error: '비밀번호는 최소 6자 이상이어야 합니다.' }, 400)
-    }
-
-    // 이메일 중복 확인
-    const existingUser = await DB.prepare(`
-      SELECT id FROM users WHERE email = ?
-    `).bind(email).first()
-
-    if (existingUser) {
-      return c.json({ error: '이미 사용 중인 이메일입니다.' }, 409)
-    }
-
-    // 비밀번호 해싱
-    const passwordHash = await hashPassword(password)
-
-    // 사용자 생성
-    const result = await DB.prepare(`
-      INSERT INTO users (email, password_hash, nickname, login_provider, last_login)
-      VALUES (?, ?, ?, 'email', datetime('now'))
-    `).bind(email, passwordHash, nickname).run()
-
-    const userId = result.meta.last_row_id
-
-    // 알림 설정 기본값 생성
-    await DB.prepare(`
-      INSERT INTO notification_settings (user_id, notification_enabled)
-      VALUES (?, 1)
-    `).bind(userId).run()
-
-    return c.json({
-      success: true,
-      user: {
-        id: userId,
-        email,
-        nickname,
-        provider: 'email'
-      }
-    })
-
-  } catch (error) {
-    console.error('Email signup error:', error)
-    return c.json({ error: '회원가입 처리 중 오류가 발생했습니다.' }, 500)
-  }
-})
-
-// 2. 이메일 로그인
-app.post('/auth/email/login', async (c) => {
-  try {
-    const { email, password } = await c.req.json()
-    const { DB } = c.env
-
-    // 입력 검증
-    if (!email || !password) {
-      return c.json({ error: '이메일과 비밀번호를 입력해주세요.' }, 400)
-    }
-
-    // 사용자 조회
-    const user = await DB.prepare(`
-      SELECT id, email, password_hash, nickname, profile_image
-      FROM users WHERE email = ? AND login_provider = 'email'
-    `).bind(email).first() as any
-
-    if (!user) {
-      return c.json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' }, 401)
-    }
-
-    // 비밀번호 검증
-    const isValid = await verifyPassword(password, user.password_hash)
-    if (!isValid) {
-      return c.json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' }, 401)
-    }
-
-    // 마지막 로그인 시간 업데이트
-    await DB.prepare(`
-      UPDATE users SET last_login = datetime('now') WHERE id = ?
-    `).bind(user.id).run()
-
-    return c.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        nickname: user.nickname,
-        profileImage: user.profile_image || '',
-        provider: 'email'
-      }
-    })
-
-  } catch (error) {
-    console.error('Email login error:', error)
-    return c.json({ error: '로그인 처리 중 오류가 발생했습니다.' }, 500)
   }
 })
 
