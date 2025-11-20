@@ -13780,7 +13780,7 @@ app.get('/', (c) => {
             const userName = document.getElementById('userDetailNickname')?.textContent;
             
             if (userId && userName) {
-              openPasswordResetModal(userId, userName);
+              window.openPasswordResetModal(userId, userName);
             }
           };
           
@@ -13841,7 +13841,7 @@ app.get('/', (c) => {
             const userName = document.getElementById('userDetailNickname')?.textContent;
             
             if (userId && userName) {
-              openDeleteUserModal(userId, userName);
+              window.openDeleteUserModal(userId, userName);
             }
           };
           
@@ -13858,14 +13858,23 @@ app.get('/', (c) => {
           };
           
           window.confirmDeleteUser = async function() {
-            if (!currentDeleteUserId) return;
+            if (!currentDeleteUserId) {
+              console.error('❌ currentDeleteUserId가 없습니다');
+              alert('사용자 ID를 찾을 수 없습니다.');
+              return;
+            }
+            
+            console.log('🗑️ 회원 탈퇴 시작:', currentDeleteUserId);
             
             try {
               const response = await fetch(\`/api/admin/users/\${currentDeleteUserId}\`, {
                 method: 'DELETE'
               });
               
+              console.log('📡 응답 상태:', response.status);
+              
               const data = await response.json();
+              console.log('📦 응답 데이터:', data);
               
               if (data.success) {
                 alert('✓ 회원이 탈퇴 처리되었습니다.');
@@ -13877,13 +13886,14 @@ app.get('/', (c) => {
                   detailModal.classList.add('hidden');
                 }
                 
+                console.log('✅ 회원 목록 새로고침 중...');
                 loadUsers();
               } else {
                 alert(data.message || '회원 탈퇴 처리에 실패했습니다.');
               }
             } catch (error) {
-              console.error('Delete user error:', error);
-              alert('회원 탈퇴 처리 중 오류가 발생했습니다.');
+              console.error('❌ Delete user error:', error);
+              alert('회원 탈퇴 처리 중 오류가 발생했습니다: ' + error.message);
             }
           };
           
