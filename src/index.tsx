@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
+import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 
 // Define types for Cloudflare bindings
 type Bindings = {
@@ -4777,7 +4778,7 @@ app.get('/admin/login', (c) => {
 // My Settings page (user settings)
 app.get('/my-settings', async (c) => {
   // Get user from cookie
-  const userCookie = c.req.cookie('user');
+  const userCookie = getCookie(c, 'user');
   
   if (!userCookie) {
     // Not logged in - redirect to main page
@@ -8715,7 +8716,7 @@ app.get('/admin', (c) => {
 // Main page
 app.get('/', (c) => {
   // Get user from cookie
-  const userCookie = c.req.cookie('user');
+  const userCookie = getCookie(c, 'user');
   let user = null;
   let isLoggedIn = false;
   
