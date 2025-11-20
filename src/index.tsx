@@ -9476,10 +9476,9 @@ app.get('/', (c) => {
                             </div>
                         </div>
                         ` : `
-                        <!-- Not Logged In - Show Login Button -->
-                        <button onclick="startKakaoLogin()" class="flex items-center gap-2 px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-lg font-medium transition-all shadow-sm hover:shadow-md">
-                            <i class="fas fa-comment text-base"></i>
-                            <span class="hidden sm:inline text-sm">카카오 로그인</span>
+                        <!-- Not Logged In - Show Bell Icon -->
+                        <button onclick="openLoginModal()" class="text-gray-600 hover:text-gray-900 p-2 sm:px-3 sm:py-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
+                            <i class="far fa-bell text-base sm:text-lg"></i>
                         </button>
                         `}
                     </div>
@@ -9491,6 +9490,46 @@ app.get('/', (c) => {
                 </div>
             </div>
         </header>
+
+        <!-- Login Modal -->
+        <div id="loginModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center hidden">
+            <div class="bg-white rounded-2xl max-w-md w-full mx-4 p-8 relative">
+                <!-- Close Button -->
+                <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+                
+                <!-- Modal Header -->
+                <div class="text-center mb-8">
+                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-bell text-blue-600 text-2xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">알림 받기</h2>
+                    <p class="text-gray-600">로그인하고 신규 매물 알림을 받아보세요!</p>
+                </div>
+                
+                <!-- Login Buttons -->
+                <div class="space-y-3">
+                    <!-- Kakao Login -->
+                    <button onclick="startKakaoLogin()" class="w-full flex items-center justify-center gap-3 px-6 py-4 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-lg font-medium transition-all shadow-sm hover:shadow-md">
+                        <i class="fas fa-comment text-xl"></i>
+                        <span>카카오로 시작하기</span>
+                    </button>
+                    
+                    <!-- Naver Login -->
+                    <button onclick="startNaverLogin()" class="w-full flex items-center justify-center gap-3 px-6 py-4 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-all shadow-sm hover:shadow-md">
+                        <i class="fas fa-n text-xl font-bold"></i>
+                        <span>네이버로 시작하기</span>
+                    </button>
+                </div>
+                
+                <!-- Footer Note -->
+                <p class="text-xs text-gray-500 text-center mt-6">
+                    로그인 시 <a href="/terms" class="text-blue-600 hover:underline">이용약관</a> 및 
+                    <a href="/privacy" class="text-blue-600 hover:underline">개인정보처리방침</a>에 동의하게 됩니다.
+                </p>
+            </div>
+        </div>
 
         <!-- Stats Cards -->
         <section class="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
@@ -12874,9 +12913,41 @@ app.get('/', (c) => {
             window.location.href = '/';
           }
           
+          // Open Login Modal
+          function openLoginModal() {
+            const modal = document.getElementById('loginModal');
+            if (modal) {
+              modal.classList.remove('hidden');
+              modal.classList.add('flex');
+            }
+          }
+          
+          // Close Login Modal
+          function closeLoginModal() {
+            const modal = document.getElementById('loginModal');
+            if (modal) {
+              modal.classList.add('hidden');
+              modal.classList.remove('flex');
+            }
+          }
+          
+          // Close modal when clicking outside
+          document.getElementById('loginModal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+              closeLoginModal();
+            }
+          });
+          
           // Start Kakao Login
           function startKakaoLogin() {
+            closeLoginModal();
             window.location.href = '/auth/kakao/login';
+          }
+          
+          // Start Naver Login
+          function startNaverLogin() {
+            closeLoginModal();
+            window.location.href = '/auth/naver/login';
           }
 
           // Initialize
