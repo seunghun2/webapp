@@ -6023,13 +6023,13 @@ app.get('/admin', (c) => {
                         <!-- Left: Danger Actions -->
                         <div class="flex gap-2">
                             <button 
-                                onclick="openPasswordResetModalFromDetail()" 
+                                onclick="window.openPasswordResetModalFromDetail()" 
                                 class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium transition-colors"
                             >
                                 비밀번호 초기화
                             </button>
                             <button 
-                                onclick="openDeleteUserModalFromDetail()" 
+                                onclick="window.openDeleteUserModalFromDetail()" 
                                 class="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-sm font-medium transition-colors"
                             >
                                 회원 탈퇴
