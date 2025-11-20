@@ -8714,6 +8714,20 @@ app.get('/admin', (c) => {
 
 // Main page
 app.get('/', (c) => {
+  // Get user from cookie
+  const userCookie = c.req.cookie('user');
+  let user = null;
+  let isLoggedIn = false;
+  
+  if (userCookie) {
+    try {
+      user = JSON.parse(userCookie);
+      isLoggedIn = true;
+    } catch (e) {
+      // Invalid cookie
+    }
+  }
+  
   return c.html(`
     <!DOCTYPE html>
     <html lang="ko">
@@ -9426,10 +9440,38 @@ app.get('/', (c) => {
                         >
                     </div>
                     
-                    <div class="flex items-center flex-shrink-0">
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        ${isLoggedIn ? `
+                        <!-- Logged In User Menu -->
+                        <div class="relative">
+                            <button onclick="toggleUserMenu()" class="flex items-center gap-2 text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-all">
+                                ${user.profile_image ? 
+                                    `<img src="${user.profile_image}" class="w-8 h-8 rounded-full">` : 
+                                    `<div class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-sm">${user.nickname ? user.nickname[0] : '?'}</div>`
+                                }
+                                <span class="hidden sm:inline text-sm font-medium">${user.nickname || '사용자'}</span>
+                                <i class="fas fa-chevron-down text-xs"></i>
+                            </button>
+                            
+                            <!-- User Dropdown Menu -->
+                            <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                                <a href="/my-settings" class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="fas fa-cog w-4"></i>
+                                    <span>내 설정</span>
+                                </a>
+                                <div class="border-t my-1"></div>
+                                <button onclick="logout()" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                    <i class="fas fa-sign-out-alt w-4"></i>
+                                    <span>로그아웃</span>
+                                </button>
+                            </div>
+                        </div>
+                        ` : `
+                        <!-- Not Logged In - Show Bell Button -->
                         <button class="text-gray-600 hover:text-gray-900 p-2 sm:px-3 sm:py-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
                             <i class="far fa-bell text-base sm:text-lg"></i>
                         </button>
+                        `}
                     </div>
                 </div>
                 
@@ -12797,6 +12839,29 @@ app.get('/', (c) => {
               console.error('Failed to load user detail:', error);
               alert('회원 상세 정보를 불러오는데 실패했습니다.');
             }
+          }
+          
+          // Toggle user menu
+          function toggleUserMenu() {
+            const menu = document.getElementById('userMenu');
+            if (menu) {
+              menu.classList.toggle('hidden');
+            }
+          }
+          
+          // Close menu when clicking outside
+          document.addEventListener('click', function(event) {
+            const menu = document.getElementById('userMenu');
+            const button = event.target.closest('button[onclick="toggleUserMenu()"]');
+            if (menu && !menu.contains(event.target) && !button) {
+              menu.classList.add('hidden');
+            }
+          });
+          
+          // Logout function
+          function logout() {
+            document.cookie = 'user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+            window.location.href = '/';
           }
 
           // Initialize
