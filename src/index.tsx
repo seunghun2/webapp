@@ -5014,17 +5014,17 @@ app.get('/my-settings', async (c) => {
                 </button>
             </div>
             
-            <!-- Main Card -->
-            <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
-                <!-- Profile Header -->
-                <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white">
+            <!-- Main Card (Toss Style) -->
+            <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                <!-- Profile Header (Minimal) -->
+                <div class="p-8 border-b border-gray-100">
                     <div class="flex items-center gap-4">
-                        <div id="profileAvatar" class="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold">
+                        <div id="profileAvatar" class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-2xl font-medium text-gray-900">
                             ${user.nickname ? user.nickname[0] : '?'}
                         </div>
                         <div>
-                            <h1 class="text-2xl font-bold">${user.nickname || '사용자'}</h1>
-                            <p class="text-blue-100">${user.email || ''}</p>
+                            <h1 class="text-2xl font-bold text-gray-900">${user.nickname || '사용자'}</h1>
+                            <p class="text-sm text-gray-600">${user.email || ''}</p>
                         </div>
                     </div>
                 </div>
@@ -5171,8 +5171,8 @@ app.get('/my-settings', async (c) => {
                         const selectedRegions = settings.regions ? JSON.parse(settings.regions) : [];
                         const regionsContainer = document.getElementById('regionsCheckboxes');
                         regionsContainer.innerHTML = regions.map(region => \`
-                            <label class="flex items-center gap-2 cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
-                                <input type="checkbox" value="\${region}" class="region-checkbox w-4 h-4 text-blue-600" \${selectedRegions.includes(region) ? 'checked' : ''}>
+                            <label class="flex items-center gap-2 cursor-pointer p-3 border-2 border-gray-200 rounded-xl hover:border-gray-400 has-[:checked]:border-gray-900 has-[:checked]:bg-gray-50">
+                                <input type="checkbox" value="\${region}" class="region-checkbox w-4 h-4 text-gray-900" \${selectedRegions.includes(region) ? 'checked' : ''}>
                                 <span class="font-medium text-gray-900">\${region}</span>
                             </label>
                         \`).join('');
