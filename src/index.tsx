@@ -8327,8 +8327,8 @@ app.get('/', (c) => {
                     <div class="flex gap-2 items-center min-w-max">
                     <!-- 정렬 (맨 앞) -->
                     <select id="filterSort" class="filter-chip">
-                        <option value="deadline">최신순</option>
-                        <option value="latest">등록순</option>
+                        <option value="deadline">마감임박일</option>
+                        <option value="latest">마감일</option>
                     </select>
                     
                     <!-- 지역 필터 -->
@@ -10023,6 +10023,54 @@ app.get('/', (c) => {
               });
               
               console.log('✅ Showing', properties.length, 'properties (after filtering expired)');
+              
+              // 프론트엔드에서 steps 기반 재정렬
+              if (filters.sort === 'deadline' || filters.sort === 'latest') {
+                properties.sort((a, b) => {
+                  // 각 매물의 가장 가까운 미래 스텝 날짜 계산
+                  const getNextStepDate = (property) => {
+                    try {
+                      const extendedData = typeof property.extended_data === 'string' 
+                        ? JSON.parse(property.extended_data) 
+                        : property.extended_data;
+                      
+                      if (extendedData?.steps && Array.isArray(extendedData.steps) && extendedData.steps.length > 0) {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        
+                        const futureSteps = extendedData.steps
+                          .filter(step => {
+                            if (!step.date) return false;
+                            const stepDate = new Date(step.date);
+                            stepDate.setHours(0, 0, 0, 0);
+                            return stepDate >= today;
+                          })
+                          .sort((x, y) => new Date(x.date) - new Date(y.date));
+                        
+                        if (futureSteps.length > 0) {
+                          return new Date(futureSteps[0].date);
+                        }
+                      }
+                      // steps가 없으면 deadline 사용
+                      return property.deadline ? new Date(property.deadline) : new Date('2099-12-31');
+                    } catch (e) {
+                      return property.deadline ? new Date(property.deadline) : new Date('2099-12-31');
+                    }
+                  };
+                  
+                  const dateA = getNextStepDate(a);
+                  const dateB = getNextStepDate(b);
+                  
+                  if (filters.sort === 'deadline') {
+                    // 마감임박일: 가까운 날짜가 먼저 (오름차순)
+                    return dateA - dateB;
+                  } else {
+                    // 마감일: 먼 날짜가 먼저 (내림차순)
+                    return dateB - dateA;
+                  }
+                });
+                console.log('Re-sorted by ' + (filters.sort === 'deadline' ? 'closest' : 'farthest') + ' future step');
+              }
               
               // 검색 결과 카운트 업데이트
               const countDiv = document.getElementById('searchResultCount');
