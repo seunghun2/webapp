@@ -5260,6 +5260,142 @@ app.get('/admin', (c) => {
             </div>
         </div>
 
+        <!-- User Detail Modal -->
+        <div id="userDetailModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4 hidden">
+            <div class="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                <!-- Modal Header -->
+                <div class="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
+                    <h2 class="text-xl font-bold text-gray-900">회원 상세 정보</h2>
+                    <button onclick="closeUserDetailModal()" class="text-gray-400 hover:text-gray-600 p-2 -m-2">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                
+                <!-- Modal Body -->
+                <div class="p-6 space-y-6">
+                    <!-- User Basic Info -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div id="userDetailAvatar" class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-2xl">
+                                ?
+                            </div>
+                            <div>
+                                <h3 id="userDetailNickname" class="text-lg font-bold text-gray-900">-</h3>
+                                <p id="userDetailEmail" class="text-sm text-gray-600">-</p>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">회원 ID</p>
+                                <p id="userDetailId" class="text-sm font-medium text-gray-900">-</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">전화번호</p>
+                                <p id="userDetailPhone" class="text-sm font-medium text-gray-900">-</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">가입일</p>
+                                <p id="userDetailCreated" class="text-sm font-medium text-gray-900">-</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">마지막 로그인</p>
+                                <p id="userDetailLastLogin" class="text-sm font-medium text-gray-900">-</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Notification Settings -->
+                    <div>
+                        <h4 class="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                            <i class="fas fa-bell text-blue-600"></i>
+                            알림 설정
+                        </h4>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm font-medium text-gray-700">알림 상태</span>
+                                <span id="userDetailNotificationStatus" class="text-sm font-medium">-</span>
+                            </div>
+                            <div class="border-t pt-3">
+                                <p class="text-xs text-gray-500 mb-2">관심 지역</p>
+                                <div id="userDetailRegions" class="flex flex-wrap gap-2">
+                                    <!-- Regions will be loaded here -->
+                                </div>
+                            </div>
+                            <div class="border-t pt-3">
+                                <p class="text-xs text-gray-500 mb-2">관심 유형</p>
+                                <div id="userDetailPropertyTypes" class="flex flex-wrap gap-2">
+                                    <!-- Property types will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Notification Logs -->
+                    <div>
+                        <h4 class="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                            <i class="fas fa-history text-purple-600"></i>
+                            알림 발송 기록
+                            <span id="userDetailLogsCount" class="text-sm font-normal text-gray-500">(0건)</span>
+                        </h4>
+                        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                            <div class="overflow-y-auto max-h-64">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50 border-b sticky top-0">
+                                        <tr>
+                                            <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600">발송일시</th>
+                                            <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600">매물</th>
+                                            <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600">상태</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="userDetailLogsTable" class="divide-y divide-gray-200">
+                                        <!-- Logs will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Edit Settings Form -->
+                    <div class="border-t pt-4">
+                        <h4 class="text-lg font-bold text-gray-900 mb-3">설정 변경</h4>
+                        <form id="userSettingsForm" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">전화번호</label>
+                                <input 
+                                    type="tel" 
+                                    id="editUserPhone" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="010-1234-5678"
+                                >
+                            </div>
+                            <div>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        id="editNotificationEnabled" 
+                                        class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    >
+                                    <span class="text-sm font-medium text-gray-700">알림 수신 활성화</span>
+                                </label>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Modal Footer -->
+                <div class="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex justify-end gap-3">
+                    <button onclick="closeUserDetailModal()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium">
+                        닫기
+                    </button>
+                    <button onclick="saveUserSettings()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                        <i class="fas fa-save mr-2"></i>
+                        설정 저장
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Add/Edit Modal -->
         <div id="editModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-2 sm:p-4">
             <div class="bg-white rounded-xl max-w-6xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
@@ -6134,30 +6270,127 @@ app.get('/admin', (c) => {
             }
             
             // View User Detail
+            let currentUserId = null;
+            
             async function viewUserDetail(userId) {
                 try {
+                    currentUserId = userId;
                     const response = await axios.get(\`/api/admin/users/\${userId}\`);
                     const { user, settings, logs } = response.data;
                     
-                    const regions = settings?.regions ? JSON.parse(settings.regions) : [];
-                    const propertyTypes = settings?.property_types ? JSON.parse(settings.property_types) : [];
+                    // Basic Info
+                    document.getElementById('userDetailId').textContent = user.id;
+                    document.getElementById('userDetailNickname').textContent = user.nickname || '-';
+                    document.getElementById('userDetailEmail').textContent = user.email || '-';
+                    document.getElementById('userDetailPhone').textContent = user.phone_number || '-';
+                    document.getElementById('userDetailCreated').textContent = user.created_at ? new Date(user.created_at).toLocaleDateString('ko-KR') : '-';
+                    document.getElementById('userDetailLastLogin').textContent = user.last_login ? new Date(user.last_login).toLocaleDateString('ko-KR') : '없음';
                     
-                    alert(\`회원 정보:
-- ID: \${user.id}
-- 닉네임: \${user.nickname || '-'}
-- 이메일: \${user.email || '-'}
-- 전화번호: \${user.phone_number || '-'}
-- 가입일: \${new Date(user.created_at).toLocaleString('ko-KR')}
-
-알림 설정:
-- 상태: \${settings?.notification_enabled ? '활성' : '비활성'}
-- 관심 지역: \${regions.join(', ') || '없음'}
-- 관심 유형: \${propertyTypes.join(', ') || '없음'}
-
-알림 발송 기록: \${logs.length}건\`);
+                    // Avatar
+                    const avatar = document.getElementById('userDetailAvatar');
+                    if (user.profile_image) {
+                        avatar.innerHTML = \`<img src="\${user.profile_image}" class="w-16 h-16 rounded-full object-cover">\`;
+                    } else {
+                        avatar.innerHTML = user.nickname ? user.nickname[0] : '?';
+                    }
+                    
+                    // Notification Status
+                    const notificationStatus = settings?.notification_enabled ? 
+                        '<span class="text-green-600"><i class="fas fa-check-circle"></i> 활성</span>' : 
+                        '<span class="text-gray-400"><i class="fas fa-times-circle"></i> 비활성</span>';
+                    document.getElementById('userDetailNotificationStatus').innerHTML = notificationStatus;
+                    
+                    // Regions
+                    const regions = settings?.regions ? JSON.parse(settings.regions) : [];
+                    const regionsContainer = document.getElementById('userDetailRegions');
+                    if (regions.length > 0) {
+                        regionsContainer.innerHTML = regions.map(region => 
+                            \`<span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">\${region}</span>\`
+                        ).join('');
+                    } else {
+                        regionsContainer.innerHTML = '<span class="text-sm text-gray-500">설정된 지역이 없습니다</span>';
+                    }
+                    
+                    // Property Types
+                    const propertyTypes = settings?.property_types ? JSON.parse(settings.property_types) : [];
+                    const propertyTypesContainer = document.getElementById('userDetailPropertyTypes');
+                    const typeLabels = {
+                        'rental': '임대분양',
+                        'general': '청약분양',
+                        'unsold': '줍줍분양'
+                    };
+                    if (propertyTypes.length > 0) {
+                        propertyTypesContainer.innerHTML = propertyTypes.map(type => 
+                            \`<span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">\${typeLabels[type] || type}</span>\`
+                        ).join('');
+                    } else {
+                        propertyTypesContainer.innerHTML = '<span class="text-sm text-gray-500">설정된 유형이 없습니다</span>';
+                    }
+                    
+                    // Notification Logs
+                    document.getElementById('userDetailLogsCount').textContent = \`(\${logs.length}건)\`;
+                    const logsTable = document.getElementById('userDetailLogsTable');
+                    if (logs.length > 0) {
+                        logsTable.innerHTML = logs.map(log => \`
+                            <tr>
+                                <td class="px-4 py-2 text-sm text-gray-900">\${new Date(log.sent_at).toLocaleString('ko-KR')}</td>
+                                <td class="px-4 py-2 text-sm text-gray-900">매물 #\${log.property_id}</td>
+                                <td class="px-4 py-2 text-sm">
+                                    <span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">\${log.status}</span>
+                                </td>
+                            </tr>
+                        \`).join('');
+                    } else {
+                        logsTable.innerHTML = \`
+                            <tr>
+                                <td colspan="3" class="px-4 py-8 text-center text-sm text-gray-500">
+                                    발송 기록이 없습니다
+                                </td>
+                            </tr>
+                        \`;
+                    }
+                    
+                    // Edit Form
+                    document.getElementById('editUserPhone').value = user.phone_number || '';
+                    document.getElementById('editNotificationEnabled').checked = settings?.notification_enabled || false;
+                    
+                    // Show Modal
+                    document.getElementById('userDetailModal').classList.remove('hidden');
+                    document.getElementById('userDetailModal').classList.add('flex');
+                    
                 } catch (error) {
                     console.error('Failed to load user detail:', error);
                     alert('회원 상세 정보를 불러오는데 실패했습니다.');
+                }
+            }
+            
+            // Close User Detail Modal
+            function closeUserDetailModal() {
+                document.getElementById('userDetailModal').classList.add('hidden');
+                document.getElementById('userDetailModal').classList.remove('flex');
+                currentUserId = null;
+            }
+            
+            // Save User Settings
+            async function saveUserSettings() {
+                if (!currentUserId) return;
+                
+                try {
+                    const phone = document.getElementById('editUserPhone').value;
+                    const notificationEnabled = document.getElementById('editNotificationEnabled').checked;
+                    
+                    await axios.post(\`/api/admin/users/\${currentUserId}/settings\`, {
+                        phone_number: phone,
+                        notification_enabled: notificationEnabled
+                    });
+                    
+                    alert('설정이 저장되었습니다!');
+                    closeUserDetailModal();
+                    loadUsers(); // Reload users table
+                    
+                } catch (error) {
+                    console.error('Failed to save user settings:', error);
+                    alert('설정 저장에 실패했습니다.');
                 }
             }
             
