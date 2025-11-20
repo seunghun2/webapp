@@ -230,15 +230,23 @@ app.get('/auth/kakao/callback', async (c) => {
     }
 
     // 로그인 성공 - 메인 페이지로 리다이렉트 (쿠키에 사용자 정보 저장)
+    const userCookie = JSON.stringify({
+      id: userId,
+      kakao_id: kakaoId,
+      nickname: nickname,
+      profile_image: profileImage,
+      email: email
+    })
+    
+    setCookie(c, 'user', userCookie, {
+      path: '/',
+      httpOnly: false, // JavaScript에서 접근 가능하도록
+      maxAge: 60 * 60 * 24 * 30, // 30일
+      sameSite: 'Lax'
+    })
+    
     return c.html(`
       <script>
-        localStorage.setItem('user', JSON.stringify({
-          id: ${userId},
-          kakaoId: '${kakaoId}',
-          nickname: '${nickname}',
-          profileImage: '${profileImage}',
-          email: '${email}'
-        }));
         alert('${nickname}님, 환영합니다!');
         window.location.href = '/';
       </script>
