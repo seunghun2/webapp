@@ -6047,6 +6047,120 @@ app.get('/admin', (c) => {
                 }
             }
             
+            // Load Users
+            async function loadUsers(search = '') {
+                try {
+                    const params = new URLSearchParams();
+                    if (search) params.append('search', search);
+                    
+                    const response = await axios.get(\`/api/admin/users?\${params}\`);
+                    const { users, total } = response.data;
+                    
+                    const tbody = document.getElementById('usersTableBody');
+                    
+                    if (!tbody) {
+                        console.error('usersTableBody not found');
+                        return;
+                    }
+                    
+                    if (users.length === 0) {
+                        tbody.innerHTML = \`
+                            <tr>
+                                <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                                    가입한 회원이 없습니다.
+                                </td>
+                            </tr>
+                        \`;
+                        return;
+                    }
+                    
+                    tbody.innerHTML = users.map(user => {
+                        const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('ko-KR') : '-';
+                        const lastLoginDate = user.last_login ? new Date(user.last_login).toLocaleDateString('ko-KR') : '없음';
+                        const notificationStatus = user.notification_enabled ? 
+                            '<span class="text-green-600"><i class="fas fa-check-circle"><' + '/i> 활성<' + '/span>' : 
+                            '<span class="text-gray-400"><i class="fas fa-times-circle"><' + '/i> 비활성<' + '/span>';
+                        
+                        const regions = user.regions ? JSON.parse(user.regions).join(', ') : '-';
+                        
+                        return \`
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm text-gray-900">\${user.id}<' + '/td>
+                                <td class="px-4 py-3 text-sm">
+                                    <div class="flex items-center gap-2">
+                                        \${user.profile_image ? 
+                                            \`<img src="\${user.profile_image}" class="w-8 h-8 rounded-full">\` : 
+                                            \`<div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">\${user.nickname ? user.nickname[0] : '?'}<' + '/div>\`
+                                        }
+                                        <span class="font-medium text-gray-900">\${user.nickname || '-'}<' + '/span>
+                                    <' + '/div>
+                                <' + '/td>
+                                <td class="px-4 py-3 text-sm text-gray-600">\${user.email || '-'}<' + '/td>
+                                <td class="px-4 py-3 text-sm text-gray-600">\${user.phone_number || '-'}<' + '/td>
+                                <td class="px-4 py-3 text-sm">\${notificationStatus}<' + '/td>
+                                <td class="px-4 py-3 text-sm text-gray-600">\${createdDate}<' + '/td>
+                                <td class="px-4 py-3 text-sm text-gray-600">\${lastLoginDate}<' + '/td>
+                                <td class="px-4 py-3 text-sm">
+                                    <button 
+                                        onclick="viewUserDetail(\${user.id})" 
+                                        class="text-blue-600 hover:text-blue-800 font-medium"
+                                    >
+                                        상세보기
+                                    <' + '/button>
+                                <' + '/td>
+                            <' + '/tr>
+                        \`;
+                    }).join('');
+                    
+                } catch (error) {
+                    console.error('Failed to load users:', error);
+                    const tbody = document.getElementById('usersTableBody');
+                    if (tbody) {
+                        tbody.innerHTML = \`
+                            <tr>
+                                <td colspan="8" class="px-4 py-8 text-center text-red-500">
+                                    회원 정보를 불러오는데 실패했습니다: \${error.message}
+                                <' + '/td>
+                            <' + '/tr>
+                        \`;
+                    }
+                }
+            }
+            
+            // Search Users
+            function searchUsers() {
+                const search = document.getElementById('userSearch').value;
+                loadUsers(search);
+            }
+            
+            // View User Detail
+            async function viewUserDetail(userId) {
+                try {
+                    const response = await axios.get(\`/api/admin/users/\${userId}\`);
+                    const { user, settings, logs } = response.data;
+                    
+                    const regions = settings?.regions ? JSON.parse(settings.regions) : [];
+                    const propertyTypes = settings?.property_types ? JSON.parse(settings.property_types) : [];
+                    
+                    alert(\`회원 정보:
+- ID: \${user.id}
+- 닉네임: \${user.nickname || '-'}
+- 이메일: \${user.email || '-'}
+- 전화번호: \${user.phone_number || '-'}
+- 가입일: \${new Date(user.created_at).toLocaleString('ko-KR')}
+
+알림 설정:
+- 상태: \${settings?.notification_enabled ? '활성' : '비활성'}
+- 관심 지역: \${regions.join(', ') || '없음'}
+- 관심 유형: \${propertyTypes.join(', ') || '없음'}
+
+알림 발송 기록: \${logs.length}건\`);
+                } catch (error) {
+                    console.error('Failed to load user detail:', error);
+                    alert('회원 상세 정보를 불러오는데 실패했습니다.');
+                }
+            }
+            
             // Load Deleted Properties
             async function loadDeletedProperties() {
                 try {
