@@ -9468,9 +9468,10 @@ app.get('/', (c) => {
                             </div>
                         </div>
                         ` : `
-                        <!-- Not Logged In - Show Bell Button -->
-                        <button class="text-gray-600 hover:text-gray-900 p-2 sm:px-3 sm:py-2 rounded-lg hover:bg-gray-100 transition-all active:bg-gray-200">
-                            <i class="far fa-bell text-base sm:text-lg"></i>
+                        <!-- Not Logged In - Show Login Button -->
+                        <button onclick="startKakaoLogin()" class="flex items-center gap-2 px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-lg font-medium transition-all shadow-sm hover:shadow-md">
+                            <i class="fas fa-comment text-base"></i>
+                            <span class="hidden sm:inline text-sm">카카오 로그인</span>
                         </button>
                         `}
                     </div>
@@ -12863,6 +12864,11 @@ app.get('/', (c) => {
           function logout() {
             document.cookie = 'user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
             window.location.href = '/';
+          }
+          
+          // Start Kakao Login
+          function startKakaoLogin() {
+            window.location.href = '/auth/kakao/login';
           }
 
           // Initialize
