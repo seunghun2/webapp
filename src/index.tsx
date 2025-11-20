@@ -634,9 +634,14 @@ app.get('/auth/naver/callback', async (c) => {
 
 // 3. 로그아웃
 app.get('/auth/logout', (c) => {
+  // 서버에서 쿠키 삭제
+  deleteCookie(c, 'user')
+  
   return c.html(`
     <script>
-      localStorage.removeItem('user');
+      // 클라이언트에서도 쿠키 삭제 (보안)
+      document.cookie = 'user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+      localStorage.removeItem('user'); // 혹시 남아있을 수 있는 localStorage도 삭제
       alert('로그아웃되었습니다.');
       window.location.href = '/';
     </script>
