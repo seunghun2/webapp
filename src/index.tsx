@@ -8976,6 +8976,130 @@ app.get('/admin', (c) => {
                 }
             });
 
+            // ==================== 비밀번호 초기화 ====================
+            
+            let currentResetUserId = null;
+            let currentResetUserName = null;
+            
+            window.openPasswordResetModalFromDetail = function() {
+              const userId = document.getElementById('userDetailId')?.textContent;
+              const userName = document.getElementById('userDetailNickname')?.textContent;
+              
+              if (userId && userName) {
+                window.openPasswordResetModal(userId, userName);
+              }
+            };
+            
+            window.openPasswordResetModal = function(userId, userName) {
+              currentResetUserId = userId;
+              currentResetUserName = userName;
+              document.getElementById('resetUserName').textContent = userName;
+              
+              const tempPw = 'Temp' + Math.random().toString(36).substring(2, 8);
+              document.getElementById('tempPassword').textContent = tempPw;
+              
+              document.getElementById('passwordResetModal').classList.remove('hidden');
+            };
+            
+            window.closePasswordResetModal = function() {
+              document.getElementById('passwordResetModal').classList.add('hidden');
+              currentResetUserId = null;
+            };
+            
+            window.confirmPasswordReset = async function() {
+              if (!currentResetUserId) return;
+              
+              const tempPassword = document.getElementById('tempPassword').textContent;
+              
+              try {
+                const response = await fetch(\`/api/admin/users/\${currentResetUserId}/reset-password\`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({ tempPassword })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                  alert('✓ 비밀번호가 초기화되었습니다.\\n\\n임시 비밀번호: ' + tempPassword + '\\n\\n회원에게 전달해주세요.');
+                  window.closePasswordResetModal();
+                  loadUsers();
+                } else {
+                  alert(data.message || '비밀번호 초기화에 실패했습니다.');
+                }
+              } catch (error) {
+                console.error('Password reset error:', error);
+                alert('비밀번호 초기화 중 오류가 발생했습니다.');
+              }
+            };
+            
+            // ==================== 회원 탈퇴 ====================
+            
+            let currentDeleteUserId = null;
+            let currentDeleteUserName = null;
+            
+            window.openDeleteUserModalFromDetail = function() {
+              const userId = document.getElementById('userDetailId')?.textContent;
+              const userName = document.getElementById('userDetailNickname')?.textContent;
+              
+              if (userId && userName) {
+                window.openDeleteUserModal(userId, userName);
+              }
+            };
+            
+            window.openDeleteUserModal = function(userId, userName) {
+              currentDeleteUserId = userId;
+              currentDeleteUserName = userName;
+              document.getElementById('deleteUserName').textContent = userName;
+              document.getElementById('deleteUserModal').classList.remove('hidden');
+            };
+            
+            window.closeDeleteUserModal = function() {
+              document.getElementById('deleteUserModal').classList.add('hidden');
+              currentDeleteUserId = null;
+            };
+            
+            window.confirmDeleteUser = async function() {
+              if (!currentDeleteUserId) {
+                console.error('❌ currentDeleteUserId가 없습니다');
+                alert('사용자 ID를 찾을 수 없습니다.');
+                return;
+              }
+              
+              console.log('🗑️ 회원 탈퇴 시작:', currentDeleteUserId);
+              
+              try {
+                const response = await fetch(\`/api/admin/users/\${currentDeleteUserId}\`, {
+                  method: 'DELETE'
+                });
+                
+                console.log('📡 응답 상태:', response.status);
+                
+                const data = await response.json();
+                console.log('📦 응답 데이터:', data);
+                
+                if (data.success) {
+                  alert('✓ 회원이 탈퇴 처리되었습니다.');
+                  window.closeDeleteUserModal();
+                  
+                  const detailModal = document.getElementById('userDetailModal');
+                  if (detailModal && !detailModal.classList.contains('hidden')) {
+                    detailModal.classList.add('hidden');
+                  }
+                  
+                  console.log('✅ 회원 목록 새로고침 중...');
+                  loadUsers();
+                } else {
+                  alert(data.message || '회원 탈퇴 처리에 실패했습니다.');
+                }
+              } catch (error) {
+                console.error('❌ Delete user error:', error);
+                alert('회원 탈퇴 처리 중 오류가 발생했습니다: ' + error.message);
+              }
+            };
+
             // Initial load
             loadProperties();
         </script>
