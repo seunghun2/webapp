@@ -757,6 +757,15 @@ app.get('/api/properties', async (c) => {
       case 'deadline':
         query += ' ORDER BY deadline ASC'
         break
+      case 'price-low':
+        query += ' ORDER BY CAST(REPLACE(REPLACE(price, "억", ""), ",", "") AS REAL) ASC'
+        break
+      case 'price-high':
+        query += ' ORDER BY CAST(REPLACE(REPLACE(price, "억", ""), ",", "") AS REAL) DESC'
+        break
+      case 'latest':
+        query += ' ORDER BY created_at DESC'
+        break
       default:
         query += ' ORDER BY created_at DESC'
     }
