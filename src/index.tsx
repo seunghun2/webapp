@@ -4586,6 +4586,111 @@ app.get('/api/admin/trade-price-stats', async (c) => {
   }
 })
 
+// User Settings API - Get user settings
+app.get('/api/users/:id/settings', async (c) => {
+  try {
+    const { DB } = c.env
+    const userId = c.req.param('id')
+    
+    const settings = await DB.prepare(`
+      SELECT * FROM notification_settings WHERE user_id = ?
+    `).bind(userId).first()
+    
+    return c.json(settings || {
+      user_id: userId,
+      notification_enabled: false,
+      regions: null,
+      property_types: null
+    })
+  } catch (error) {
+    console.error('Failed to get user settings:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
+// User Settings API - Save user settings
+app.post('/api/users/:id/settings', async (c) => {
+  try {
+    const { DB } = c.env
+    const userId = c.req.param('id')
+    const body = await c.req.json()
+    
+    const { notification_enabled, phone_number, regions, property_types } = body
+    
+    // Update phone number in users table if provided
+    if (phone_number !== undefined) {
+      await DB.prepare(`
+        UPDATE users 
+        SET phone_number = ?
+        WHERE id = ?
+      `).bind(phone_number, userId).run()
+    }
+    
+    // Check if settings exist
+    const existing = await DB.prepare(`
+      SELECT id FROM notification_settings WHERE user_id = ?
+    `).bind(userId).first()
+    
+    if (existing) {
+      // Update
+      await DB.prepare(`
+        UPDATE notification_settings 
+        SET notification_enabled = ?,
+            regions = ?,
+            property_types = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = ?
+      `).bind(
+        notification_enabled ? 1 : 0,
+        regions || null,
+        property_types || null,
+        userId
+      ).run()
+    } else {
+      // Insert
+      await DB.prepare(`
+        INSERT INTO notification_settings (user_id, notification_enabled, regions, property_types)
+        VALUES (?, ?, ?, ?)
+      `).bind(
+        userId,
+        notification_enabled ? 1 : 0,
+        regions || null,
+        property_types || null
+      ).run()
+    }
+    
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Failed to save user settings:', error)
+    return c.json({ success: false, error: String(error) }, 500)
+  }
+})
+
+// User Notifications API - Get notification history
+app.get('/api/users/:id/notifications', async (c) => {
+  try {
+    const { DB } = c.env
+    const userId = c.req.param('id')
+    
+    const logs = await DB.prepare(`
+      SELECT 
+        nl.*,
+        p.project_name as property_name,
+        p.region
+      FROM notification_logs nl
+      LEFT JOIN properties p ON nl.property_id = p.id
+      WHERE nl.user_id = ?
+      ORDER BY nl.sent_at DESC
+      LIMIT 50
+    `).bind(userId).all()
+    
+    return c.json(logs.results || [])
+  } catch (error) {
+    console.error('Failed to get notifications:', error)
+    return c.json({ error: String(error) }, 500)
+  }
+})
+
 // Admin login page
 app.get('/admin/login', (c) => {
   return c.html(`
@@ -4663,6 +4768,339 @@ app.get('/admin/login', (c) => {
                     errorMsg.classList.remove('hidden');
                 }
             });
+        </script>
+    </body>
+    </html>
+  `)
+})
+
+// My Settings page (user settings)
+app.get('/my-settings', async (c) => {
+  // Get user from cookie
+  const userCookie = c.req.cookie('user');
+  
+  if (!userCookie) {
+    // Not logged in - redirect to main page
+    return c.redirect('/');
+  }
+  
+  let user;
+  try {
+    user = JSON.parse(userCookie);
+  } catch (e) {
+    return c.redirect('/');
+  }
+  
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>내 설정 - 똑똑한한채</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <style>
+            body {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+            }
+        </style>
+    </head>
+    <body class="p-4 sm:p-8">
+        <div class="max-w-4xl mx-auto">
+            <!-- Header -->
+            <div class="mb-6 flex justify-between items-center">
+                <a href="/" class="text-white hover:text-gray-200 flex items-center gap-2">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>메인으로 돌아가기</span>
+                </a>
+                <button onclick="logout()" class="text-white hover:text-gray-200 flex items-center gap-2">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>로그아웃</span>
+                </button>
+            </div>
+            
+            <!-- Main Card -->
+            <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+                <!-- Profile Header -->
+                <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white">
+                    <div class="flex items-center gap-4">
+                        <div id="profileAvatar" class="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold">
+                            ${user.nickname ? user.nickname[0] : '?'}
+                        </div>
+                        <div>
+                            <h1 class="text-2xl font-bold">${user.nickname || '사용자'}</h1>
+                            <p class="text-blue-100">${user.email || ''}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Settings Content -->
+                <div class="p-8 space-y-8">
+                    <!-- Notification Toggle -->
+                    <div class="border-b pb-6">
+                        <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <i class="fas fa-bell text-blue-600"></i>
+                            알림 설정
+                        </h2>
+                        <div class="bg-blue-50 rounded-lg p-4 flex items-center justify-between">
+                            <div>
+                                <p class="font-medium text-gray-900">신규 매물 알림 받기</p>
+                                <p class="text-sm text-gray-600">내가 선택한 지역과 유형에 맞는 신규 매물이 등록되면 알림을 받습니다.</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="notificationEnabled" class="sr-only peer" onchange="toggleNotificationStatus()">
+                                <div class="w-14 h-7 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Phone Number -->
+                    <div id="phoneSection" class="border-b pb-6 hidden">
+                        <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <i class="fas fa-phone text-green-600"></i>
+                            연락처 정보
+                        </h2>
+                        <div class="space-y-3">
+                            <label class="block text-sm font-medium text-gray-700">전화번호</label>
+                            <input 
+                                type="tel" 
+                                id="phoneNumber" 
+                                placeholder="010-1234-5678" 
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                            <p class="text-xs text-gray-500">
+                                <i class="fas fa-info-circle"></i>
+                                알림을 받으실 전화번호를 입력해주세요.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Interest Regions -->
+                    <div id="regionsSection" class="border-b pb-6 hidden">
+                        <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <i class="fas fa-map-marker-alt text-red-600"></i>
+                            관심 지역
+                        </h2>
+                        <div class="space-y-3">
+                            <p class="text-sm text-gray-600">알림을 받고 싶은 지역을 선택하세요 (복수 선택 가능)</p>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3" id="regionsCheckboxes">
+                                <!-- Will be populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Interest Property Types -->
+                    <div id="typesSection" class="border-b pb-6 hidden">
+                        <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <i class="fas fa-home text-orange-600"></i>
+                            관심 분양 유형
+                        </h2>
+                        <div class="space-y-3">
+                            <p class="text-sm text-gray-600">알림을 받고 싶은 분양 유형을 선택하세요 (복수 선택 가능)</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <label class="flex items-center gap-2 cursor-pointer p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                                    <input type="checkbox" value="rental" class="property-type-checkbox w-4 h-4 text-blue-600">
+                                    <span class="font-medium text-gray-900">임대분양</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer p-4 border-2 border-gray-200 rounded-lg hover:border-green-500 has-[:checked]:border-green-500 has-[:checked]:bg-green-50">
+                                    <input type="checkbox" value="general" class="property-type-checkbox w-4 h-4 text-green-600">
+                                    <span class="font-medium text-gray-900">청약분양</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer p-4 border-2 border-gray-200 rounded-lg hover:border-orange-500 has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50">
+                                    <input type="checkbox" value="unsold" class="property-type-checkbox w-4 h-4 text-orange-600">
+                                    <span class="font-medium text-gray-900">줍줍분양</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Notification History -->
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <i class="fas fa-history text-purple-600"></i>
+                            내 알림 기록
+                            <span id="notificationCount" class="text-sm font-normal text-gray-500">(0건)</span>
+                        </h2>
+                        <div class="bg-gray-50 rounded-lg overflow-hidden">
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-gray-100 border-b">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">발송일시</th>
+                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">매물명</th>
+                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">지역</th>
+                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600">상태</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="notificationHistoryTable" class="divide-y divide-gray-200">
+                                        <tr>
+                                            <td colspan="4" class="px-4 py-8 text-center text-gray-500">
+                                                알림 기록을 불러오는 중...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Save Button -->
+                    <div class="flex justify-end gap-3 pt-4">
+                        <button onclick="saveSettings()" class="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-lg hover:shadow-xl transition-all">
+                            <i class="fas fa-save mr-2"></i>
+                            설정 저장
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+            const userId = ${user.id};
+            const regions = ['서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '세종', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'];
+            
+            // Load user settings
+            async function loadSettings() {
+                try {
+                    const response = await axios.get(\`/api/users/\${userId}/settings\`);
+                    const settings = response.data;
+                    
+                    if (settings) {
+                        document.getElementById('notificationEnabled').checked = settings.notification_enabled || false;
+                        document.getElementById('phoneNumber').value = settings.phone_number || '';
+                        
+                        // Show/hide sections based on notification status
+                        toggleNotificationStatus();
+                        
+                        // Load regions
+                        const selectedRegions = settings.regions ? JSON.parse(settings.regions) : [];
+                        const regionsContainer = document.getElementById('regionsCheckboxes');
+                        regionsContainer.innerHTML = regions.map(region => \`
+                            <label class="flex items-center gap-2 cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                                <input type="checkbox" value="\${region}" class="region-checkbox w-4 h-4 text-blue-600" \${selectedRegions.includes(region) ? 'checked' : ''}>
+                                <span class="font-medium text-gray-900">\${region}</span>
+                            </label>
+                        \`).join('');
+                        
+                        // Load property types
+                        const selectedTypes = settings.property_types ? JSON.parse(settings.property_types) : [];
+                        document.querySelectorAll('.property-type-checkbox').forEach(checkbox => {
+                            if (selectedTypes.includes(checkbox.value)) {
+                                checkbox.checked = true;
+                            }
+                        });
+                    }
+                    
+                    // Load notification history
+                    await loadNotificationHistory();
+                    
+                } catch (error) {
+                    console.error('Failed to load settings:', error);
+                }
+            }
+            
+            // Toggle notification sections
+            function toggleNotificationStatus() {
+                const enabled = document.getElementById('notificationEnabled').checked;
+                document.getElementById('phoneSection').classList.toggle('hidden', !enabled);
+                document.getElementById('regionsSection').classList.toggle('hidden', !enabled);
+                document.getElementById('typesSection').classList.toggle('hidden', !enabled);
+            }
+            
+            // Save settings
+            async function saveSettings() {
+                try {
+                    const notificationEnabled = document.getElementById('notificationEnabled').checked;
+                    const phoneNumber = document.getElementById('phoneNumber').value;
+                    
+                    // Get selected regions
+                    const selectedRegions = [];
+                    document.querySelectorAll('.region-checkbox:checked').forEach(checkbox => {
+                        selectedRegions.push(checkbox.value);
+                    });
+                    
+                    // Get selected property types
+                    const selectedTypes = [];
+                    document.querySelectorAll('.property-type-checkbox:checked').forEach(checkbox => {
+                        selectedTypes.push(checkbox.value);
+                    });
+                    
+                    // Validate
+                    if (notificationEnabled) {
+                        if (!phoneNumber) {
+                            alert('전화번호를 입력해주세요.');
+                            return;
+                        }
+                        if (selectedRegions.length === 0) {
+                            alert('관심 지역을 최소 1개 이상 선택해주세요.');
+                            return;
+                        }
+                        if (selectedTypes.length === 0) {
+                            alert('관심 분양 유형을 최소 1개 이상 선택해주세요.');
+                            return;
+                        }
+                    }
+                    
+                    await axios.post(\`/api/users/\${userId}/settings\`, {
+                        notification_enabled: notificationEnabled,
+                        phone_number: phoneNumber,
+                        regions: JSON.stringify(selectedRegions),
+                        property_types: JSON.stringify(selectedTypes)
+                    });
+                    
+                    alert('설정이 저장되었습니다! 🎉');
+                    
+                } catch (error) {
+                    console.error('Failed to save settings:', error);
+                    alert('설정 저장에 실패했습니다.');
+                }
+            }
+            
+            // Load notification history
+            async function loadNotificationHistory() {
+                try {
+                    const response = await axios.get(\`/api/users/\${userId}/notifications\`);
+                    const logs = response.data;
+                    
+                    document.getElementById('notificationCount').textContent = \`(\${logs.length}건)\`;
+                    
+                    const table = document.getElementById('notificationHistoryTable');
+                    if (logs.length > 0) {
+                        table.innerHTML = logs.map(log => \`
+                            <tr>
+                                <td class="px-4 py-3 text-sm text-gray-900">\${new Date(log.sent_at).toLocaleString('ko-KR')}</td>
+                                <td class="px-4 py-3 text-sm text-gray-900">\${log.property_name || '매물 #' + log.property_id}</td>
+                                <td class="px-4 py-3 text-sm text-gray-600">\${log.region || '-'}</td>
+                                <td class="px-4 py-3 text-sm">
+                                    <span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">\${log.status}</span>
+                                </td>
+                            </tr>
+                        \`).join('');
+                    } else {
+                        table.innerHTML = \`
+                            <tr>
+                                <td colspan="4" class="px-4 py-8 text-center text-gray-500">
+                                    아직 받은 알림이 없습니다.
+                                </td>
+                            </tr>
+                        \`;
+                    }
+                } catch (error) {
+                    console.error('Failed to load notification history:', error);
+                }
+            }
+            
+            // Logout
+            function logout() {
+                document.cookie = 'user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+                window.location.href = '/';
+            }
+            
+            // Load settings on page load
+            loadSettings();
         </script>
     </body>
     </html>
