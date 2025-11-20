@@ -386,7 +386,8 @@ app.get('/auth/kakao/login', (c) => {
   const KAKAO_REST_API_KEY = c.env.KAKAO_REST_API_KEY || '4a2d6ac21713dbce3c2f9633ed25cca4'
   const KAKAO_REDIRECT_URI = c.env.KAKAO_REDIRECT_URI || 'https://hanchae365.com/auth/kakao/callback'
   
-  const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_REST_API_KEY}&redirect_uri=${encodeURIComponent(KAKAO_REDIRECT_URI)}&response_type=code`
+  // prompt=login 추가: 매번 카카오 동의 화면 표시
+  const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_REST_API_KEY}&redirect_uri=${encodeURIComponent(KAKAO_REDIRECT_URI)}&response_type=code&prompt=login`
   
   return c.redirect(kakaoAuthUrl)
 })
@@ -452,7 +453,7 @@ app.get('/auth/kakao/callback', async (c) => {
     let userId
     
     if (existingUser) {
-      // 기존 사용자 업데이트
+      // 기존 사용자: 로그인 처리
       await DB.prepare(`
         UPDATE users 
         SET nickname = ?, profile_image = ?, email = ?, last_login = datetime('now'), updated_at = datetime('now')
@@ -460,11 +461,35 @@ app.get('/auth/kakao/callback', async (c) => {
       `).bind(nickname, profileImage, email, kakaoId).run()
       
       userId = existingUser.id
+      
+      // 쿠키 설정
+      const userCookie = JSON.stringify({
+        id: userId,
+        kakao_id: kakaoId,
+        nickname: nickname,
+        profile_image: profileImage,
+        email: email
+      })
+      
+      setCookie(c, 'user', userCookie, {
+        path: '/',
+        httpOnly: false,
+        maxAge: 60 * 60 * 24 * 30,
+        sameSite: 'Lax'
+      })
+      
+      return c.html(`
+        <script>
+          alert('${nickname}님, 환영합니다!');
+          window.location.href = '/';
+        </script>
+      `)
+      
     } else {
       // 신규 사용자 생성
       const result = await DB.prepare(`
-        INSERT INTO users (kakao_id, nickname, profile_image, email, last_login)
-        VALUES (?, ?, ?, ?, datetime('now'))
+        INSERT INTO users (kakao_id, nickname, profile_image, email, last_login, login_provider)
+        VALUES (?, ?, ?, ?, datetime('now'), 'kakao')
       `).bind(kakaoId, nickname, profileImage, email).run()
       
       userId = result.meta.last_row_id
@@ -474,30 +499,30 @@ app.get('/auth/kakao/callback', async (c) => {
         INSERT INTO notification_settings (user_id, notification_enabled)
         VALUES (?, 1)
       `).bind(userId).run()
+      
+      // 쿠키 설정
+      const userCookie = JSON.stringify({
+        id: userId,
+        kakao_id: kakaoId,
+        nickname: nickname,
+        profile_image: profileImage,
+        email: email
+      })
+      
+      setCookie(c, 'user', userCookie, {
+        path: '/',
+        httpOnly: false,
+        maxAge: 60 * 60 * 24 * 30,
+        sameSite: 'Lax'
+      })
+      
+      return c.html(`
+        <script>
+          alert('${nickname}님, 환영합니다!');
+          window.location.href = '/';
+        </script>
+      `)
     }
-
-    // 로그인 성공 - 메인 페이지로 리다이렉트 (쿠키에 사용자 정보 저장)
-    const userCookie = JSON.stringify({
-      id: userId,
-      kakao_id: kakaoId,
-      nickname: nickname,
-      profile_image: profileImage,
-      email: email
-    })
-    
-    setCookie(c, 'user', userCookie, {
-      path: '/',
-      httpOnly: false, // JavaScript에서 접근 가능하도록
-      maxAge: 60 * 60 * 24 * 30, // 30일
-      sameSite: 'Lax'
-    })
-    
-    return c.html(`
-      <script>
-        alert('${nickname}님, 환영합니다!');
-        window.location.href = '/';
-      </script>
-    `)
 
   } catch (error) {
     console.error('Kakao login error:', error)
