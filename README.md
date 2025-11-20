@@ -4,9 +4,12 @@
 
 ## 🌐 공개 URL
 
-- **프로덕션**: https://ca01d69b.webapp-32n.pages.dev
+- **프로덕션**: https://hanchae365.com
+- **Cloudflare**: https://4559c2d9.webapp-32n.pages.dev
 - **GitHub**: https://github.com/seunghun2/webapp
 - **Analytics**: Google Analytics (G-470RN8J40M)
+- **Sitemap**: https://hanchae365.com/sitemap.xml
+- **Robots**: https://hanchae365.com/robots.txt
 
 ## ✨ 완성된 주요 기능
 
@@ -252,6 +255,11 @@ git push origin main
 
 ## 📊 프로젝트 히스토리
 
+- **2025-11-20**: SEO 최적화 완료
+  - robots.txt 생성 (검색엔진 크롤링 허용)
+  - sitemap.xml 자동 생성 (모든 매물 페이지 포함)
+  - 구조화된 데이터 추가 (Schema.org JSON-LD)
+  - BreadcrumbList, Organization 스키마 추가
 - **2025-11-20**: Google Analytics 추가 (G-470RN8J40M) - 방문자 추적 시작
 - **2025-11-20**: 정렬 로직 완전 개선 (steps 기반 프론트엔드 재정렬)
   - 마감임박일: steps의 가장 가까운 미래 날짜 순
