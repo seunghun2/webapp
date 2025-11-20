@@ -150,19 +150,124 @@ async function verifyPassword(password: string, hashedPassword: string): Promise
   return hash === hashedPassword
 }
 
-// Email Signup
+// ==================== 회원가입 지원 API ====================
+
+// Email Duplicate Check API
+app.post('/api/check-email', async (c) => {
+  try {
+    const { DB } = c.env
+    const { email } = await c.req.json()
+    
+    if (!email) {
+      return c.json({ available: false, message: '이메일을 입력해주세요.' }, 400)
+    }
+    
+    // Check if email exists
+    const existingUser = await DB.prepare(`
+      SELECT id FROM users WHERE email = ?
+    `).bind(email).first()
+    
+    return c.json({ 
+      available: !existingUser,
+      message: existingUser ? '이미 가입된 이메일입니다.' : '사용 가능한 이메일입니다.'
+    })
+    
+  } catch (error) {
+    console.error('Email check error:', error)
+    return c.json({ available: false, message: '이메일 확인 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// SMS Verification Request API
+app.post('/api/verify-phone', async (c) => {
+  try {
+    const { phone } = await c.req.json()
+    
+    if (!phone || phone.length < 10 || phone.length > 11) {
+      return c.json({ success: false, message: '올바른 휴대폰 번호를 입력해주세요.' }, 400)
+    }
+    
+    // TODO: 실제 SMS 전송 로직 구현 (예: Twilio, AWS SNS, Aligo 등)
+    // 지금은 개발 모드로 고정 인증번호 사용
+    const verificationCode = '123456'
+    
+    // 실제로는 Redis나 D1에 인증번호 저장
+    // 예: await DB.prepare(`INSERT INTO verification_codes (phone, code, created_at) VALUES (?, ?, datetime('now'))`).bind(phone, verificationCode).run()
+    
+    console.log(`[DEV MODE] SMS 인증번호 (${phone}): ${verificationCode}`)
+    
+    return c.json({ 
+      success: true, 
+      message: '인증번호가 발송되었습니다.',
+      devCode: verificationCode // 개발 모드에서만 반환
+    })
+    
+  } catch (error) {
+    console.error('SMS send error:', error)
+    return c.json({ success: false, message: '인증번호 발송 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// SMS Verification Code Check API
+app.post('/api/verify-code', async (c) => {
+  try {
+    const { phone, code } = await c.req.json()
+    
+    if (!phone || !code) {
+      return c.json({ success: false, message: '휴대폰 번호와 인증번호를 입력해주세요.' }, 400)
+    }
+    
+    // TODO: 실제로는 DB에서 인증번호 확인
+    // const storedCode = await DB.prepare(`SELECT code FROM verification_codes WHERE phone = ? AND created_at > datetime('now', '-3 minutes') ORDER BY created_at DESC LIMIT 1`).bind(phone).first()
+    
+    // 개발 모드: 고정 인증번호 사용
+    const isValid = code === '123456'
+    
+    if (isValid) {
+      // TODO: 인증 완료 기록 저장
+      return c.json({ 
+        success: true, 
+        message: '인증이 완료되었습니다.'
+      })
+    } else {
+      return c.json({ 
+        success: false, 
+        message: '인증번호가 일치하지 않습니다.'
+      }, 400)
+    }
+    
+  } catch (error) {
+    console.error('Verification error:', error)
+    return c.json({ success: false, message: '인증 확인 중 오류가 발생했습니다.' }, 500)
+  }
+})
+
+// ==================== 회원가입 API ====================
+
+// Email Signup (Enhanced)
 app.post('/api/auth/email/signup', async (c) => {
   try {
     const { DB } = c.env
-    const { email, password, nickname } = await c.req.json()
+    const { email, password, name, phone, agreeMarketing } = await c.req.json()
     
     // Validate input
-    if (!email || !password || !nickname) {
-      return c.json({ success: false, message: '모든 필드를 입력해주세요.' }, 400)
+    if (!email || !password || !name || !phone) {
+      return c.json({ success: false, message: '모든 필수 필드를 입력해주세요.' }, 400)
     }
     
     if (password.length < 8) {
       return c.json({ success: false, message: '비밀번호는 8자 이상이어야 합니다.' }, 400)
+    }
+    
+    // Validate Korean name
+    if (!/^[가-힣]{2,10}$/.test(name)) {
+      return c.json({ success: false, message: '이름은 한글 2~10자로 입력해주세요.' }, 400)
+    }
+    
+    // Validate phone number
+    const cleanPhone = phone.replace(/[^0-9]/g, '')
+    if (cleanPhone.length < 10 || cleanPhone.length > 11) {
+      return c.json({ success: false, message: '올바른 휴대폰 번호를 입력해주세요.' }, 400)
     }
     
     // Check if email already exists
@@ -177,19 +282,19 @@ app.post('/api/auth/email/signup', async (c) => {
     // Hash password
     const hashedPassword = await hashPassword(password)
     
-    // Create user
+    // Create user (use name as nickname for now)
     const result = await DB.prepare(`
-      INSERT INTO users (email, password, nickname, created_at, updated_at)
-      VALUES (?, ?, ?, datetime('now'), datetime('now'))
-    `).bind(email, hashedPassword, nickname).run()
+      INSERT INTO users (email, password, nickname, phone_number, created_at, updated_at)
+      VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+    `).bind(email, hashedPassword, name, cleanPhone).run()
     
     const userId = result.meta.last_row_id
     
-    // Create default notification settings
+    // Create default notification settings with marketing preference
     await DB.prepare(`
-      INSERT INTO notification_settings (user_id, notification_enabled)
-      VALUES (?, 1)
-    `).bind(userId).run()
+      INSERT INTO notification_settings (user_id, notification_enabled, marketing_enabled)
+      VALUES (?, 1, ?)
+    `).bind(userId, agreeMarketing ? 1 : 0).run()
     
     return c.json({ 
       success: true, 
@@ -4562,6 +4667,72 @@ app.post('/api/admin/users/:id/settings', async (c) => {
   }
 })
 
+// ==================== 어드민 회원 관리 API ====================
+
+// Reset User Password
+app.post('/api/admin/users/:id/reset-password', async (c) => {
+  try {
+    const { DB } = c.env
+    const userId = c.req.param('id')
+    const { tempPassword } = await c.req.json()
+    
+    // Hash temporary password
+    const hashedPassword = await hashPassword(tempPassword)
+    
+    // Update password
+    await DB.prepare(`
+      UPDATE users 
+      SET password = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).bind(hashedPassword, userId).run()
+    
+    return c.json({ 
+      success: true, 
+      message: '비밀번호가 초기화되었습니다.' 
+    })
+  } catch (error) {
+    console.error('Password reset error:', error)
+    return c.json({ 
+      success: false, 
+      message: '비밀번호 초기화 중 오류가 발생했습니다.' 
+    }, 500)
+  }
+})
+
+// Delete User
+app.delete('/api/admin/users/:id', async (c) => {
+  try {
+    const { DB } = c.env
+    const userId = c.req.param('id')
+    
+    // Delete user's notification settings
+    await DB.prepare(`
+      DELETE FROM notification_settings WHERE user_id = ?
+    `).bind(userId).run()
+    
+    // Delete user's notification logs
+    await DB.prepare(`
+      DELETE FROM notification_logs WHERE user_id = ?
+    `).bind(userId).run()
+    
+    // Delete user
+    await DB.prepare(`
+      DELETE FROM users WHERE id = ?
+    `).bind(userId).run()
+    
+    return c.json({ 
+      success: true, 
+      message: '회원이 탈퇴 처리되었습니다.' 
+    })
+  } catch (error) {
+    console.error('Delete user error:', error)
+    return c.json({ 
+      success: false, 
+      message: '회원 탈퇴 처리 중 오류가 발생했습니다.' 
+    }, 500)
+  }
+})
+
 // Get Trade Price Stats
 app.get('/api/admin/trade-price-stats', async (c) => {
   try {
@@ -5672,48 +5843,52 @@ app.get('/admin', (c) => {
                 </div>
             </div>
             
-            <!-- Users Section -->
+            <!-- Users Section (Toss Style) -->
             <div id="usersSection" class="section-content p-4 sm:p-6 lg:p-8 hidden">
-                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                        <h3 class="text-lg font-bold text-gray-900">회원 관리</h3>
-                        <div class="flex gap-2 w-full sm:w-auto">
+                <div class="max-w-7xl mx-auto">
+                    <!-- Header -->
+                    <div class="mb-6">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-2">회원 관리</h3>
+                        <p class="text-sm text-gray-600">가입한 회원 정보를 조회하고 관리할 수 있습니다</p>
+                    </div>
+                    
+                    <!-- Search Bar -->
+                    <div class="bg-white rounded-2xl border border-gray-200 p-4 mb-4">
+                        <div class="flex gap-2">
                             <input 
                                 type="text" 
                                 id="userSearch" 
-                                placeholder="이름, 이메일, 전화번호 검색..." 
-                                class="flex-1 sm:w-64 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="이름, 이메일, 전화번호로 검색" 
+                                class="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-gray-400 transition-colors"
                             >
-                            <button onclick="searchUsers()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
-                                <i class="fas fa-search"></i>
+                            <button onclick="searchUsers()" class="px-6 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 text-sm font-medium transition-colors">
+                                검색
                             </button>
                         </div>
                     </div>
                     
-                    <!-- Users Table -->
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead class="bg-gray-50 border-b">
-                                <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">닉네임</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">이메일</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">전화번호</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">알림설정</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">가입일</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">마지막 로그인</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">액션</th>
-                                </tr>
-                            </thead>
-                            <tbody id="usersTableBody" class="divide-y divide-gray-200">
-                                <!-- Users will be loaded here -->
-                                <tr>
-                                    <td colspan="8" class="px-4 py-8 text-center text-gray-500">
-                                        회원 정보를 불러오는 중...
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <!-- Users Table (Toss Style - Clean & Minimal) -->
+                    <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="border-b border-gray-200">
+                                        <th class="px-6 py-4 text-left text-sm font-semibold text-gray-900">회원정보</th>
+                                        <th class="px-6 py-4 text-left text-sm font-semibold text-gray-900">연락처</th>
+                                        <th class="px-6 py-4 text-left text-sm font-semibold text-gray-900">가입일</th>
+                                        <th class="px-6 py-4 text-left text-sm font-semibold text-gray-900">관리</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody" class="divide-y divide-gray-100">
+                                    <!-- Users will be loaded here -->
+                                    <tr>
+                                        <td colspan="4" class="px-6 py-12 text-center text-gray-500 text-sm">
+                                            회원 정보를 불러오는 중...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -5842,14 +6017,90 @@ app.get('/admin', (c) => {
                     </div>
                 </div>
                 
-                <!-- Modal Footer -->
-                <div class="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex justify-end gap-3">
-                    <button onclick="closeUserDetailModal()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 font-medium">
-                        닫기
+                <!-- Modal Footer (Toss Style) -->
+                <div class="sticky bottom-0 bg-white border-t px-6 py-4">
+                    <div class="flex justify-between items-center">
+                        <!-- Left: Danger Actions -->
+                        <div class="flex gap-2">
+                            <button 
+                                onclick="openPasswordResetModalFromDetail()" 
+                                class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium transition-colors"
+                            >
+                                비밀번호 초기화
+                            </button>
+                            <button 
+                                onclick="openDeleteUserModalFromDetail()" 
+                                class="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-sm font-medium transition-colors"
+                            >
+                                회원 탈퇴
+                            </button>
+                        </div>
+                        
+                        <!-- Right: Close Button -->
+                        <button 
+                            onclick="closeUserDetailModal()" 
+                            class="px-6 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-medium transition-colors"
+                        >
+                            닫기
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Password Reset Modal (Toss Style) -->
+        <div id="passwordResetModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-white rounded-2xl max-w-md w-full p-6">
+                <h3 class="text-xl font-bold text-gray-900 mb-2">비밀번호 초기화</h3>
+                <p class="text-sm text-gray-600 mb-6"><span id="resetUserName"></span> 회원의 비밀번호를 초기화하시겠습니까?</p>
+                
+                <div class="bg-gray-50 rounded-xl p-4 mb-6">
+                    <p class="text-sm text-gray-700 mb-2">임시 비밀번호가 생성되어 이메일로 전송됩니다:</p>
+                    <p class="text-xs text-gray-500">• 임시 비밀번호: <span class="font-mono font-medium" id="tempPassword">temp1234!</span></p>
+                    <p class="text-xs text-gray-500">• 다음 로그인 시 비밀번호 변경 필요</p>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button 
+                        onclick="closePasswordResetModal()" 
+                        class="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
+                    >
+                        취소
                     </button>
-                    <button onclick="saveUserSettings()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
-                        <i class="fas fa-save mr-2"></i>
-                        설정 저장
+                    <button 
+                        onclick="confirmPasswordReset()" 
+                        class="flex-1 px-4 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-medium transition-colors"
+                    >
+                        초기화
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete User Modal (Toss Style) -->
+        <div id="deleteUserModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-white rounded-2xl max-w-md w-full p-6">
+                <h3 class="text-xl font-bold text-gray-900 mb-2">회원 탈퇴</h3>
+                <p class="text-sm text-gray-600 mb-6"><span id="deleteUserName"></span> 회원을 탈퇴 처리하시겠습니까?</p>
+                
+                <div class="bg-red-50 rounded-xl p-4 mb-6">
+                    <p class="text-sm text-red-700 mb-2 font-medium">⚠️ 주의사항</p>
+                    <p class="text-xs text-red-600">• 탈퇴 후 모든 회원 데이터가 삭제됩니다</p>
+                    <p class="text-xs text-red-600">• 이 작업은 되돌릴 수 없습니다</p>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button 
+                        onclick="closeDeleteUserModal()" 
+                        class="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
+                    >
+                        취소
+                    </button>
+                    <button 
+                        onclick="confirmDeleteUser()" 
+                        class="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors"
+                    >
+                        탈퇴 처리
                     </button>
                 </div>
             </div>
@@ -9315,56 +9566,7 @@ app.get('/', (c) => {
         </div>
         
         <!-- 회원가입 모달 -->
-        <div id="signupModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl max-w-md w-full p-8 relative">
-                <!-- 닫기 버튼 -->
-                <button onclick="closeSignupModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-                
-                <!-- 제목 -->
-                <div class="text-center mb-8">
-                    <h2 class="text-2xl font-bold text-gray-900 mb-2">회원가입</h2>
-                    <p class="text-gray-600 text-sm">똑똑한한채에 가입하세요</p>
-                </div>
-                
-                <!-- 회원가입 폼 -->
-                <form id="signupForm" class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">이메일</label>
-                        <input type="email" id="signupEmail" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="example@email.com">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">닉네임</label>
-                        <input type="text" id="signupNickname" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="닉네임을 입력하세요">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">비밀번호</label>
-                        <input type="password" id="signupPassword" required minlength="6" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="최소 6자 이상">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">비밀번호 확인</label>
-                        <input type="password" id="signupPasswordConfirm" required minlength="6" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="비밀번호를 다시 입력하세요">
-                    </div>
-                    
-                    <button type="submit" class="w-full bg-primary hover:bg-primary-light text-white font-bold py-4 rounded-xl transition-all">
-                        가입하기
-                    </button>
-                </form>
-                
-                <!-- 로그인 링크 -->
-                <div class="text-center mt-6">
-                    <p class="text-gray-600 text-sm">
-                        이미 계정이 있으신가요? 
-                        <button onclick="closeSignupModal(); openEmailLoginModal();" class="text-primary font-bold hover:underline">로그인</button>
-                    </p>
-                </div>
-            </div>
-        </div>
-        
+
         <!-- 마이페이지 드롭다운 (사람인 스타일) -->
         <div id="myPageDropdown" class="hidden absolute top-16 right-4 w-80 bg-white rounded-lg shadow-2xl border border-gray-200 z-50">
             <!-- 프로필 헤더 -->
@@ -9597,76 +9799,233 @@ app.get('/', (c) => {
             </div>
         </div>
         
-        <!-- Signup Modal -->
-        <div id="signupModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center hidden">
-            <div class="bg-white rounded-2xl max-w-md w-full mx-4 overflow-hidden relative">
+        <!-- Signup Modal (Enhanced) -->
+        <div id="signupModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden overflow-y-auto p-4">
+            <div class="bg-white rounded-2xl max-w-2xl w-full my-8 overflow-hidden relative">
                 <!-- Close Button -->
                 <button onclick="closeSignupModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 z-10">
                     <i class="fas fa-times text-xl"></i>
                 </button>
                 
                 <!-- Modal Content -->
-                <div class="p-8">
+                <div class="p-8 max-h-[90vh] overflow-y-auto">
                     <!-- Modal Header -->
                     <div class="text-center mb-8">
                         <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <i class="fas fa-user-plus text-green-600 text-2xl"></i>
                         </div>
                         <h2 class="text-2xl font-bold text-gray-900 mb-2">회원가입</h2>
-                        <p class="text-gray-600">이메일로 간편하게 가입하세요!</p>
+                        <p class="text-gray-600">필수 정보를 입력하고 가입을 완료하세요</p>
                     </div>
                     
                     <!-- Signup Form -->
-                    <form id="emailSignupForm" onsubmit="handleEmailSignup(event)" class="space-y-4">
+                    <form id="emailSignupForm" onsubmit="handleEmailSignup(event)" class="space-y-5">
+                        <!-- Email with duplicate check -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">이메일</label>
-                            <input 
-                                type="email" 
-                                id="signupEmail" 
-                                required
-                                placeholder="example@email.com"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                            >
+                            <label class="block text-sm font-medium text-gray-700 mb-2">이메일 <span class="text-red-500">*</span></label>
+                            <div class="flex gap-2">
+                                <input 
+                                    type="email" 
+                                    id="signupEmail" 
+                                    required
+                                    placeholder="example@email.com"
+                                    oninput="clearEmailCheckMessage()"
+                                    class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                >
+                                <button 
+                                    type="button" 
+                                    onclick="checkEmailDuplicate()"
+                                    class="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium whitespace-nowrap"
+                                >
+                                    중복확인
+                                </button>
+                            </div>
+                            <p id="emailCheckMsg" class="text-sm mt-1 hidden"></p>
                         </div>
+                        
+                        <!-- Password with strength meter and show/hide -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">비밀번호</label>
-                            <input 
-                                type="password" 
-                                id="signupPassword" 
-                                required
-                                placeholder="8자 이상 입력하세요"
-                                minlength="8"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                            >
+                            <label class="block text-sm font-medium text-gray-700 mb-2">비밀번호 <span class="text-red-500">*</span></label>
+                            <div class="relative">
+                                <input 
+                                    type="password" 
+                                    id="signupPassword" 
+                                    required
+                                    placeholder="영문, 숫자, 특수문자 포함 8자 이상"
+                                    minlength="8"
+                                    oninput="checkPasswordStrength()"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent pr-12"
+                                >
+                                <button 
+                                    type="button" 
+                                    onclick="togglePasswordVisibility('signupPassword')"
+                                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                                >
+                                    <i class="far fa-eye" id="signupPassword-icon"></i>
+                                </button>
+                            </div>
+                            <!-- Password Strength Meter -->
+                            <div class="mt-2">
+                                <div class="flex gap-1">
+                                    <div id="strength-bar-1" class="h-1 flex-1 bg-gray-200 rounded"></div>
+                                    <div id="strength-bar-2" class="h-1 flex-1 bg-gray-200 rounded"></div>
+                                    <div id="strength-bar-3" class="h-1 flex-1 bg-gray-200 rounded"></div>
+                                    <div id="strength-bar-4" class="h-1 flex-1 bg-gray-200 rounded"></div>
+                                </div>
+                                <p id="strength-text" class="text-xs mt-1 text-gray-500"></p>
+                            </div>
                         </div>
+                        
+                        <!-- Password Confirm -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">비밀번호 확인</label>
-                            <input 
-                                type="password" 
-                                id="signupPasswordConfirm" 
-                                required
-                                placeholder="비밀번호를 다시 입력하세요"
-                                minlength="8"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                            >
+                            <label class="block text-sm font-medium text-gray-700 mb-2">비밀번호 확인 <span class="text-red-500">*</span></label>
+                            <div class="relative">
+                                <input 
+                                    type="password" 
+                                    id="signupPasswordConfirm" 
+                                    required
+                                    placeholder="비밀번호를 다시 입력하세요"
+                                    minlength="8"
+                                    oninput="checkPasswordMatch()"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent pr-12"
+                                >
+                                <button 
+                                    type="button" 
+                                    onclick="togglePasswordVisibility('signupPasswordConfirm')"
+                                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                                >
+                                    <i class="far fa-eye" id="signupPasswordConfirm-icon"></i>
+                                </button>
+                            </div>
+                            <p id="passwordMatchMsg" class="text-sm mt-1 hidden"></p>
                         </div>
+                        
+                        <!-- Name (Korean only) -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">닉네임</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">이름 <span class="text-red-500">*</span></label>
                             <input 
                                 type="text" 
-                                id="signupNickname" 
+                                id="signupName" 
                                 required
-                                placeholder="사용할 닉네임을 입력하세요"
+                                placeholder="한글 이름만 입력하세요"
+                                pattern="[가-힣]{2,10}"
+                                oninput="validateSignupForm()"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                             >
+                            <p class="text-xs text-gray-500 mt-1">한글 2~10자</p>
                         </div>
+                        
+                        <!-- Phone with SMS verification -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">휴대폰 번호 <span class="text-red-500">*</span></label>
+                            <div class="flex gap-2">
+                                <input 
+                                    type="tel" 
+                                    id="signupPhone" 
+                                    required
+                                    placeholder="01012345678"
+                                    pattern="[0-9]{10,11}"
+                                    maxlength="11"
+                                    oninput="validateSignupForm()"
+                                    class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                >
+                                <button 
+                                    type="button" 
+                                    id="sendVerifyBtn"
+                                    onclick="sendVerificationCode()"
+                                    class="px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium whitespace-nowrap"
+                                >
+                                    인증요청
+                                </button>
+                            </div>
+                            <div id="verificationSection" class="hidden mt-3">
+                                <div class="flex gap-2">
+                                    <input 
+                                        type="text" 
+                                        id="verificationCode" 
+                                        placeholder="인증번호 6자리"
+                                        maxlength="6"
+                                        class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    >
+                                    <button 
+                                        type="button" 
+                                        onclick="verifyCode()"
+                                        class="px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium whitespace-nowrap"
+                                    >
+                                        확인
+                                    </button>
+                                </div>
+                                <p class="text-sm text-purple-600 mt-1">
+                                    <i class="far fa-clock"></i> 
+                                    남은 시간: <span id="timer">03:00</span>
+                                </p>
+                            </div>
+                            <p id="phoneVerifyMsg" class="text-sm mt-1 hidden"></p>
+                        </div>
+                        
+                        <!-- Terms Agreement -->
+                        <div class="border-t pt-5">
+                            <div class="space-y-3">
+                                <!-- All Agree -->
+                                <label class="flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input 
+                                        type="checkbox" 
+                                        id="agreeAll" 
+                                        onchange="toggleAllAgreements()"
+                                        class="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                    >
+                                    <span class="font-bold text-gray-900">전체 동의</span>
+                                </label>
+                                
+                                <!-- Required Terms -->
+                                <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input 
+                                        type="checkbox" 
+                                        id="agreeTerms" 
+                                        required
+                                        onchange="updateAllAgree()"
+                                        class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                    >
+                                    <span class="text-sm text-gray-700">(필수) 이용약관 동의</span>
+                                    <a href="/terms" target="_blank" class="ml-auto text-xs text-blue-600 hover:underline">보기</a>
+                                </label>
+                                
+                                <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input 
+                                        type="checkbox" 
+                                        id="agreePrivacy" 
+                                        required
+                                        onchange="updateAllAgree()"
+                                        class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                    >
+                                    <span class="text-sm text-gray-700">(필수) 개인정보 수집 및 이용 동의</span>
+                                    <a href="/privacy" target="_blank" class="ml-auto text-xs text-blue-600 hover:underline">보기</a>
+                                </label>
+                                
+                                <!-- Optional Terms -->
+                                <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input 
+                                        type="checkbox" 
+                                        id="agreeMarketing" 
+                                        onchange="updateAllAgree()"
+                                        class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                    >
+                                    <span class="text-sm text-gray-500">(선택) 마케팅 정보 수신 동의</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Submit Button -->
                         <button 
                             type="submit" 
-                            class="w-full px-6 py-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all shadow-sm hover:shadow-md"
+                            id="signupSubmitBtn"
+                            disabled
+                            class="w-full px-6 py-4 bg-gray-300 text-gray-500 rounded-lg font-medium transition-all cursor-not-allowed"
                         >
                             <i class="fas fa-user-plus mr-2"></i>
                             회원가입
                         </button>
+                        <p class="text-xs text-center text-gray-500">모든 필수 항목을 입력하면 가입 버튼이 활성화됩니다</p>
                     </form>
                     
                     <!-- Login Link -->
@@ -12517,6 +12876,13 @@ app.get('/', (c) => {
             document.body.style.overflow = 'auto';
           }
           
+          // 회원가입 모달에서 로그인 모달로 전환
+          window.showLoginModal = function() {
+            document.getElementById('signupModal').classList.add('hidden');
+            document.getElementById('loginModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+          }
+          
           // 이메일 로그인 처리
           document.getElementById('emailLoginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -12525,7 +12891,7 @@ app.get('/', (c) => {
             const password = document.getElementById('loginPassword').value;
             
             try {
-              const response = await fetch('/auth/email/login', {
+              const response = await fetch('/api/auth/email/login', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json'
@@ -12536,12 +12902,11 @@ app.get('/', (c) => {
               const data = await response.json();
               
               if (data.success) {
-                // 로그인 성공
-                localStorage.setItem('user', JSON.stringify(data.user));
-                alert(\`\${data.user.nickname}님, 환영합니다!\`);
+                // 로그인 성공 - 쿠키는 서버에서 자동 설정됨
+                alert(data.message || \`\${data.user.nickname}님, 환영합니다!\`);
                 window.location.reload();
               } else {
-                alert(data.error || '로그인에 실패했습니다.');
+                alert(data.message || '로그인에 실패했습니다.');
               }
             } catch (error) {
               console.error('Login error:', error);
@@ -12549,45 +12914,411 @@ app.get('/', (c) => {
             }
           });
           
-          // 회원가입 처리
-          document.getElementById('signupForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
+          // ==================== 회원가입 검증 함수들 ====================
+          
+          // 전역 변수
+          let isEmailChecked = false;
+          let isPhoneVerified = false;
+          let verificationTimer = null;
+          let verificationTimeLeft = 180; // 3분 (초)
+          
+          // 이메일 변경 시 중복 체크 메시지 초기화
+          window.clearEmailCheckMessage = function() {
+            const msgElement = document.getElementById('emailCheckMsg');
+            if (msgElement) {
+              msgElement.classList.add('hidden');
+            }
+            isEmailChecked = false;
+            validateSignupForm();
+          };
+          
+          // 이메일 중복 체크
+          window.checkEmailDuplicate = async function() {
+            const emailInput = document.getElementById('signupEmail');
+            const email = emailInput.value.trim();
+            const msgElement = document.getElementById('emailCheckMsg');
             
-            const email = document.getElementById('signupEmail').value;
-            const nickname = document.getElementById('signupNickname').value;
-            const password = document.getElementById('signupPassword').value;
-            const passwordConfirm = document.getElementById('signupPasswordConfirm').value;
+            // 이메일 형식 검증
+            const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+            if (!email) {
+              msgElement.textContent = '이메일을 입력해주세요.';
+              msgElement.className = 'text-sm mt-1 text-red-500';
+              msgElement.classList.remove('hidden');
+              isEmailChecked = false;
+              validateSignupForm();
+              return;
+            }
             
-            // 비밀번호 확인
-            if (password !== passwordConfirm) {
-              alert('비밀번호가 일치하지 않습니다.');
+            if (!emailRegex.test(email)) {
+              msgElement.textContent = '올바른 이메일 형식이 아닙니다.';
+              msgElement.className = 'text-sm mt-1 text-red-500';
+              msgElement.classList.remove('hidden');
+              isEmailChecked = false;
+              validateSignupForm();
               return;
             }
             
             try {
-              const response = await fetch('/auth/email/signup', {
+              const response = await fetch('/api/check-email', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ email, nickname, password })
+                body: JSON.stringify({ email })
+              });
+              
+              const data = await response.json();
+              
+              if (data.available) {
+                msgElement.textContent = '✓ 사용 가능한 이메일입니다.';
+                msgElement.className = 'text-sm mt-1 text-green-600';
+                msgElement.classList.remove('hidden');
+                isEmailChecked = true;
+              } else {
+                msgElement.textContent = '이미 가입된 이메일입니다.';
+                msgElement.className = 'text-sm mt-1 text-red-500';
+                msgElement.classList.remove('hidden');
+                isEmailChecked = false;
+              }
+            } catch (error) {
+              console.error('Email check error:', error);
+              msgElement.textContent = '이메일 확인 중 오류가 발생했습니다.';
+              msgElement.className = 'text-sm mt-1 text-red-500';
+              msgElement.classList.remove('hidden');
+              isEmailChecked = false;
+            }
+            
+            validateSignupForm();
+          };
+          
+          // 비밀번호 강도 측정
+          window.checkPasswordStrength = function() {
+            const password = document.getElementById('signupPassword').value;
+            const bars = [
+              document.getElementById('strength-bar-1'),
+              document.getElementById('strength-bar-2'),
+              document.getElementById('strength-bar-3'),
+              document.getElementById('strength-bar-4')
+            ];
+            const textElement = document.getElementById('strength-text');
+            
+            // 강도 계산
+            let strength = 0;
+            if (password.length >= 8) strength++;
+            if (password.length >= 12) strength++;
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
+            if (/[0-9]/.test(password)) strength++;
+            if (/[^a-zA-Z0-9]/.test(password)) strength++;
+            
+            // 바 초기화
+            bars.forEach(bar => {
+              bar.className = 'h-1 flex-1 bg-gray-200 rounded';
+            });
+            
+            // 강도별 표시
+            if (password.length === 0) {
+              textElement.textContent = '';
+              textElement.className = 'text-xs mt-1';
+            } else if (strength <= 1) {
+              bars[0].classList.add('bg-red-500');
+              textElement.textContent = '약함 - 8자 이상, 영문+숫자+특수문자를 사용하세요';
+              textElement.className = 'text-xs mt-1 text-red-500';
+            } else if (strength === 2) {
+              bars[0].classList.add('bg-orange-500');
+              bars[1].classList.add('bg-orange-500');
+              textElement.textContent = '보통 - 대문자와 특수문자를 추가하면 더 안전합니다';
+              textElement.className = 'text-xs mt-1 text-orange-500';
+            } else if (strength === 3) {
+              bars[0].classList.add('bg-yellow-500');
+              bars[1].classList.add('bg-yellow-500');
+              bars[2].classList.add('bg-yellow-500');
+              textElement.textContent = '좋음 - 안전한 비밀번호입니다';
+              textElement.className = 'text-xs mt-1 text-yellow-600';
+            } else {
+              bars[0].classList.add('bg-green-500');
+              bars[1].classList.add('bg-green-500');
+              bars[2].classList.add('bg-green-500');
+              bars[3].classList.add('bg-green-500');
+              textElement.textContent = '매우 강함 - 훌륭한 비밀번호입니다!';
+              textElement.className = 'text-xs mt-1 text-green-600';
+            }
+            
+            // 비밀번호 확인 필드 검증
+            checkPasswordMatch();
+            validateSignupForm();
+          };
+          
+          // 비밀번호 보이기/숨기기 토글
+          window.togglePasswordVisibility = function(fieldId) {
+            const field = document.getElementById(fieldId);
+            const icon = document.getElementById(fieldId + '-icon');
+            
+            if (field.type === 'password') {
+              field.type = 'text';
+              icon.className = 'fas fa-eye-slash';
+            } else {
+              field.type = 'password';
+              icon.className = 'far fa-eye';
+            }
+          };
+          
+          // 비밀번호 일치 확인
+          window.checkPasswordMatch = function() {
+            const password = document.getElementById('signupPassword').value;
+            const passwordConfirm = document.getElementById('signupPasswordConfirm').value;
+            const matchMsg = document.getElementById('passwordMatchMsg');
+            
+            if (!matchMsg) return;
+            
+            if (passwordConfirm.length === 0) {
+              matchMsg.classList.add('hidden');
+              return;
+            }
+            
+            if (password === passwordConfirm) {
+              matchMsg.textContent = '✓ 비밀번호가 일치합니다.';
+              matchMsg.className = 'text-sm mt-1 text-green-600';
+              matchMsg.classList.remove('hidden');
+            } else {
+              matchMsg.textContent = '비밀번호가 일치하지 않습니다.';
+              matchMsg.className = 'text-sm mt-1 text-red-500';
+              matchMsg.classList.remove('hidden');
+            }
+            
+            validateSignupForm();
+          };
+          
+          // SMS 인증번호 전송
+          window.sendVerificationCode = async function() {
+            const phoneInput = document.getElementById('signupPhone');
+            const phone = phoneInput.value.replace(/[^0-9]/g, '');
+            
+            if (phone.length < 10 || phone.length > 11) {
+              alert('올바른 휴대폰 번호를 입력해주세요. (10~11자리)');
+              return;
+            }
+            
+            try {
+              const response = await fetch('/api/verify-phone', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ phone })
               });
               
               const data = await response.json();
               
               if (data.success) {
-                // 회원가입 성공
-                localStorage.setItem('user', JSON.stringify(data.user));
-                alert(\`\${data.user.nickname}님, 가입을 환영합니다!\`);
-                window.location.reload();
+                // 인증번호 입력 섹션 표시
+                document.getElementById('verificationSection').classList.remove('hidden');
+                
+                // 타이머 시작
+                startVerificationTimer();
+                
+                alert('인증번호가 발송되었습니다. (개발 모드: 123456)');
               } else {
-                alert(data.error || '회원가입에 실패했습니다.');
+                alert(data.message || '인증번호 발송에 실패했습니다.');
+              }
+            } catch (error) {
+              console.error('SMS send error:', error);
+              alert('인증번호 발송 중 오류가 발생했습니다.');
+            }
+          };
+          
+          // 인증번호 타이머 시작
+          function startVerificationTimer() {
+            // 기존 타이머 정리
+            if (verificationTimer) {
+              clearInterval(verificationTimer);
+            }
+            
+            verificationTimeLeft = 180; // 3분
+            const timerElement = document.getElementById('timer');
+            
+            verificationTimer = setInterval(() => {
+              verificationTimeLeft--;
+              
+              const minutes = Math.floor(verificationTimeLeft / 60);
+              const seconds = verificationTimeLeft % 60;
+              timerElement.textContent = \`\${String(minutes).padStart(2, '0')}:\${String(seconds).padStart(2, '0')}\`;
+              
+              if (verificationTimeLeft <= 0) {
+                clearInterval(verificationTimer);
+                timerElement.textContent = '00:00';
+                alert('인증 시간이 만료되었습니다. 다시 요청해주세요.');
+              }
+            }, 1000);
+          }
+          
+          // 인증번호 확인
+          window.verifyCode = async function() {
+            const phone = document.getElementById('signupPhone').value.replace(/[^0-9]/g, '');
+            const code = document.getElementById('verificationCode').value.trim();
+            
+            if (!code || code.length !== 6) {
+              alert('6자리 인증번호를 입력해주세요.');
+              return;
+            }
+            
+            try {
+              const response = await fetch('/api/verify-code', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ phone, code })
+              });
+              
+              const data = await response.json();
+              
+              if (data.success) {
+                alert('✓ 휴대폰 인증이 완료되었습니다!');
+                isPhoneVerified = true;
+                
+                // 타이머 정지
+                if (verificationTimer) {
+                  clearInterval(verificationTimer);
+                }
+                
+                // 인증 완료 UI 업데이트
+                document.getElementById('verificationSection').innerHTML = \`
+                  <p class="text-sm text-green-600 font-medium">
+                    <i class="fas fa-check-circle"></i> 인증 완료
+                  </p>
+                \`;
+                
+                validateSignupForm();
+              } else {
+                alert(data.message || '인증번호가 일치하지 않습니다.');
+                isPhoneVerified = false;
+              }
+            } catch (error) {
+              console.error('Verification error:', error);
+              alert('인증 확인 중 오류가 발생했습니다.');
+              isPhoneVerified = false;
+            }
+          };
+          
+          // 약관 전체 동의 토글
+          window.toggleAllAgreements = function() {
+            const agreeAll = document.getElementById('agreeAll').checked;
+            document.getElementById('agreeTerms').checked = agreeAll;
+            document.getElementById('agreePrivacy').checked = agreeAll;
+            document.getElementById('agreeMarketing').checked = agreeAll;
+            validateSignupForm();
+          };
+          
+          // 개별 약관 체크 시 전체 동의 업데이트
+          window.updateAllAgree = function() {
+            const agreeTerms = document.getElementById('agreeTerms').checked;
+            const agreePrivacy = document.getElementById('agreePrivacy').checked;
+            const agreeMarketing = document.getElementById('agreeMarketing').checked;
+            
+            document.getElementById('agreeAll').checked = agreeTerms && agreePrivacy && agreeMarketing;
+            validateSignupForm();
+          };
+          
+          // 회원가입 폼 전체 검증
+          window.validateSignupForm = function() {
+            const email = document.getElementById('signupEmail').value.trim();
+            const password = document.getElementById('signupPassword').value;
+            const passwordConfirm = document.getElementById('signupPasswordConfirm').value;
+            const name = document.getElementById('signupName').value.trim();
+            const phone = document.getElementById('signupPhone').value.replace(/[^0-9]/g, '');
+            const agreeTerms = document.getElementById('agreeTerms').checked;
+            const agreePrivacy = document.getElementById('agreePrivacy').checked;
+            
+            const submitBtn = document.getElementById('signupSubmitBtn');
+            
+            // 각 조건 체크 (디버깅용)
+            const checks = {
+              emailChecked: isEmailChecked,
+              passwordLength: password.length >= 8,
+              passwordMatch: password === passwordConfirm && passwordConfirm.length > 0,
+              nameValid: /^[가-힣]{2,10}$/.test(name),
+              phoneLength: phone.length >= 10,
+              phoneVerified: isPhoneVerified,
+              termsAgreed: agreeTerms,
+              privacyAgreed: agreePrivacy
+            };
+            
+            console.log('🔍 회원가입 폼 검증:', checks);
+            
+            // 모든 조건 체크
+            const isValid = 
+              checks.emailChecked &&
+              checks.passwordLength &&
+              checks.passwordMatch &&
+              checks.nameValid &&
+              checks.phoneLength &&
+              checks.phoneVerified &&
+              checks.termsAgreed &&
+              checks.privacyAgreed;
+            
+            console.log('✅ 폼 유효성:', isValid);
+            
+            if (isValid) {
+              submitBtn.disabled = false;
+              submitBtn.classList.remove('bg-gray-300', 'cursor-not-allowed');
+              submitBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+            } else {
+              submitBtn.disabled = true;
+              submitBtn.classList.add('bg-gray-300', 'cursor-not-allowed');
+              submitBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+            }
+          }
+          
+          // 향상된 회원가입 처리
+          window.handleEmailSignup = async function(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('signupEmail').value.trim();
+            const password = document.getElementById('signupPassword').value;
+            const name = document.getElementById('signupName').value.trim();
+            const phone = document.getElementById('signupPhone').value.replace(/[^0-9]/g, '');
+            const agreeMarketing = document.getElementById('agreeMarketing').checked;
+            
+            // 최종 검증
+            if (!isEmailChecked) {
+              alert('이메일 중복 확인을 해주세요.');
+              return;
+            }
+            
+            if (!isPhoneVerified) {
+              alert('휴대폰 인증을 완료해주세요.');
+              return;
+            }
+            
+            try {
+              const response = await fetch('/api/auth/email/signup', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  email,
+                  password,
+                  name,
+                  phone,
+                  agreeMarketing
+                })
+              });
+              
+              const data = await response.json();
+              
+              if (data.success) {
+                alert('✓ ' + data.message);
+                closeSignupModal();
+                openEmailLoginModal();
+              } else {
+                alert(data.message || '회원가입에 실패했습니다.');
               }
             } catch (error) {
               console.error('Signup error:', error);
               alert('회원가입 처리 중 오류가 발생했습니다.');
             }
-          });
+          };
           
           // 로그인 상태 확인 및 UI 업데이트
           function checkLoginStatus() {
@@ -12947,8 +13678,8 @@ app.get('/', (c) => {
               if (users.length === 0) {
                 tbody.innerHTML = \`
                   <tr>
-                    <td colspan="8" class="px-4 py-8 text-center text-gray-500">
-                      가입한 회원이 없습니다.
+                    <td colspan="4" class="px-6 py-12 text-center">
+                      <div class="text-gray-400 text-sm">가입한 회원이 없습니다</div>
                     </td>
                   </tr>
                 \`;
@@ -12956,35 +13687,32 @@ app.get('/', (c) => {
               }
               
               tbody.innerHTML = users.map(user => {
-                const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('ko-KR') : '-';
-                const lastLoginDate = user.last_login ? new Date(user.last_login).toLocaleDateString('ko-KR') : '없음';
-                const notificationStatus = user.notification_enabled ? 
-                  '<span class="text-green-600"><i class="fas fa-check-circle"></i> 활성</span>' : 
-                  '<span class="text-gray-400"><i class="fas fa-times-circle"></i> 비활성</span>';
-                
-                const regions = user.regions ? JSON.parse(user.regions).join(', ') : '-';
+                const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) : '-';
                 
                 return \`
-                  <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 text-sm text-gray-900">\${user.id}</td>
-                    <td class="px-4 py-3 text-sm">
-                      <div class="flex items-center gap-2">
+                  <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4">
+                      <div class="flex items-center gap-3">
                         \${user.profile_image ? 
-                          \`<img src="\${user.profile_image}" class="w-8 h-8 rounded-full">\` : 
-                          \`<div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">\${user.nickname ? user.nickname[0] : '?'}</div>\`
+                          \`<img src="\${user.profile_image}" class="w-10 h-10 rounded-full">\` : 
+                          \`<div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 font-medium text-sm">\${user.nickname ? user.nickname[0] : '?'}</div>\`
                         }
-                        <span class="font-medium text-gray-900">\${user.nickname || '-'}</span>
+                        <div>
+                          <div class="font-medium text-gray-900">\${user.nickname || '-'}</div>
+                          <div class="text-sm text-gray-500">\${user.email || '-'}</div>
+                        </div>
                       </div>
                     </td>
-                    <td class="px-4 py-3 text-sm text-gray-600">\${user.email || '-'}</td>
-                    <td class="px-4 py-3 text-sm text-gray-600">\${user.phone_number || '-'}</td>
-                    <td class="px-4 py-3 text-sm">\${notificationStatus}</td>
-                    <td class="px-4 py-3 text-sm text-gray-600">\${createdDate}</td>
-                    <td class="px-4 py-3 text-sm text-gray-600">\${lastLoginDate}</td>
-                    <td class="px-4 py-3 text-sm">
+                    <td class="px-6 py-4">
+                      <div class="text-sm text-gray-900">\${user.phone_number || '-'}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                      <div class="text-sm text-gray-900">\${createdDate}</div>
+                    </td>
+                    <td class="px-6 py-4">
                       <button 
                         onclick="viewUserDetail(\${user.id})" 
-                        class="text-blue-600 hover:text-blue-800 font-medium"
+                        class="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-medium transition-colors"
                       >
                         상세보기
                       </button>
@@ -12997,8 +13725,8 @@ app.get('/', (c) => {
               console.error('Failed to load users:', error);
               document.getElementById('usersTableBody').innerHTML = \`
                 <tr>
-                  <td colspan="8" class="px-4 py-8 text-center text-red-500">
-                    회원 정보를 불러오는데 실패했습니다.
+                  <td colspan="4" class="px-6 py-12 text-center">
+                    <div class="text-red-500 text-sm">회원 정보를 불러오는데 실패했습니다</div>
                   </td>
                 </tr>
               \`;
@@ -13040,6 +13768,124 @@ app.get('/', (c) => {
               alert('회원 상세 정보를 불러오는데 실패했습니다.');
             }
           }
+          
+          // ==================== 비밀번호 초기화 ====================
+          
+          let currentResetUserId = null;
+          let currentResetUserName = null;
+          
+          // 상세보기 모달에서 호출
+          window.openPasswordResetModalFromDetail = function() {
+            const userId = document.getElementById('userDetailId')?.textContent;
+            const userName = document.getElementById('userDetailNickname')?.textContent;
+            
+            if (userId && userName) {
+              openPasswordResetModal(userId, userName);
+            }
+          };
+          
+          window.openPasswordResetModal = function(userId, userName) {
+            currentResetUserId = userId;
+            currentResetUserName = userName;
+            document.getElementById('resetUserName').textContent = userName;
+            
+            // 임시 비밀번호 생성 (8자리 영문+숫자)
+            const tempPw = 'Temp' + Math.random().toString(36).substring(2, 8);
+            document.getElementById('tempPassword').textContent = tempPw;
+            
+            document.getElementById('passwordResetModal').classList.remove('hidden');
+          };
+          
+          window.closePasswordResetModal = function() {
+            document.getElementById('passwordResetModal').classList.add('hidden');
+            currentResetUserId = null;
+          };
+          
+          window.confirmPasswordReset = async function() {
+            if (!currentResetUserId) return;
+            
+            const tempPassword = document.getElementById('tempPassword').textContent;
+            
+            try {
+              const response = await fetch(\`/api/admin/users/\${currentResetUserId}/reset-password\`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ tempPassword })
+              });
+              
+              const data = await response.json();
+              
+              if (data.success) {
+                alert('✓ 비밀번호가 초기화되었습니다.\\n\\n임시 비밀번호: ' + tempPassword + '\\n\\n회원에게 전달해주세요.');
+                closePasswordResetModal();
+                loadUsers();
+              } else {
+                alert(data.message || '비밀번호 초기화에 실패했습니다.');
+              }
+            } catch (error) {
+              console.error('Password reset error:', error);
+              alert('비밀번호 초기화 중 오류가 발생했습니다.');
+            }
+          };
+          
+          // ==================== 회원 탈퇴 ====================
+          
+          let currentDeleteUserId = null;
+          let currentDeleteUserName = null;
+          
+          // 상세보기 모달에서 호출
+          window.openDeleteUserModalFromDetail = function() {
+            const userId = document.getElementById('userDetailId')?.textContent;
+            const userName = document.getElementById('userDetailNickname')?.textContent;
+            
+            if (userId && userName) {
+              openDeleteUserModal(userId, userName);
+            }
+          };
+          
+          window.openDeleteUserModal = function(userId, userName) {
+            currentDeleteUserId = userId;
+            currentDeleteUserName = userName;
+            document.getElementById('deleteUserName').textContent = userName;
+            document.getElementById('deleteUserModal').classList.remove('hidden');
+          };
+          
+          window.closeDeleteUserModal = function() {
+            document.getElementById('deleteUserModal').classList.add('hidden');
+            currentDeleteUserId = null;
+          };
+          
+          window.confirmDeleteUser = async function() {
+            if (!currentDeleteUserId) return;
+            
+            try {
+              const response = await fetch(\`/api/admin/users/\${currentDeleteUserId}\`, {
+                method: 'DELETE'
+              });
+              
+              const data = await response.json();
+              
+              if (data.success) {
+                alert('✓ 회원이 탈퇴 처리되었습니다.');
+                closeDeleteUserModal();
+                
+                // 상세보기 모달도 닫기
+                const detailModal = document.getElementById('userDetailModal');
+                if (detailModal && !detailModal.classList.contains('hidden')) {
+                  detailModal.classList.add('hidden');
+                }
+                
+                loadUsers();
+              } else {
+                alert(data.message || '회원 탈퇴 처리에 실패했습니다.');
+              }
+            } catch (error) {
+              console.error('Delete user error:', error);
+              alert('회원 탈퇴 처리 중 오류가 발생했습니다.');
+            }
+          };
           
           // Toggle user menu
           function toggleUserMenu() {
