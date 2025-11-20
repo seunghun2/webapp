@@ -9493,41 +9493,180 @@ app.get('/', (c) => {
 
         <!-- Login Modal -->
         <div id="loginModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center hidden">
-            <div class="bg-white rounded-2xl max-w-md w-full mx-4 p-8 relative">
+            <div class="bg-white rounded-2xl max-w-md w-full mx-4 overflow-hidden relative">
                 <!-- Close Button -->
-                <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 z-10">
                     <i class="fas fa-times text-xl"></i>
                 </button>
                 
-                <!-- Modal Header -->
-                <div class="text-center mb-8">
-                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-bell text-blue-600 text-2xl"></i>
+                <!-- Modal Content -->
+                <div class="p-8">
+                    <!-- Modal Header -->
+                    <div class="text-center mb-8">
+                        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-bell text-blue-600 text-2xl"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">알림 받기</h2>
+                        <p class="text-gray-600">로그인하고 신규 매물 알림을 받아보세요!</p>
                     </div>
-                    <h2 class="text-2xl font-bold text-gray-900 mb-2">알림 받기</h2>
-                    <p class="text-gray-600">로그인하고 신규 매물 알림을 받아보세요!</p>
-                </div>
-                
-                <!-- Login Buttons -->
-                <div class="space-y-3">
-                    <!-- Kakao Login -->
-                    <button onclick="startKakaoLogin()" class="w-full flex items-center justify-center gap-3 px-6 py-4 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-lg font-medium transition-all shadow-sm hover:shadow-md">
-                        <i class="fas fa-comment text-xl"></i>
-                        <span>카카오로 시작하기</span>
-                    </button>
                     
-                    <!-- Naver Login -->
-                    <button onclick="startNaverLogin()" class="w-full flex items-center justify-center gap-3 px-6 py-4 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-all shadow-sm hover:shadow-md">
-                        <i class="fas fa-n text-xl font-bold"></i>
-                        <span>네이버로 시작하기</span>
-                    </button>
+                    <!-- Email Login Form -->
+                    <form id="emailLoginForm" onsubmit="handleEmailLogin(event)" class="space-y-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">이메일</label>
+                            <input 
+                                type="email" 
+                                id="loginEmail" 
+                                required
+                                placeholder="example@email.com"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">비밀번호</label>
+                            <input 
+                                type="password" 
+                                id="loginPassword" 
+                                required
+                                placeholder="비밀번호를 입력하세요"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            >
+                        </div>
+                        <button 
+                            type="submit" 
+                            class="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all shadow-sm hover:shadow-md"
+                        >
+                            <i class="fas fa-envelope mr-2"></i>
+                            이메일로 시작하기
+                        </button>
+                    </form>
+                    
+                    <!-- Divider -->
+                    <div class="relative mb-6">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div class="relative flex justify-center text-sm">
+                            <span class="px-4 bg-white text-gray-500">또는</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Social Login Buttons -->
+                    <div class="space-y-3">
+                        <!-- Kakao Login -->
+                        <button onclick="startKakaoLogin()" class="w-full flex items-center justify-center gap-3 px-6 py-3 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-lg font-medium transition-all shadow-sm hover:shadow-md">
+                            <i class="fas fa-comment text-lg"></i>
+                            <span>카카오로 시작하기</span>
+                        </button>
+                        
+                        <!-- Naver Login -->
+                        <button onclick="startNaverLogin()" class="w-full flex items-center justify-center gap-3 px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-all shadow-sm hover:shadow-md">
+                            <i class="fas fa-n text-lg font-bold"></i>
+                            <span>네이버로 시작하기</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Sign Up Link -->
+                    <div class="text-center mt-6">
+                        <p class="text-sm text-gray-600">
+                            계정이 없으신가요? 
+                            <button onclick="showSignupModal()" class="text-blue-600 hover:underline font-medium">
+                                회원가입
+                            </button>
+                        </p>
+                    </div>
+                    
+                    <!-- Footer Note -->
+                    <p class="text-xs text-gray-500 text-center mt-6">
+                        로그인 시 <a href="/terms" class="text-blue-600 hover:underline">이용약관</a> 및 
+                        <a href="/privacy" class="text-blue-600 hover:underline">개인정보처리방침</a>에 동의하게 됩니다.
+                    </p>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Signup Modal -->
+        <div id="signupModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center hidden">
+            <div class="bg-white rounded-2xl max-w-md w-full mx-4 overflow-hidden relative">
+                <!-- Close Button -->
+                <button onclick="closeSignupModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 z-10">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
                 
-                <!-- Footer Note -->
-                <p class="text-xs text-gray-500 text-center mt-6">
-                    로그인 시 <a href="/terms" class="text-blue-600 hover:underline">이용약관</a> 및 
-                    <a href="/privacy" class="text-blue-600 hover:underline">개인정보처리방침</a>에 동의하게 됩니다.
-                </p>
+                <!-- Modal Content -->
+                <div class="p-8">
+                    <!-- Modal Header -->
+                    <div class="text-center mb-8">
+                        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-user-plus text-green-600 text-2xl"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">회원가입</h2>
+                        <p class="text-gray-600">이메일로 간편하게 가입하세요!</p>
+                    </div>
+                    
+                    <!-- Signup Form -->
+                    <form id="emailSignupForm" onsubmit="handleEmailSignup(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">이메일</label>
+                            <input 
+                                type="email" 
+                                id="signupEmail" 
+                                required
+                                placeholder="example@email.com"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">비밀번호</label>
+                            <input 
+                                type="password" 
+                                id="signupPassword" 
+                                required
+                                placeholder="8자 이상 입력하세요"
+                                minlength="8"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">비밀번호 확인</label>
+                            <input 
+                                type="password" 
+                                id="signupPasswordConfirm" 
+                                required
+                                placeholder="비밀번호를 다시 입력하세요"
+                                minlength="8"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">닉네임</label>
+                            <input 
+                                type="text" 
+                                id="signupNickname" 
+                                required
+                                placeholder="사용할 닉네임을 입력하세요"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            >
+                        </div>
+                        <button 
+                            type="submit" 
+                            class="w-full px-6 py-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all shadow-sm hover:shadow-md"
+                        >
+                            <i class="fas fa-user-plus mr-2"></i>
+                            회원가입
+                        </button>
+                    </form>
+                    
+                    <!-- Login Link -->
+                    <div class="text-center mt-6">
+                        <p class="text-sm text-gray-600">
+                            이미 계정이 있으신가요? 
+                            <button onclick="showLoginModal()" class="text-blue-600 hover:underline font-medium">
+                                로그인
+                            </button>
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -12948,6 +13087,105 @@ app.get('/', (c) => {
           function startNaverLogin() {
             closeLoginModal();
             window.location.href = '/auth/naver/login';
+          }
+          
+          // Show Signup Modal
+          function showSignupModal() {
+            closeLoginModal();
+            const modal = document.getElementById('signupModal');
+            if (modal) {
+              modal.classList.remove('hidden');
+              modal.classList.add('flex');
+            }
+          }
+          
+          // Close Signup Modal
+          function closeSignupModal() {
+            const modal = document.getElementById('signupModal');
+            if (modal) {
+              modal.classList.add('hidden');
+              modal.classList.remove('flex');
+            }
+          }
+          
+          // Show Login Modal (from signup)
+          function showLoginModal() {
+            closeSignupModal();
+            openLoginModal();
+          }
+          
+          // Close signup modal when clicking outside
+          document.getElementById('signupModal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+              closeSignupModal();
+            }
+          });
+          
+          // Handle Email Login
+          async function handleEmailLogin(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            try {
+              const response = await axios.post('/api/auth/email/login', {
+                email,
+                password
+              });
+              
+              if (response.data.success) {
+                alert(response.data.message || '로그인 성공!');
+                window.location.href = '/';
+              } else {
+                alert(response.data.message || '로그인에 실패했습니다.');
+              }
+            } catch (error) {
+              console.error('Login error:', error);
+              alert(error.response?.data?.message || '로그인 중 오류가 발생했습니다.');
+            }
+          }
+          
+          // Handle Email Signup
+          async function handleEmailSignup(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+            const passwordConfirm = document.getElementById('signupPasswordConfirm').value;
+            const nickname = document.getElementById('signupNickname').value;
+            
+            // Validate password match
+            if (password !== passwordConfirm) {
+              alert('비밀번호가 일치하지 않습니다.');
+              return;
+            }
+            
+            // Validate password length
+            if (password.length < 8) {
+              alert('비밀번호는 8자 이상이어야 합니다.');
+              return;
+            }
+            
+            try {
+              const response = await axios.post('/api/auth/email/signup', {
+                email,
+                password,
+                nickname
+              });
+              
+              if (response.data.success) {
+                alert(response.data.message || '회원가입 성공! 로그인해주세요.');
+                showLoginModal();
+                // Clear form
+                document.getElementById('emailSignupForm').reset();
+              } else {
+                alert(response.data.message || '회원가입에 실패했습니다.');
+              }
+            } catch (error) {
+              console.error('Signup error:', error);
+              alert(error.response?.data?.message || '회원가입 중 오류가 발생했습니다.');
+            }
           }
 
           // Initialize
