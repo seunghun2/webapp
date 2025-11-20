@@ -7671,6 +7671,15 @@ app.get('/', (c) => {
         <!-- Naver Search Advisor Verification -->
         <meta name="naver-site-verification" content="84b2705d1e232018634d573e94e05c4e910baa96" />
         
+        <!-- Google Analytics -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-470RN8J40M"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-470RN8J40M');
+        </script>
+        
         <!-- Favicon -->
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
