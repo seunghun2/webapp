@@ -4,8 +4,9 @@
 
 ## 🌐 공개 URL
 
-- **프로덕션**: https://e5912266.webapp-32n.pages.dev
+- **프로덕션**: https://ca01d69b.webapp-32n.pages.dev
 - **GitHub**: https://github.com/seunghun2/webapp
+- **Analytics**: Google Analytics (G-470RN8J40M)
 
 ## ✨ 완성된 주요 기능
 
@@ -251,6 +252,7 @@ git push origin main
 
 ## 📊 프로젝트 히스토리
 
+- **2025-11-20**: Google Analytics 추가 (G-470RN8J40M) - 방문자 추적 시작
 - **2025-11-20**: 정렬 로직 완전 개선 (steps 기반 프론트엔드 재정렬)
   - 마감임박일: steps의 가장 가까운 미래 날짜 순
   - 마감일: steps의 먼 날짜 순 (반대 정렬)
