@@ -18,6 +18,111 @@ const app = new Hono<{ Bindings: Bindings }>()
 // Enable CORS
 app.use('/api/*', cors())
 
+// ==================== SEO Routes ====================
+
+// robots.txt
+app.get('/robots.txt', (c) => {
+  const robotsTxt = `User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://hanchae365.com/sitemap.xml
+
+# Google Bot
+User-agent: Googlebot
+Allow: /
+
+# Naver Bot
+User-agent: Yeti
+Allow: /
+
+# Bing Bot
+User-agent: bingbot
+Allow: /`
+
+  return c.text(robotsTxt, 200, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'public, max-age=86400' // 24 hours
+  })
+})
+
+// sitemap.xml
+app.get('/sitemap.xml', async (c) => {
+  try {
+    const { DB } = c.env
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    // Get all active properties
+    const properties = await DB.prepare(`
+      SELECT id, updated_at, deadline
+      FROM properties
+      WHERE deleted_at IS NULL
+      ORDER BY updated_at DESC
+    `).all()
+    
+    const baseUrl = 'https://hanchae365.com'
+    const currentDate = new Date().toISOString().split('T')[0]
+    
+    let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
+        xmlns:mobile="http://www.google.com/schemas/sitemap-mobile/1.0"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  
+  <!-- Homepage -->
+  <url>
+    <loc>${baseUrl}/</loc>
+    <lastmod>${currentDate}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  
+  <!-- Terms -->
+  <url>
+    <loc>${baseUrl}/terms</loc>
+    <lastmod>${currentDate}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  
+  <!-- Privacy -->
+  <url>
+    <loc>${baseUrl}/privacy</loc>
+    <lastmod>${currentDate}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+`
+    
+    // Add property detail pages
+    for (const property of properties.results) {
+      const lastmod = property.updated_at ? property.updated_at.split(' ')[0] : currentDate
+      sitemap += `
+  <!-- Property: ID ${property.id} -->
+  <url>
+    <loc>${baseUrl}/?property=${property.id}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+`
+    }
+    
+    sitemap += `</urlset>`
+    
+    return c.text(sitemap, 200, {
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600' // 1 hour
+    })
+  } catch (error) {
+    console.error('Sitemap generation error:', error)
+    return c.text('Error generating sitemap', 500)
+  }
+})
+
 // Helper function: Get current time in KST (Korea Standard Time, UTC+9)
 function getKST(): string {
   const now = new Date()
@@ -7726,6 +7831,41 @@ app.get('/', (c) => {
           "description": "전국 부동산 분양 정보 제공 플랫폼",
           "serviceType": "부동산 분양 정보",
           "areaServed": "대한민국"
+        }
+        </script>
+        
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [{
+            "@type": "ListItem",
+            "position": 1,
+            "name": "홈",
+            "item": "https://hanchae365.com/"
+          }]
+        }
+        </script>
+        
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "name": "똑똑한한채",
+          "alternateName": "한채365",
+          "url": "https://hanchae365.com/",
+          "logo": "https://hanchae365.com/logo.png",
+          "description": "전국 부동산 분양 정보 플랫폼 - 줍줍분양, LH청약, 조합원 모집, 실시간 마감임박 정보",
+          "foundingDate": "2025",
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "고객지원",
+            "areaServed": "KR",
+            "availableLanguage": ["Korean"]
+          },
+          "sameAs": [
+            "https://hanchae365.com/"
+          ]
         }
         </script>
         
