@@ -4399,6 +4399,148 @@ app.post('/api/admin/trigger-trade-price-collection', async (c) => {
   }
 })
 
+// ==================== 회원 관리 API ====================
+
+// Get all users
+app.get('/api/admin/users', async (c) => {
+  try {
+    const { DB } = c.env
+    const search = c.req.query('search') || ''
+    
+    let query = `
+      SELECT 
+        u.*,
+        ns.notification_enabled,
+        ns.regions,
+        ns.property_types,
+        (SELECT COUNT(*) FROM notification_logs WHERE user_id = u.id) as notification_count
+      FROM users u
+      LEFT JOIN notification_settings ns ON u.id = ns.user_id
+      WHERE 1=1
+    `
+    
+    const params: any[] = []
+    
+    if (search) {
+      query += ` AND (u.nickname LIKE ? OR u.email LIKE ? OR u.phone_number LIKE ?)`
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`)
+    }
+    
+    query += ` ORDER BY u.created_at DESC`
+    
+    const result = await DB.prepare(query).bind(...params).all()
+    
+    return c.json({
+      success: true,
+      users: result.results,
+      total: result.results.length
+    })
+  } catch (error) {
+    console.error('Failed to get users:', error)
+    return c.json({ success: false, error: String(error) }, 500)
+  }
+})
+
+// Get user detail
+app.get('/api/admin/users/:id', async (c) => {
+  try {
+    const { DB } = c.env
+    const userId = c.req.param('id')
+    
+    // Get user info
+    const user = await DB.prepare(`
+      SELECT * FROM users WHERE id = ?
+    `).bind(userId).first()
+    
+    if (!user) {
+      return c.json({ success: false, error: 'User not found' }, 404)
+    }
+    
+    // Get notification settings
+    const settings = await DB.prepare(`
+      SELECT * FROM notification_settings WHERE user_id = ?
+    `).bind(userId).first()
+    
+    // Get notification logs
+    const logs = await DB.prepare(`
+      SELECT 
+        nl.*,
+        p.title as property_title,
+        p.location as property_location
+      FROM notification_logs nl
+      LEFT JOIN properties p ON nl.property_id = p.id
+      WHERE nl.user_id = ?
+      ORDER BY nl.sent_at DESC
+      LIMIT 50
+    `).bind(userId).all()
+    
+    return c.json({
+      success: true,
+      user,
+      settings,
+      logs: logs.results
+    })
+  } catch (error) {
+    console.error('Failed to get user detail:', error)
+    return c.json({ success: false, error: String(error) }, 500)
+  }
+})
+
+// Update user notification settings
+app.post('/api/admin/users/:id/settings', async (c) => {
+  try {
+    const { DB } = c.env
+    const userId = c.req.param('id')
+    const { notification_enabled, regions, property_types, phone_number } = await c.req.json()
+    
+    // Update phone number in users table
+    if (phone_number !== undefined) {
+      await DB.prepare(`
+        UPDATE users SET phone_number = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(phone_number, userId).run()
+    }
+    
+    // Check if settings exist
+    const existing = await DB.prepare(`
+      SELECT id FROM notification_settings WHERE user_id = ?
+    `).bind(userId).first()
+    
+    if (existing) {
+      // Update
+      await DB.prepare(`
+        UPDATE notification_settings 
+        SET notification_enabled = ?,
+            regions = ?,
+            property_types = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = ?
+      `).bind(
+        notification_enabled ? 1 : 0,
+        regions ? JSON.stringify(regions) : null,
+        property_types ? JSON.stringify(property_types) : null,
+        userId
+      ).run()
+    } else {
+      // Insert
+      await DB.prepare(`
+        INSERT INTO notification_settings (user_id, notification_enabled, regions, property_types)
+        VALUES (?, ?, ?, ?)
+      `).bind(
+        userId,
+        notification_enabled ? 1 : 0,
+        regions ? JSON.stringify(regions) : null,
+        property_types ? JSON.stringify(property_types) : null
+      ).run()
+    }
+    
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Failed to update settings:', error)
+    return c.json({ success: false, error: String(error) }, 500)
+  }
+})
+
 // Get Trade Price Stats
 app.get('/api/admin/trade-price-stats', async (c) => {
   try {
@@ -4652,6 +4794,10 @@ app.get('/admin', (c) => {
                     <a href="javascript:void(0)" onclick="showSection('statistics')" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700" data-section="statistics">
                         <i class="fas fa-chart-bar text-lg w-5"></i>
                         <span class="sidebar-text">통계</span>
+                    </a>
+                    <a href="javascript:void(0)" onclick="showSection('users')" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700" data-section="users">
+                        <i class="fas fa-users text-lg w-5"></i>
+                        <span class="sidebar-text">회원 관리</span>
                     </a>
                     <a href="javascript:void(0)" onclick="showSection('settings')" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700" data-section="settings">
                         <i class="fas fa-cog text-lg w-5"></i>
@@ -5063,6 +5209,52 @@ app.get('/admin', (c) => {
                                 설정 저장
                             </button>
                         </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Users Section -->
+            <div id="usersSection" class="section-content p-4 sm:p-6 lg:p-8 hidden">
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                        <h3 class="text-lg font-bold text-gray-900">회원 관리</h3>
+                        <div class="flex gap-2 w-full sm:w-auto">
+                            <input 
+                                type="text" 
+                                id="userSearch" 
+                                placeholder="이름, 이메일, 전화번호 검색..." 
+                                class="flex-1 sm:w-64 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                            <button onclick="searchUsers()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Users Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 border-b">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">닉네임</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">이메일</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">전화번호</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">알림설정</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">가입일</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">마지막 로그인</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">액션</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody" class="divide-y divide-gray-200">
+                                <!-- Users will be loaded here -->
+                                <tr>
+                                    <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                                        회원 정보를 불러오는 중...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -5774,6 +5966,7 @@ app.get('/admin', (c) => {
                     'properties': ['매물 관리', '등록된 매물을 관리하세요'],
                     'deleted': ['삭제된 매물', '삭제된 매물을 복원하세요'],
                     'statistics': ['통계', '데이터 분석 및 통계'],
+                    'users': ['회원 관리', '가입 회원을 관리하세요'],
                     'settings': ['설정', '시스템 설정을 관리하세요']
                 };
                 if (titles[sectionName]) {
@@ -5788,6 +5981,8 @@ app.get('/admin', (c) => {
                     loadDeletedProperties();
                 } else if (sectionName === 'dashboard') {
                     loadDashboardStats();
+                } else if (sectionName === 'users') {
+                    loadUsers();
                 }
             }
             
@@ -11710,6 +11905,114 @@ app.get('/', (c) => {
               submitLoading.classList.add('hidden');
             }
           });
+
+          // Load Users
+          async function loadUsers(search = '') {
+            try {
+              const params = new URLSearchParams();
+              if (search) params.append('search', search);
+              
+              const response = await axios.get(\`/api/admin/users?\${params}\`);
+              const { users, total } = response.data;
+              
+              const tbody = document.getElementById('usersTableBody');
+              
+              if (users.length === 0) {
+                tbody.innerHTML = \`
+                  <tr>
+                    <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                      가입한 회원이 없습니다.
+                    </td>
+                  </tr>
+                \`;
+                return;
+              }
+              
+              tbody.innerHTML = users.map(user => {
+                const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('ko-KR') : '-';
+                const lastLoginDate = user.last_login ? new Date(user.last_login).toLocaleDateString('ko-KR') : '없음';
+                const notificationStatus = user.notification_enabled ? 
+                  '<span class="text-green-600"><i class="fas fa-check-circle"></i> 활성</span>' : 
+                  '<span class="text-gray-400"><i class="fas fa-times-circle"></i> 비활성</span>';
+                
+                const regions = user.regions ? JSON.parse(user.regions).join(', ') : '-';
+                
+                return \`
+                  <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm text-gray-900">\${user.id}</td>
+                    <td class="px-4 py-3 text-sm">
+                      <div class="flex items-center gap-2">
+                        \${user.profile_image ? 
+                          \`<img src="\${user.profile_image}" class="w-8 h-8 rounded-full">\` : 
+                          \`<div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">\${user.nickname ? user.nickname[0] : '?'}</div>\`
+                        }
+                        <span class="font-medium text-gray-900">\${user.nickname || '-'}</span>
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-600">\${user.email || '-'}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">\${user.phone_number || '-'}</td>
+                    <td class="px-4 py-3 text-sm">\${notificationStatus}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">\${createdDate}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">\${lastLoginDate}</td>
+                    <td class="px-4 py-3 text-sm">
+                      <button 
+                        onclick="viewUserDetail(\${user.id})" 
+                        class="text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        상세보기
+                      </button>
+                    </td>
+                  </tr>
+                \`;
+              }).join('');
+              
+            } catch (error) {
+              console.error('Failed to load users:', error);
+              document.getElementById('usersTableBody').innerHTML = \`
+                <tr>
+                  <td colspan="8" class="px-4 py-8 text-center text-red-500">
+                    회원 정보를 불러오는데 실패했습니다.
+                  </td>
+                </tr>
+              \`;
+            }
+          }
+          
+          // Search Users
+          function searchUsers() {
+            const search = document.getElementById('userSearch').value;
+            loadUsers(search);
+          }
+          
+          // View User Detail
+          async function viewUserDetail(userId) {
+            try {
+              const response = await axios.get(\`/api/admin/users/\${userId}\`);
+              const { user, settings, logs } = response.data;
+              
+              const regions = settings?.regions ? JSON.parse(settings.regions) : [];
+              const propertyTypes = settings?.property_types ? JSON.parse(settings.property_types) : [];
+              
+              alert(\`
+회원 정보:
+- ID: \${user.id}
+- 닉네임: \${user.nickname || '-'}
+- 이메일: \${user.email || '-'}
+- 전화번호: \${user.phone_number || '-'}
+- 가입일: \${new Date(user.created_at).toLocaleString('ko-KR')}
+
+알림 설정:
+- 상태: \${settings?.notification_enabled ? '활성' : '비활성'}
+- 관심 지역: \${regions.join(', ') || '없음'}
+- 관심 유형: \${propertyTypes.join(', ') || '없음'}
+
+알림 발송 기록: \${logs.length}건
+              \`);
+            } catch (error) {
+              console.error('Failed to load user detail:', error);
+              alert('회원 상세 정보를 불러오는데 실패했습니다.');
+            }
+          }
 
           // Initialize
           // checkLoginStatus(); // 로그인 기능 임시 비활성화
