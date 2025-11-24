@@ -9597,31 +9597,31 @@ app.get('/faq', (c) => {
         </header>
 
         <!-- Main Content -->
-        <main class="max-w-4xl mx-auto px-4 py-12">
+        <main class="max-w-4xl mx-auto px-3 sm:px-4 py-6 sm:py-12">
             <!-- Page Header -->
-            <div class="text-center mb-12">
-                <h1 class="text-4xl font-bold text-gray-900 mb-4">
+            <div class="text-center mb-6 sm:mb-12">
+                <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2 sm:mb-4">
                     <i class="fas fa-question-circle text-blue-600 mr-2"></i>
-                    청약 자주 묻는 질문 (FAQ)
+                    청약 자주 묻는 질문
                 </h1>
-                <p class="text-lg text-gray-600">
+                <p class="text-sm sm:text-base md:text-lg text-gray-600">
                     청약에 대한 궁금증을 빠르게 해결하세요
                 </p>
             </div>
 
             <!-- FAQ List -->
-            <div class="space-y-4">
+            <div class="space-y-3 sm:space-y-4">
                 <!-- FAQ 1 -->
                 <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(1)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50">
-                        <div class="flex items-center space-x-3">
-                            <span class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold">1</span>
-                            <h3 class="text-lg font-semibold text-gray-900">청약 정보는 어디서 보나요?</h3>
+                    <button onclick="toggleFaq(1)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
+                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">1</span>
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">청약 정보는 어디서 보나요?</h3>
                         </div>
-                        <i id="icon-1" class="faq-icon fas fa-chevron-down text-gray-400"></i>
+                        <i id="icon-1" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-1" class="faq-answer px-6 pb-4">
-                        <div class="pl-11 text-gray-700 leading-relaxed space-y-2">
+                    <div id="answer-1" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p><strong class="text-blue-600">똑똑한한채</strong>에서 전국의 모든 청약 정보를 실시간으로 확인할 수 있습니다!</p>
                             <ul class="list-disc pl-5 space-y-1">
                                 <li><strong>청약홈</strong>: 공공분양 및 민간분양 청약 정보</li>
@@ -9636,15 +9636,15 @@ app.get('/faq', (c) => {
 
                 <!-- FAQ 2 -->
                 <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(2)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50">
-                        <div class="flex items-center space-x-3">
-                            <span class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold">2</span>
-                            <h3 class="text-lg font-semibold text-gray-900">청약 당첨 확률을 높이는 방법은?</h3>
+                    <button onclick="toggleFaq(2)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
+                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">2</span>
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">청약 당첨 확률을 높이는 방법은?</h3>
                         </div>
-                        <i id="icon-2" class="faq-icon fas fa-chevron-down text-gray-400"></i>
+                        <i id="icon-2" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-2" class="faq-answer px-6 pb-4">
-                        <div class="pl-11 text-gray-700 leading-relaxed space-y-2">
+                    <div id="answer-2" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p>청약 당첨 확률을 높이기 위한 <strong>핵심 전략</strong>:</p>
                             <ol class="list-decimal pl-5 space-y-2">
                                 <li><strong>청약통장 가입기간</strong>: 최소 2년 이상 유지 (점수 높아짐)</li>
@@ -9660,15 +9660,15 @@ app.get('/faq', (c) => {
 
                 <!-- FAQ 3 -->
                 <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(3)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50">
-                        <div class="flex items-center space-x-3">
-                            <span class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold">3</span>
-                            <h3 class="text-lg font-semibold text-gray-900">생애최초 특별공급 조건은?</h3>
+                    <button onclick="toggleFaq(3)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
+                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">3</span>
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">생애최초 특별공급 조건은?</h3>
                         </div>
-                        <i id="icon-3" class="faq-icon fas fa-chevron-down text-gray-400"></i>
+                        <i id="icon-3" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-3" class="faq-answer px-6 pb-4">
-                        <div class="pl-11 text-gray-700 leading-relaxed space-y-2">
+                    <div id="answer-3" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p><strong>생애최초 특별공급</strong>은 무주택자의 내 집 마련을 지원하는 제도입니다:</p>
                             <ul class="list-disc pl-5 space-y-1 mt-2">
                                 <li><strong>무주택 세대주</strong> (본인 + 배우자 모두 과거 무주택)</li>
@@ -9684,15 +9684,15 @@ app.get('/faq', (c) => {
 
                 <!-- FAQ 4 -->
                 <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(4)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50">
-                        <div class="flex items-center space-x-3">
-                            <span class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold">4</span>
-                            <h3 class="text-lg font-semibold text-gray-900">청약통장 없이도 청약 가능한가요?</h3>
+                    <button onclick="toggleFaq(4)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
+                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">4</span>
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">청약통장 없이도 청약 가능한가요?</h3>
                         </div>
-                        <i id="icon-4" class="faq-icon fas fa-chevron-down text-gray-400"></i>
+                        <i id="icon-4" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-4" class="faq-answer px-6 pb-4">
-                        <div class="pl-11 text-gray-700 leading-relaxed space-y-2">
+                    <div id="answer-4" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p><strong>네, 가능합니다!</strong> 청약통장이 없어도 청약할 수 있는 경우:</p>
                             <ul class="list-disc pl-5 space-y-2 mt-2">
                                 <li>
@@ -9715,15 +9715,15 @@ app.get('/faq', (c) => {
 
                 <!-- FAQ 5 -->
                 <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(5)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50">
-                        <div class="flex items-center space-x-3">
-                            <span class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold">5</span>
-                            <h3 class="text-lg font-semibold text-gray-900">줍줍분양(미분양)이 뭔가요?</h3>
+                    <button onclick="toggleFaq(5)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
+                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">5</span>
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">줍줍분양(미분양)이 뭔가요?</h3>
                         </div>
-                        <i id="icon-5" class="faq-icon fas fa-chevron-down text-gray-400"></i>
+                        <i id="icon-5" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-5" class="faq-answer px-6 pb-4">
-                        <div class="pl-11 text-gray-700 leading-relaxed space-y-2">
+                    <div id="answer-5" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p><strong>줍줍분양</strong>은 청약 경쟁에서 분양되지 않은 <strong>미분양 매물</strong>을 의미합니다:</p>
                             <div class="border-l-4 border-gray-300 p-4 my-3">
                                 <p class="font-semibold text-gray-800">💎 줍줍분양의 장점</p>
@@ -9742,15 +9742,15 @@ app.get('/faq', (c) => {
 
                 <!-- FAQ 6 -->
                 <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(6)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50">
-                        <div class="flex items-center space-x-3">
-                            <span class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold">6</span>
-                            <h3 class="text-lg font-semibold text-gray-900">청약 마감 알림은 어떻게 받나요?</h3>
+                    <button onclick="toggleFaq(6)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
+                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">6</span>
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">청약 마감 알림은 어떻게 받나요?</h3>
                         </div>
-                        <i id="icon-6" class="faq-icon fas fa-chevron-down text-gray-400"></i>
+                        <i id="icon-6" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-6" class="faq-answer px-6 pb-4">
-                        <div class="pl-11 text-gray-700 leading-relaxed space-y-2">
+                    <div id="answer-6" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p><strong>똑똑한한채</strong>에서 청약 마감 알림을 받는 방법:</p>
                             <ol class="list-decimal pl-5 space-y-2 mt-2">
                                 <li>
@@ -9781,62 +9781,64 @@ app.get('/faq', (c) => {
 
                 <!-- FAQ 7 -->
                 <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(7)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50">
-                        <div class="flex items-center space-x-3">
-                            <span class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold">7</span>
-                            <h3 class="text-lg font-semibold text-gray-900">청약홈과 LH 청약의 차이는?</h3>
+                    <button onclick="toggleFaq(7)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
+                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">7</span>
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">청약홈과 LH 청약의 차이는?</h3>
                         </div>
-                        <i id="icon-7" class="faq-icon fas fa-chevron-down text-gray-400"></i>
+                        <i id="icon-7" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-7" class="faq-answer px-6 pb-4">
-                        <div class="pl-11 text-gray-700 leading-relaxed">
-                            <table class="w-full mt-2 border-collapse">
-                                <thead>
-                                    <tr class="bg-gray-100">
-                                        <th class="border border-gray-300 px-4 py-2 text-left">구분</th>
-                                        <th class="border border-gray-300 px-4 py-2 text-left">청약홈</th>
-                                        <th class="border border-gray-300 px-4 py-2 text-left">LH 청약</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td class="border border-gray-300 px-4 py-2 font-semibold">운영 기관</td>
-                                        <td class="border border-gray-300 px-4 py-2">주택도시보증공사 (HUG)</td>
-                                        <td class="border border-gray-300 px-4 py-2">한국토지주택공사 (LH)</td>
-                                    </tr>
-                                    <tr class="bg-gray-50">
-                                        <td class="border border-gray-300 px-4 py-2 font-semibold">취급 물건</td>
-                                        <td class="border border-gray-300 px-4 py-2">민간분양, 공공분양 (LH 제외)</td>
-                                        <td class="border border-gray-300 px-4 py-2">LH 공공분양, 공공임대</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="border border-gray-300 px-4 py-2 font-semibold">특징</td>
-                                        <td class="border border-gray-300 px-4 py-2">전국 대부분의 청약<br>민간+공공 모두 취급</td>
-                                        <td class="border border-gray-300 px-4 py-2">LH 공사 물건만<br>저렴한 공공분양 위주</td>
-                                    </tr>
-                                    <tr class="bg-gray-50">
-                                        <td class="border border-gray-300 px-4 py-2 font-semibold">홈페이지</td>
-                                        <td class="border border-gray-300 px-4 py-2">applyhome.co.kr</td>
-                                        <td class="border border-gray-300 px-4 py-2">apply.lh.or.kr</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                            <p class="mt-3 text-blue-600 font-semibold">💡 Tip: 똑똑한한채에서는 청약홈과 LH 청약 정보를 모두 한 곳에서 확인할 수 있습니다!</p>
+                    <div id="answer-7" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed">
+                            <div class="overflow-x-auto -mx-4 sm:mx-0">
+                                <table class="w-full mt-2 border-collapse min-w-[500px]">
+                                    <thead>
+                                        <tr class="bg-gray-100">
+                                            <th class="border border-gray-300 px-2 sm:px-4 py-2 text-left text-xs sm:text-sm">구분</th>
+                                            <th class="border border-gray-300 px-2 sm:px-4 py-2 text-left text-xs sm:text-sm">청약홈</th>
+                                            <th class="border border-gray-300 px-2 sm:px-4 py-2 text-left text-xs sm:text-sm">LH 청약</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 font-semibold text-xs sm:text-sm">운영 기관</td>
+                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 text-xs sm:text-sm">주택도시보증공사 (HUG)</td>
+                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 text-xs sm:text-sm">한국토지주택공사 (LH)</td>
+                                        </tr>
+                                        <tr class="bg-gray-50">
+                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 font-semibold text-xs sm:text-sm">취급 물건</td>
+                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 text-xs sm:text-sm">민간분양, 공공분양 (LH 제외)</td>
+                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 text-xs sm:text-sm">LH 공공분양, 공공임대</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 font-semibold text-xs sm:text-sm">특징</td>
+                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 text-xs sm:text-sm">전국 대부분의 청약<br>민간+공공 모두 취급</td>
+                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 text-xs sm:text-sm">LH 공사 물건만<br>저렴한 공공분양 위주</td>
+                                        </tr>
+                                        <tr class="bg-gray-50">
+                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 font-semibold text-xs sm:text-sm">홈페이지</td>
+                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 text-xs sm:text-sm break-all">applyhome.co.kr</td>
+                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 text-xs sm:text-sm break-all">apply.lh.or.kr</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p class="mt-3 text-xs sm:text-sm text-blue-600 font-semibold">💡 Tip: 똑똑한한채에서는 청약홈과 LH 청약 정보를 모두 한 곳에서 확인할 수 있습니다!</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- FAQ 8 -->
                 <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(8)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50">
-                        <div class="flex items-center space-x-3">
-                            <span class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold">8</span>
-                            <h3 class="text-lg font-semibold text-gray-900">분양가상한제 적용 단지 찾는 법은?</h3>
+                    <button onclick="toggleFaq(8)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
+                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">8</span>
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">분양가상한제 적용 단지 찾는 법은?</h3>
                         </div>
-                        <i id="icon-8" class="faq-icon fas fa-chevron-down text-gray-400"></i>
+                        <i id="icon-8" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-8" class="faq-answer px-6 pb-4">
-                        <div class="pl-11 text-gray-700 leading-relaxed space-y-2">
+                    <div id="answer-8" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p><strong>분양가상한제 적용 단지</strong>는 시세보다 저렴하게 분양받을 수 있는 매력적인 옵션입니다:</p>
                             <div class="border-l-4 border-gray-300 p-4 my-3">
                                 <p class="font-semibold text-gray-800">🔍 찾는 방법</p>
@@ -9855,15 +9857,15 @@ app.get('/faq', (c) => {
 
                 <!-- FAQ 9 -->
                 <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(9)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50">
-                        <div class="flex items-center space-x-3">
-                            <span class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold">9</span>
-                            <h3 class="text-lg font-semibold text-gray-900">조합원 모집 분양은 안전한가요?</h3>
+                    <button onclick="toggleFaq(9)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
+                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">9</span>
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">조합원 모집 분양은 안전한가요?</h3>
                         </div>
-                        <i id="icon-9" class="faq-icon fas fa-chevron-down text-gray-400"></i>
+                        <i id="icon-9" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-9" class="faq-answer px-6 pb-4">
-                        <div class="pl-11 text-gray-700 leading-relaxed space-y-2">
+                    <div id="answer-9" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p>조합원 모집 분양은 <strong>신중한 검토</strong>가 필요합니다:</p>
                             <div class="border-l-4 border-gray-300 p-4 my-3">
                                 <p class="font-semibold text-gray-800">✅ 체크포인트</p>
@@ -9891,15 +9893,15 @@ app.get('/faq', (c) => {
 
                 <!-- FAQ 10 -->
                 <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(10)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50">
-                        <div class="flex items-center space-x-3">
-                            <span class="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold">10</span>
-                            <h3 class="text-lg font-semibold text-gray-900">신혼부부 특별공급 자격 조건은?</h3>
+                    <button onclick="toggleFaq(10)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
+                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">10</span>
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">신혼부부 특별공급 자격 조건은?</h3>
                         </div>
-                        <i id="icon-10" class="faq-icon fas fa-chevron-down text-gray-400"></i>
+                        <i id="icon-10" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-10" class="faq-answer px-6 pb-4">
-                        <div class="pl-11 text-gray-700 leading-relaxed space-y-2">
+                    <div id="answer-10" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p><strong>신혼부부 특별공급</strong>은 결혼 7년 이내 신혼부부를 위한 특별공급입니다:</p>
                             <div class="border-l-4 border-gray-300 p-4 my-3">
                                 <p class="font-semibold text-gray-800">💒 기본 자격 요건</p>
@@ -9927,20 +9929,20 @@ app.get('/faq', (c) => {
             </div>
 
             <!-- CTA Section -->
-            <div class="mt-12 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-8 text-center text-white shadow-lg">
-                <h2 class="text-2xl font-bold mb-3">
+            <div class="mt-8 sm:mt-12 bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl sm:rounded-2xl p-6 sm:p-8 text-center text-white shadow-lg">
+                <h2 class="text-xl sm:text-2xl font-bold mb-2 sm:mb-3">
                     <i class="fas fa-rocket mr-2"></i>
                     지금 바로 청약 정보를 확인해보세요!
                 </h2>
-                <p class="text-blue-100 mb-6">
+                <p class="text-sm sm:text-base text-blue-100 mb-4 sm:mb-6">
                     전국의 분양 정보를 한눈에, 마감임박 알림까지 무료로!
                 </p>
-                <div class="flex justify-center space-x-4">
-                    <a href="/" class="px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-gray-100 transition">
+                <div class="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
+                    <a href="/" class="px-5 sm:px-6 py-2.5 sm:py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-gray-100 transition text-sm sm:text-base">
                         <i class="fas fa-home mr-2"></i>분양 정보 보기
                     </a>
                     ${!isLoggedIn ? `
-                        <a href="/signup" class="px-6 py-3 bg-blue-800 text-white rounded-lg font-semibold hover:bg-blue-900 transition">
+                        <a href="/signup" class="px-5 sm:px-6 py-2.5 sm:py-3 bg-blue-800 text-white rounded-lg font-semibold hover:bg-blue-900 transition text-sm sm:text-base">
                             <i class="fas fa-bell mr-2"></i>알림 받기
                         </a>
                     ` : ''}
@@ -9949,34 +9951,34 @@ app.get('/faq', (c) => {
         </main>
 
         <!-- Footer -->
-        <footer class="bg-gray-900 text-gray-400 py-12 mt-16">
+        <footer class="bg-gray-900 text-gray-400 py-8 sm:py-12 mt-12 sm:mt-16">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
                     <div>
-                        <h3 class="text-white font-bold text-lg mb-4">똑똑한한채</h3>
-                        <p class="text-sm">
+                        <h3 class="text-white font-bold text-base sm:text-lg mb-3 sm:mb-4">똑똑한한채</h3>
+                        <p class="text-xs sm:text-sm">
                             전국 부동산 분양 정보를<br>
                             실시간으로 제공합니다.
                         </p>
                     </div>
                     <div>
-                        <h4 class="text-white font-semibold mb-4">바로가기</h4>
-                        <ul class="space-y-2 text-sm">
+                        <h4 class="text-white font-semibold mb-3 sm:mb-4 text-sm sm:text-base">바로가기</h4>
+                        <ul class="space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
                             <li><a href="/" class="hover:text-white transition">홈</a></li>
                             <li><a href="/faq" class="hover:text-white transition">FAQ</a></li>
                             <li><a href="/terms" class="hover:text-white transition">이용약관</a></li>
                             <li><a href="/privacy" class="hover:text-white transition">개인정보처리방침</a></li>
                         </ul>
                     </div>
-                    <div>
-                        <h4 class="text-white font-semibold mb-4">문의</h4>
-                        <p class="text-sm">
+                    <div class="sm:col-span-2 md:col-span-1">
+                        <h4 class="text-white font-semibold mb-3 sm:mb-4 text-sm sm:text-base">문의</h4>
+                        <p class="text-xs sm:text-sm break-all">
                             Email: support@hanchae365.com<br>
                             운영시간: 평일 09:00 - 18:00
                         </p>
                     </div>
                 </div>
-                <div class="border-t border-gray-800 mt-8 pt-8 text-sm text-center">
+                <div class="border-t border-gray-800 mt-6 sm:mt-8 pt-6 sm:pt-8 text-xs sm:text-sm text-center">
                     <p>&copy; 2025 똑똑한한채. All rights reserved.</p>
                 </div>
             </div>
