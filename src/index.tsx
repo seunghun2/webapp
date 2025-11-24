@@ -9443,13 +9443,13 @@ app.get('/faq', (c) => {
             display: none;
             position: fixed;
             top: 0;
-            left: 0;
+            right: 0;
             width: 280px;
             height: 100vh;
             background: white;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1);
             z-index: 1000;
-            transform: translateX(-100%);
+            transform: translateX(100%);
             transition: transform 0.3s ease;
           }
           
@@ -10647,8 +10647,8 @@ app.get('/', (c) => {
         </div>
         
         <!-- Mobile Menu Sidebar -->
-        <div id="mobileMenu" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
-            <div class="fixed left-0 top-0 bottom-0 w-72 bg-white transform transition-transform duration-300 -translate-x-full" id="mobileMenuPanel">
+        <div id="mobileMenu" class="fixed inset-0 bg-black bg-opacity-50 z-[1000] hidden">
+            <div class="fixed right-0 top-0 bottom-0 w-72 bg-white transform transition-transform duration-300 translate-x-full shadow-lg" id="mobileMenuPanel">
                 <!-- Menu Header -->
                 <div class="flex items-center justify-between p-4 border-b">
                     <h2 class="text-lg font-bold text-gray-900">메뉴</h2>
@@ -11595,14 +11595,14 @@ app.get('/', (c) => {
             const panel = document.getElementById('mobileMenuPanel');
             menu.classList.remove('hidden');
             setTimeout(() => {
-              panel.classList.remove('-translate-x-full');
+              panel.classList.remove('translate-x-full');
             }, 10);
           }
           
           function closeMobileMenu() {
             const menu = document.getElementById('mobileMenu');
             const panel = document.getElementById('mobileMenuPanel');
-            panel.classList.add('-translate-x-full');
+            panel.classList.add('translate-x-full');
             setTimeout(() => {
               menu.classList.add('hidden');
             }, 300);
