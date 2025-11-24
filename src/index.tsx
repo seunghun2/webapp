@@ -104,7 +104,7 @@ app.get('/sitemap.xml', async (c) => {
       sitemap += `
   <!-- Property: ID ${property.id} -->
   <url>
-    <loc>${baseUrl}/?property=${property.id}</loc>
+    <loc>${baseUrl}/property/${property.id}</loc>
     <lastmod>${lastmod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -9132,6 +9132,256 @@ app.get('/admin', (c) => {
 
             // Initial load
             loadProperties();
+        </script>
+    </body>
+    </html>
+  `)
+})
+
+// Property detail page (매물 상세 페이지) - SEO 최적화
+app.get('/property/:id', async (c) => {
+  const { DB } = c.env
+  const propertyId = c.req.param('id')
+  
+  // Get property from database
+  const property = await DB.prepare(`
+    SELECT * FROM properties WHERE id = ? AND deleted_at IS NULL
+  `).bind(propertyId).first()
+  
+  if (!property) {
+    return c.html(`
+      <script>
+        alert('매물을 찾을 수 없습니다.');
+        window.location.href = '/';
+      </script>
+    `)
+  }
+  
+  // Parse extended_data
+  let extendedData = {}
+  try {
+    extendedData = JSON.parse(property.extended_data || '{}')
+  } catch (e) {
+    extendedData = {}
+  }
+  
+  // Parse tags
+  let tags = []
+  try {
+    tags = JSON.parse(property.tags || '[]')
+  } catch (e) {
+    tags = []
+  }
+  
+  // SEO: Generate structured data (Schema.org)
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "RealEstateListing",
+    "name": property.title,
+    "description": property.description || `${property.location} ${property.title} 분양 정보`,
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": property.location,
+      "addressCountry": "KR"
+    },
+    "price": property.price,
+    "url": `https://hanchae365.com/property/${property.id}`,
+    "image": extendedData.images?.[0] || "https://hanchae365.com/og-image.jpg"
+  }
+  
+  const pageTitle = `${property.title} - ${property.location} 분양정보 | 똑똑한한채`
+  const pageDescription = `${property.title} ${property.location} 분양 정보. 가격: ${property.price}, 세대수: ${property.households || '미정'}. 마감일: ${property.deadline || '미정'}. 똑똑한한채에서 확인하세요.`
+  const keywords = `${property.title},${property.location},분양,청약,${tags.join(',')},부동산분양,아파트분양,똑똑한한채`
+  
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${pageTitle}</title>
+        
+        <!-- SEO Meta Tags -->
+        <meta name="description" content="${pageDescription}">
+        <meta name="keywords" content="${keywords}">
+        <meta name="author" content="똑똑한한채">
+        <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+        <link rel="canonical" href="https://hanchae365.com/property/${property.id}">
+        
+        <!-- Open Graph Meta Tags -->
+        <meta property="og:type" content="article">
+        <meta property="og:title" content="${pageTitle}">
+        <meta property="og:description" content="${pageDescription}">
+        <meta property="og:url" content="https://hanchae365.com/property/${property.id}">
+        <meta property="og:site_name" content="똑똑한한채">
+        <meta property="og:image" content="${extendedData.images?.[0] || 'https://hanchae365.com/og-image.jpg'}">
+        
+        <!-- Twitter Card Meta Tags -->
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="${pageTitle}">
+        <meta name="twitter:description" content="${pageDescription}">
+        <meta name="twitter:image" content="${extendedData.images?.[0] || 'https://hanchae365.com/og-image.jpg'}">
+        
+        <!-- Structured Data (Schema.org) -->
+        <script type="application/ld+json">
+        ${JSON.stringify(structuredData)}
+        </script>
+        
+        <!-- Google Analytics -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-470RN8J40M"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-470RN8J40M');
+        </script>
+        
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-50">
+        <!-- 헤더 -->
+        <header class="bg-white border-b sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <a href="/" class="text-xl font-bold text-gray-900">똑똑한한채</a>
+                    <a href="/" class="text-sm text-gray-600 hover:text-gray-900">
+                        <i class="fas fa-home mr-1"></i> 홈으로
+                    </a>
+                </div>
+            </div>
+        </header>
+        
+        <!-- 매물 상세 정보 -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <!-- 제목 -->
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">${property.title}</h1>
+                
+                <!-- 위치 -->
+                <div class="flex items-center text-gray-600 mb-4">
+                    <i class="fas fa-map-marker-alt mr-2"></i>
+                    <span>${property.location}</span>
+                </div>
+                
+                <!-- 태그 -->
+                ${tags.length > 0 ? `
+                <div class="flex flex-wrap gap-2 mb-6">
+                    ${tags.map(tag => `<span class="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">${tag}</span>`).join('')}
+                </div>
+                ` : ''}
+                
+                <!-- 주요 정보 -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-600 mb-1">분양가</p>
+                        <p class="text-lg font-semibold text-gray-900">${property.price || '미정'}</p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-600 mb-1">세대수</p>
+                        <p class="text-lg font-semibold text-gray-900">${property.households || '미정'}</p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-600 mb-1">신청마감</p>
+                        <p class="text-lg font-semibold text-red-600">${property.deadline || '미정'}</p>
+                    </div>
+                </div>
+                
+                <!-- 설명 -->
+                ${property.description ? `
+                <div class="mb-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-3">상세 설명</h2>
+                    <p class="text-gray-700 whitespace-pre-line">${property.description}</p>
+                </div>
+                ` : ''}
+                
+                <!-- 이미지 -->
+                ${extendedData.images && extendedData.images.length > 0 ? `
+                <div class="mb-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-3">매물 사진</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        ${extendedData.images.map(img => `
+                            <img src="${img}" alt="${property.title}" class="w-full h-64 object-cover rounded-lg">
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+                
+                <!-- 일정 (Steps) -->
+                ${extendedData.steps && extendedData.steps.length > 0 ? `
+                <div class="mb-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-3">일정</h2>
+                    <div class="space-y-2">
+                        ${extendedData.steps.map(step => `
+                            <div class="flex justify-between items-center py-2 border-b">
+                                <span class="text-gray-700">${step.label}</span>
+                                <span class="text-gray-900 font-medium">${step.value}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+                
+                <!-- CTA 버튼 -->
+                <div class="flex gap-4 mt-8">
+                    <a href="/" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white text-center rounded-lg font-medium transition-colors">
+                        <i class="fas fa-list mr-2"></i> 전체 매물 보기
+                    </a>
+                </div>
+            </div>
+            
+            <!-- 관련 매물 추천 -->
+            <div class="mt-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">
+                    <i class="fas fa-building mr-2"></i> 같은 지역 매물
+                </h2>
+                <div id="relatedProperties" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- JavaScript로 로드 -->
+                </div>
+            </div>
+        </main>
+        
+        <!-- 푸터 -->
+        <footer class="bg-white border-t mt-12">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <p class="text-center text-gray-600 text-sm">
+                    © 2025 똑똑한한채. All rights reserved.
+                </p>
+            </div>
+        </footer>
+        
+        <script>
+          // 같은 지역 매물 불러오기
+          async function loadRelatedProperties() {
+            try {
+              const response = await fetch('/api/properties?location=${property.location}&limit=3')
+              const properties = await response.json()
+              
+              const container = document.getElementById('relatedProperties')
+              
+              if (properties.length === 0) {
+                container.innerHTML = '<p class="text-gray-600 col-span-3">관련 매물이 없습니다.</p>'
+                return
+              }
+              
+              container.innerHTML = properties
+                .filter(p => p.id !== ${property.id})
+                .slice(0, 3)
+                .map(p => \`
+                  <a href="/property/\${p.id}" class="block bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-4">
+                    <h3 class="font-bold text-gray-900 mb-2">\${p.title}</h3>
+                    <p class="text-sm text-gray-600 mb-2">
+                      <i class="fas fa-map-marker-alt mr-1"></i> \${p.location}
+                    </p>
+                    <p class="text-sm text-gray-900 font-medium">\${p.price}</p>
+                  </a>
+                \`).join('')
+            } catch (error) {
+              console.error('Failed to load related properties:', error)
+            }
+          }
+          
+          loadRelatedProperties()
         </script>
     </body>
     </html>
