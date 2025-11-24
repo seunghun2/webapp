@@ -9411,11 +9411,11 @@ app.get('/', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>똑똑한한채 - 전국 부동산 분양 정보 | 줍줍분양 실시간 업데이트</title>
+        <title>청약정보 보는법 - 청약알림·분양정보 실시간 | 똑똑한한채</title>
         
         <!-- SEO Meta Tags -->
-        <meta name="description" content="전국 부동산 분양 정보를 한눈에! 줍줍분양(미분양), 조합원 모집, LH 청약, 신규분양 실시간 마감임박 정보. 똑똑한한채에서 확인하세요.">
-        <meta name="keywords" content="부동산분양,줍줍분양,미분양,조합원모집,아파트분양,신규분양,분양정보,부동산,아파트,청약,분양가,부동산정보,LH분양,LH청약,공공분양,민간분양,마감임박,실시간분양,분양단지,아파트청약,똑똑한한채,한채365,청약홈,청약정보,청약일정,분양일정,분양가격,분양조건,입주시기,분양상담,청약상담">
+        <meta name="description" content="청약정보 어디서 볼까요? 똑똑한한채에서 청약홈·LH 청약 부동산정보를 실시간 확인. 마감임박 청약알림, 지역별 분양정보 검색. 2025년 최신 청약정보 보는법 가이드 제공.">
+        <meta name="keywords" content="청약정보,청약정보 보는법,청약정보 어디서,청약 부동산정보 어디서,청약알림,청약홈,LH청약,분양정보,부동산분양,줍줍분양,미분양,조합원모집,아파트분양,신규분양,부동산,아파트,청약,분양가,부동산정보,LH분양,공공분양,민간분양,마감임박,실시간분양,분양단지,아파트청약,똑똑한한채,한채365,청약일정,분양일정,분양가격,분양조건,입주시기,분양상담,청약상담">
         <meta name="author" content="똑똑한한채">
         <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
         <meta name="googlebot" content="index, follow">
