@@ -3995,6 +3995,7 @@ app.get('/api/images/:path{.+}', async (c) => {
     object.writeHttpMetadata(headers)
     headers.set('etag', object.httpEtag)
     headers.set('cache-control', 'public, max-age=31536000') // Cache for 1 year
+    headers.set('access-control-allow-origin', '*') // Allow CORS for all origins (Safari compatibility)
     
     return new Response(object.body, {
       headers
