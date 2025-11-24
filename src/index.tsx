@@ -9484,9 +9484,19 @@ app.get('/faq', (c) => {
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.3s ease;
+            padding-top: 0;
+            padding-bottom: 0;
           }
           .faq-answer.active {
             max-height: 2000px;
+            padding-top: 0.75rem;
+            padding-bottom: 0.75rem;
+          }
+          @media (min-width: 640px) {
+            .faq-answer.active {
+              padding-top: 1rem;
+              padding-bottom: 1rem;
+            }
           }
           .faq-icon {
             transition: transform 0.3s ease;
@@ -9620,7 +9630,7 @@ app.get('/faq', (c) => {
                         </div>
                         <i id="icon-1" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-1" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                    <div id="answer-1" class="faq-answer px-4 sm:px-6">
                         <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p><strong class="text-blue-600">똑똑한한채</strong>에서 전국의 모든 청약 정보를 실시간으로 확인할 수 있습니다!</p>
                             <ul class="list-disc pl-5 space-y-1">
@@ -9643,7 +9653,7 @@ app.get('/faq', (c) => {
                         </div>
                         <i id="icon-2" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-2" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                    <div id="answer-2" class="faq-answer px-4 sm:px-6">
                         <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p>청약 당첨 확률을 높이기 위한 <strong>핵심 전략</strong>:</p>
                             <ol class="list-decimal pl-5 space-y-2">
@@ -9667,7 +9677,7 @@ app.get('/faq', (c) => {
                         </div>
                         <i id="icon-3" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-3" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                    <div id="answer-3" class="faq-answer px-4 sm:px-6">
                         <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p><strong>생애최초 특별공급</strong>은 무주택자의 내 집 마련을 지원하는 제도입니다:</p>
                             <ul class="list-disc pl-5 space-y-1 mt-2">
@@ -9691,7 +9701,7 @@ app.get('/faq', (c) => {
                         </div>
                         <i id="icon-4" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-4" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                    <div id="answer-4" class="faq-answer px-4 sm:px-6">
                         <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p><strong>네, 가능합니다!</strong> 청약통장이 없어도 청약할 수 있는 경우:</p>
                             <ul class="list-disc pl-5 space-y-2 mt-2">
@@ -9722,7 +9732,7 @@ app.get('/faq', (c) => {
                         </div>
                         <i id="icon-5" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-5" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                    <div id="answer-5" class="faq-answer px-4 sm:px-6">
                         <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p><strong>줍줍분양</strong>은 청약 경쟁에서 분양되지 않은 <strong>미분양 매물</strong>을 의미합니다:</p>
                             <div class="border-l-4 border-gray-300 p-4 my-3">
@@ -9749,7 +9759,7 @@ app.get('/faq', (c) => {
                         </div>
                         <i id="icon-6" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-6" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                    <div id="answer-6" class="faq-answer px-4 sm:px-6">
                         <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p><strong>똑똑한한채</strong>에서 청약 마감 알림을 받는 방법:</p>
                             <ol class="list-decimal pl-5 space-y-2 mt-2">
@@ -9788,7 +9798,7 @@ app.get('/faq', (c) => {
                         </div>
                         <i id="icon-7" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-7" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                    <div id="answer-7" class="faq-answer px-4 sm:px-6">
                         <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed">
                             <div class="overflow-x-auto -mx-4 sm:mx-0">
                                 <table class="w-full mt-2 border-collapse min-w-[500px]">
@@ -9837,7 +9847,7 @@ app.get('/faq', (c) => {
                         </div>
                         <i id="icon-8" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-8" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                    <div id="answer-8" class="faq-answer px-4 sm:px-6">
                         <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p><strong>분양가상한제 적용 단지</strong>는 시세보다 저렴하게 분양받을 수 있는 매력적인 옵션입니다:</p>
                             <div class="border-l-4 border-gray-300 p-4 my-3">
@@ -9864,7 +9874,7 @@ app.get('/faq', (c) => {
                         </div>
                         <i id="icon-9" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-9" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                    <div id="answer-9" class="faq-answer px-4 sm:px-6">
                         <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p>조합원 모집 분양은 <strong>신중한 검토</strong>가 필요합니다:</p>
                             <div class="border-l-4 border-gray-300 p-4 my-3">
@@ -9900,7 +9910,7 @@ app.get('/faq', (c) => {
                         </div>
                         <i id="icon-10" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
                     </button>
-                    <div id="answer-10" class="faq-answer px-4 sm:px-6 pb-3 sm:pb-4">
+                    <div id="answer-10" class="faq-answer px-4 sm:px-6">
                         <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
                             <p><strong>신혼부부 특별공급</strong>은 결혼 7년 이내 신혼부부를 위한 특별공급입니다:</p>
                             <div class="border-l-4 border-gray-300 p-4 my-3">
