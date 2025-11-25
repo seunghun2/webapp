@@ -7747,8 +7747,8 @@ app.get('/admin', (c) => {
                 document.getElementById('faqModal').classList.remove('active');
             }
             
-            // Save FAQ
-            document.getElementById('faqForm')?.addEventListener('submit', async (e) => {
+            // Save FAQ (Global function to be called from form submit)
+            window.saveFaq = async function(e) {
                 e.preventDefault();
                 
                 const id = document.getElementById('faqId').value;
@@ -7775,7 +7775,7 @@ app.get('/admin', (c) => {
                     console.error('Failed to save FAQ:', error);
                     alert('FAQ 저장에 실패했습니다.');
                 }
-            });
+            };
             
             // Toggle FAQ Publish Status
             async function toggleFaqPublish(id) {
@@ -11647,7 +11647,7 @@ app.get('/', (c) => {
                     </button>
                 </div>
                 <div class="p-6">
-                    <form id="faqForm" class="space-y-4">
+                    <form id="faqForm" onsubmit="return saveFaq(event)" class="space-y-4">
                         <input type="hidden" id="faqId">
                         
                         <div>
