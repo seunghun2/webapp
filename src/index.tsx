@@ -10032,16 +10032,20 @@ app.get('/faq', async (c) => {
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
           }
           .faq-answer {
-            max-height: 0;
+            display: grid;
+            grid-template-rows: 0fr;
             overflow: hidden;
-            transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: grid-template-rows 0.3s ease-out, padding 0.3s ease-out;
             padding-top: 0;
             padding-bottom: 0;
           }
           .faq-answer.active {
-            max-height: 1000px;
+            grid-template-rows: 1fr;
             padding-top: 0.75rem;
             padding-bottom: 0.75rem;
+          }
+          .faq-answer > div {
+            min-height: 0;
           }
           @media (min-width: 640px) {
             .faq-answer.active {
@@ -10050,7 +10054,7 @@ app.get('/faq', async (c) => {
             }
           }
           .faq-icon {
-            transition: transform 0.3s ease;
+            transition: transform 0.3s ease-out;
           }
           .faq-icon.active {
             transform: rotate(180deg);
