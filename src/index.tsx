@@ -7069,6 +7069,104 @@ app.get('/admin', (c) => {
             </div>
         </div>
 
+        <!-- FAQ Add/Edit Modal -->
+        <div id="faqModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
+            <div class="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
+                    <h2 id="faqModalTitle" class="text-xl font-bold text-gray-900">FAQ 추가</h2>
+                    <button onclick="window.closeFaqModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                <div class="p-6">
+                    <form id="faqForm" onsubmit="return saveFaq(event)" class="space-y-4">
+                        <input type="hidden" id="faqId">
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                카테고리 *
+                            </label>
+                            <select id="faqCategory" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="청약정보">청약정보</option>
+                                <option value="당첨확률">당첨확률</option>
+                                <option value="특별공급">특별공급</option>
+                                <option value="기타">기타</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                질문 *
+                            </label>
+                            <input 
+                                type="text" 
+                                id="faqQuestion" 
+                                required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                placeholder="예: 청약정보는 어디서 확인할 수 있나요?"
+                            >
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                답변 *
+                            </label>
+                            <textarea 
+                                id="faqAnswer" 
+                                required
+                                rows="8"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+                                placeholder="답변 내용을 입력하세요..."
+                            ></textarea>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    표시 순서
+                                </label>
+                                <input 
+                                    type="number" 
+                                    id="faqDisplayOrder" 
+                                    value="0"
+                                    min="0"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    placeholder="0"
+                                >
+                                <p class="text-xs text-gray-500 mt-1">낮은 숫자가 먼저 표시됩니다</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    공개 상태
+                                </label>
+                                <select id="faqPublished" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="1">공개</option>
+                                    <option value="0">비공개</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-3 pt-4">
+                            <button 
+                                type="button"
+                                onclick="window.closeFaqModal()"
+                                class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                            >
+                                취소
+                            </button>
+                            <button 
+                                type="submit"
+                                class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                            >
+                                저장
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script>
             // Check authentication
@@ -11637,104 +11735,6 @@ app.get('/', (c) => {
         </div>
 
         <!-- 광고 문의 모달 (토스 스타일) -->
-        <!-- FAQ Add/Edit Modal -->
-        <div id="faqModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
-            <div class="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div class="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
-                    <h2 id="faqModalTitle" class="text-xl font-bold text-gray-900">FAQ 추가</h2>
-                    <button onclick="closeFaqModal()" class="text-gray-400 hover:text-gray-600">
-                        <i class="fas fa-times text-2xl"></i>
-                    </button>
-                </div>
-                <div class="p-6">
-                    <form id="faqForm" onsubmit="return saveFaq(event)" class="space-y-4">
-                        <input type="hidden" id="faqId">
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                카테고리 *
-                            </label>
-                            <select id="faqCategory" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                <option value="청약정보">청약정보</option>
-                                <option value="당첨확률">당첨확률</option>
-                                <option value="특별공급">특별공급</option>
-                                <option value="기타">기타</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                질문 *
-                            </label>
-                            <input 
-                                type="text" 
-                                id="faqQuestion" 
-                                required
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                placeholder="예: 청약정보는 어디서 확인할 수 있나요?"
-                            >
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                답변 *
-                            </label>
-                            <textarea 
-                                id="faqAnswer" 
-                                required
-                                rows="8"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
-                                placeholder="답변 내용을 입력하세요..."
-                            ></textarea>
-                        </div>
-                        
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    표시 순서
-                                </label>
-                                <input 
-                                    type="number" 
-                                    id="faqDisplayOrder" 
-                                    value="0"
-                                    min="0"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                    placeholder="0"
-                                >
-                                <p class="text-xs text-gray-500 mt-1">낮은 숫자가 먼저 표시됩니다</p>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    공개 상태
-                                </label>
-                                <select id="faqPublished" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                                    <option value="1">공개</option>
-                                    <option value="0">비공개</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="flex gap-3 pt-4">
-                            <button 
-                                type="button"
-                                onclick="closeFaqModal()"
-                                class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                            >
-                                취소
-                            </button>
-                            <button 
-                                type="submit"
-                                class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                            >
-                                저장
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
         <div id="adInquiryModal" class="fixed inset-0 z-[100] hidden">
             <!-- 백드롭 -->
             <div class="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300" onclick="closeAdInquiry()"></div>
