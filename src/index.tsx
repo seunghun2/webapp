@@ -9817,7 +9817,7 @@ app.get('/property/:id', async (c) => {
 })
 
 // FAQ page
-app.get('/faq', (c) => {
+app.get('/faq', async (c) => {
   // Get user from cookie
   const userCookie = getCookie(c, 'user');
   let user = null;
@@ -9831,6 +9831,34 @@ app.get('/faq', (c) => {
       // Invalid cookie
     }
   }
+  
+  // Get FAQs from database
+  const { DB } = c.env
+  const faqs = await DB.prepare(`
+    SELECT * FROM faqs WHERE is_published = 1 ORDER BY display_order ASC, created_at DESC
+  `).all()
+  
+  // Generate FAQ items HTML
+  const faqItemsHtml = faqs.results.map((faq, index) => `
+    <!-- FAQ ${index + 1} -->
+    <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <button onclick="toggleFaq(${index + 1})" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
+            <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+                <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">${index + 1}</span>
+                <div class="flex-1 min-w-0">
+                    <span class="inline-block px-2 py-0.5 text-xs font-medium rounded bg-blue-50 text-blue-600 mb-1">${faq.category}</span>
+                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">${faq.question}</h3>
+                </div>
+            </div>
+            <i id="icon-${index + 1}" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
+        </button>
+        <div id="answer-${index + 1}" class="faq-answer px-4 sm:px-6">
+            <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed whitespace-pre-wrap">
+                ${faq.answer}
+            </div>
+        </div>
+    </div>
+  `).join('\n')
   
   return c.html(`
     <!DOCTYPE html>
@@ -10048,321 +10076,8 @@ app.get('/faq', (c) => {
 
             <!-- FAQ List -->
             <div class="space-y-3 sm:space-y-4">
-                <!-- FAQ 1 -->
-                <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(1)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
-                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">1</span>
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">청약 정보는 어디서 보나요?</h3>
-                        </div>
-                        <i id="icon-1" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
-                    </button>
-                    <div id="answer-1" class="faq-answer px-4 sm:px-6">
-                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
-                            <p><strong class="text-blue-600">똑똑한한채</strong>에서 전국의 모든 청약 정보를 실시간으로 확인할 수 있습니다!</p>
-                            <ul class="list-disc pl-5 space-y-1">
-                                <li><strong>청약홈</strong>: 공공분양 및 민간분양 청약 정보</li>
-                                <li><strong>LH 청약</strong>: LH 공사의 공공임대 및 분양 정보</li>
-                                <li><strong>줍줍분양</strong>: 미분양 매물 정보</li>
-                                <li><strong>조합원 모집</strong>: 재개발/재건축 조합원 모집 정보</li>
-                            </ul>
-                            <p class="mt-3">똑똑한한채 메인 페이지에서 지역별, 카테고리별로 쉽게 검색할 수 있습니다.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAQ 2 -->
-                <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(2)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
-                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">2</span>
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">청약 당첨 확률을 높이는 방법은?</h3>
-                        </div>
-                        <i id="icon-2" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
-                    </button>
-                    <div id="answer-2" class="faq-answer px-4 sm:px-6">
-                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
-                            <p>청약 당첨 확률을 높이기 위한 <strong>핵심 전략</strong>:</p>
-                            <ol class="list-decimal pl-5 space-y-2">
-                                <li><strong>청약통장 가입기간</strong>: 최소 2년 이상 유지 (점수 높아짐)</li>
-                                <li><strong>무주택 기간</strong>: 무주택 기간이 길수록 유리</li>
-                                <li><strong>부양가족 수</strong>: 부양가족이 많을수록 가점 상승</li>
-                                <li><strong>경쟁률 낮은 지역</strong>: 수도권보다 지방, 인기 없는 평형대 공략</li>
-                                <li><strong>특별공급 활용</strong>: 생애최초, 신혼부부, 다자녀 등 해당 시 적극 활용</li>
-                                <li><strong>미분양 매물</strong>: 줍줍분양(미분양)은 경쟁률이 낮아 당첨 가능성 높음</li>
-                            </ol>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAQ 3 -->
-                <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(3)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
-                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">3</span>
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">생애최초 특별공급 조건은?</h3>
-                        </div>
-                        <i id="icon-3" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
-                    </button>
-                    <div id="answer-3" class="faq-answer px-4 sm:px-6">
-                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
-                            <p><strong>생애최초 특별공급</strong>은 무주택자의 내 집 마련을 지원하는 제도입니다:</p>
-                            <ul class="list-disc pl-5 space-y-1 mt-2">
-                                <li><strong>무주택 세대주</strong> (본인 + 배우자 모두 과거 무주택)</li>
-                                <li><strong>5년 이상 소득세 납부</strong> (연속/합산 무관)</li>
-                                <li><strong>청약통장 가입</strong> (민영: 6개월 이상, 공공: 1~2년 이상)</li>
-                                <li><strong>소득 기준</strong>: 도시근로자 월평균 소득 130% 이하</li>
-                                <li><strong>자산 기준</strong>: 부동산 3.45억 원, 자동차 3,557만 원 이하</li>
-                            </ul>
-                            <p class="mt-3 text-blue-600 font-semibold">💡 Tip: 맞벌이 부부의 경우 소득 합산 시 160%까지 인정됩니다!</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAQ 4 -->
-                <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(4)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
-                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">4</span>
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">청약통장 없이도 청약 가능한가요?</h3>
-                        </div>
-                        <i id="icon-4" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
-                    </button>
-                    <div id="answer-4" class="faq-answer px-4 sm:px-6">
-                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
-                            <p><strong>네, 가능합니다!</strong> 청약통장이 없어도 청약할 수 있는 경우:</p>
-                            <ul class="list-disc pl-5 space-y-2 mt-2">
-                                <li>
-                                    <strong>줍줍분양 (미분양)</strong><br>
-                                    <span class="text-gray-600">→ 청약통장 필요 없이 선착순으로 계약 가능</span>
-                                </li>
-                                <li>
-                                    <strong>조합원 모집</strong><br>
-                                    <span class="text-gray-600">→ 재개발/재건축 조합 가입 시 청약통장 불필요</span>
-                                </li>
-                                <li>
-                                    <strong>일부 민간분양</strong><br>
-                                    <span class="text-gray-600">→ 투기과열지구가 아닌 지역의 일부 민간분양</span>
-                                </li>
-                            </ul>
-                            <p class="mt-3 text-amber-600 font-semibold">⚠️ 단, 일반 청약은 청약통장이 필수입니다. 지금이라도 가입하세요!</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAQ 5 -->
-                <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(5)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
-                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">5</span>
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">줍줍분양(미분양)이 뭔가요?</h3>
-                        </div>
-                        <i id="icon-5" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
-                    </button>
-                    <div id="answer-5" class="faq-answer px-4 sm:px-6">
-                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
-                            <p><strong>줍줍분양</strong>은 청약 경쟁에서 분양되지 않은 <strong>미분양 매물</strong>을 의미합니다:</p>
-                            <div class="border-l-4 border-gray-300 p-4 my-3">
-                                <p class="font-semibold text-gray-800">💎 줍줍분양의 장점</p>
-                                <ul class="list-disc pl-5 mt-2 space-y-1 text-gray-700">
-                                    <li><strong>경쟁 없음</strong>: 청약 경쟁률 걱정 없이 선착순 계약</li>
-                                    <li><strong>청약통장 불필요</strong>: 청약통장 없어도 계약 가능</li>
-                                    <li><strong>즉시 입주</strong>: 준공 완료되어 바로 입주 가능한 경우 많음</li>
-                                    <li><strong>가격 협상</strong>: 프리미엄 없이 분양가로 계약 가능</li>
-                                    <li><strong>옵션 선택</strong>: 남은 호수/층수 중 선택 가능</li>
-                                </ul>
-                            </div>
-                            <p class="text-gray-600">똑똑한한채에서 전국의 줍줍분양 정보를 실시간으로 확인하세요!</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAQ 6 -->
-                <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(6)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
-                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">6</span>
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">청약 마감 알림은 어떻게 받나요?</h3>
-                        </div>
-                        <i id="icon-6" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
-                    </button>
-                    <div id="answer-6" class="faq-answer px-4 sm:px-6">
-                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
-                            <p><strong>똑똑한한채</strong>에서 청약 마감 알림을 받는 방법:</p>
-                            <ol class="list-decimal pl-5 space-y-2 mt-2">
-                                <li>
-                                    <strong>회원가입</strong><br>
-                                    <span class="text-gray-600">→ 이메일 또는 카카오톡 간편 로그인</span>
-                                </li>
-                                <li>
-                                    <strong>알림 설정</strong><br>
-                                    <span class="text-gray-600">→ 마이페이지에서 관심 지역/카테고리 선택</span>
-                                </li>
-                                <li>
-                                    <strong>자동 알림 수신</strong><br>
-                                    <span class="text-gray-600">→ 마감 3일 전, 1일 전 자동 알림 발송</span>
-                                </li>
-                            </ol>
-                            <div class="border-l-4 border-gray-300 p-4 my-3">
-                                <p class="font-semibold text-gray-800">🔔 알림 받을 수 있는 정보</p>
-                                <ul class="list-disc pl-5 mt-2 space-y-1 text-gray-700">
-                                    <li>마감임박 청약 정보 (D-3, D-1)</li>
-                                    <li>신규 분양 등록 알림</li>
-                                    <li>줍줍분양 신규 매물 알림</li>
-                                    <li>관심 지역 조합원 모집 알림</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAQ 7 -->
-                <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(7)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
-                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">7</span>
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">청약홈과 LH 청약의 차이는?</h3>
-                        </div>
-                        <i id="icon-7" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
-                    </button>
-                    <div id="answer-7" class="faq-answer px-4 sm:px-6">
-                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed">
-                            <div class="overflow-x-auto -mx-4 sm:mx-0">
-                                <table class="w-full mt-2 border-collapse min-w-[500px]">
-                                    <thead>
-                                        <tr class="bg-gray-100">
-                                            <th class="border border-gray-300 px-2 sm:px-4 py-2 text-left text-xs sm:text-sm">구분</th>
-                                            <th class="border border-gray-300 px-2 sm:px-4 py-2 text-left text-xs sm:text-sm">청약홈</th>
-                                            <th class="border border-gray-300 px-2 sm:px-4 py-2 text-left text-xs sm:text-sm">LH 청약</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 font-semibold text-xs sm:text-sm">운영 기관</td>
-                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 text-xs sm:text-sm">주택도시보증공사 (HUG)</td>
-                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 text-xs sm:text-sm">한국토지주택공사 (LH)</td>
-                                        </tr>
-                                        <tr class="bg-gray-50">
-                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 font-semibold text-xs sm:text-sm">취급 물건</td>
-                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 text-xs sm:text-sm">민간분양, 공공분양 (LH 제외)</td>
-                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 text-xs sm:text-sm">LH 공공분양, 공공임대</td>
-                                        </tr>
-                                        <tr>
-                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 font-semibold text-xs sm:text-sm">특징</td>
-                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 text-xs sm:text-sm">전국 대부분의 청약<br>민간+공공 모두 취급</td>
-                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 text-xs sm:text-sm">LH 공사 물건만<br>저렴한 공공분양 위주</td>
-                                        </tr>
-                                        <tr class="bg-gray-50">
-                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 font-semibold text-xs sm:text-sm">홈페이지</td>
-                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 text-xs sm:text-sm break-all">applyhome.co.kr</td>
-                                            <td class="border border-gray-300 px-2 sm:px-4 py-2 text-xs sm:text-sm break-all">apply.lh.or.kr</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <p class="mt-3 text-xs sm:text-sm text-blue-600 font-semibold">💡 Tip: 똑똑한한채에서는 청약홈과 LH 청약 정보를 모두 한 곳에서 확인할 수 있습니다!</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAQ 8 -->
-                <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(8)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
-                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">8</span>
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">분양가상한제 적용 단지 찾는 법은?</h3>
-                        </div>
-                        <i id="icon-8" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
-                    </button>
-                    <div id="answer-8" class="faq-answer px-4 sm:px-6">
-                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
-                            <p><strong>분양가상한제 적용 단지</strong>는 시세보다 저렴하게 분양받을 수 있는 매력적인 옵션입니다:</p>
-                            <div class="border-l-4 border-gray-300 p-4 my-3">
-                                <p class="font-semibold text-gray-800">🔍 찾는 방법</p>
-                                <ol class="list-decimal pl-5 mt-2 space-y-1 text-gray-700">
-                                    <li>똑똑한한채 메인 페이지 접속</li>
-                                    <li>카테고리에서 <strong>"공공분양"</strong> 또는 <strong>"LH 청약"</strong> 선택</li>
-                                    <li>매물 상세 정보에서 "분양가상한제 적용" 표시 확인</li>
-                                    <li>청약홈에서 분양공고문의 "분양가상한제 적용 여부" 확인</li>
-                                </ol>
-                            </div>
-                            <p><strong>분양가상한제 주요 적용 지역</strong>: 서울, 과천, 성남 분당·수정, 하남, 고양, 남양주 등</p>
-                            <p class="text-gray-600">투기과열지구 및 조정대상지역의 공공택지에서 공급되는 주택에 적용됩니다.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAQ 9 -->
-                <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(9)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
-                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">9</span>
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">조합원 모집 분양은 안전한가요?</h3>
-                        </div>
-                        <i id="icon-9" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
-                    </button>
-                    <div id="answer-9" class="faq-answer px-4 sm:px-6">
-                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
-                            <p>조합원 모집 분양은 <strong>신중한 검토</strong>가 필요합니다:</p>
-                            <div class="border-l-4 border-gray-300 p-4 my-3">
-                                <p class="font-semibold text-gray-800">✅ 체크포인트</p>
-                                <ul class="list-disc pl-5 mt-2 space-y-1 text-gray-700">
-                                    <li><strong>사업 진행 단계</strong>: 관리처분인가 이후가 안전</li>
-                                    <li><strong>조합 설립 인가</strong>: 정식 인가 받은 조합인지 확인</li>
-                                    <li><strong>시공사</strong>: 대형 건설사 참여 여부 (부도 리스크 감소)</li>
-                                    <li><strong>사업성</strong>: 주변 시세 대비 분담금 적정성</li>
-                                    <li><strong>조합원 수</strong>: 조합원 수가 많을수록 안정적</li>
-                                </ul>
-                            </div>
-                            <div class="border-l-4 border-gray-300 p-4 my-3">
-                                <p class="font-semibold text-gray-800">⚠️ 위험 요소</p>
-                                <ul class="list-disc pl-5 mt-2 space-y-1 text-gray-700">
-                                    <li>사업 지연 리스크 (5~10년 소요 가능)</li>
-                                    <li>추가 분담금 발생 가능성</li>
-                                    <li>관리처분인가 취소 리스크</li>
-                                    <li>조합 간 갈등 가능성</li>
-                                </ul>
-                            </div>
-                            <p class="font-semibold text-blue-600">💡 Tip: 전문가 상담을 받거나, 관리처분인가 이후 단계의 안정적인 사업에 참여하세요!</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FAQ 10 -->
-                <div class="faq-item bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <button onclick="toggleFaq(10)" class="w-full px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between text-left hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                        <div class="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
-                            <span class="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm sm:text-base">10</span>
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 break-keep">신혼부부 특별공급 자격 조건은?</h3>
-                        </div>
-                        <i id="icon-10" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
-                    </button>
-                    <div id="answer-10" class="faq-answer px-4 sm:px-6">
-                        <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed space-y-2">
-                            <p><strong>신혼부부 특별공급</strong>은 결혼 7년 이내 신혼부부를 위한 특별공급입니다:</p>
-                            <div class="border-l-4 border-gray-300 p-4 my-3">
-                                <p class="font-semibold text-gray-800">💒 기본 자격 요건</p>
-                                <ul class="list-disc pl-5 mt-2 space-y-1 text-gray-700">
-                                    <li><strong>혼인 기간</strong>: 혼인신고일 기준 7년 이내</li>
-                                    <li><strong>무주택 세대주</strong> (부부 모두 무주택)</li>
-                                    <li><strong>청약통장 가입</strong> (민영: 6개월 이상, 공공: 1~2년 이상)</li>
-                                    <li><strong>소득 기준</strong>: 도시근로자 월평균 소득 140% 이하</li>
-                                    <li><strong>자산 기준</strong>: 부동산 3.45억 원 이하</li>
-                                </ul>
-                            </div>
-                            <div class="border-l-4 border-gray-300 p-4 my-3">
-                                <p class="font-semibold text-gray-800">📊 우선순위 배점 요소</p>
-                                <ul class="list-disc pl-5 mt-2 space-y-1 text-gray-700">
-                                    <li><strong>자녀 수</strong>: 자녀가 많을수록 높은 점수 (최대 40점)</li>
-                                    <li><strong>무주택 기간</strong>: 무주택 기간이 길수록 유리 (최대 20점)</li>
-                                    <li><strong>청약통장 가입기간</strong>: 가입 기간이 길수록 유리 (최대 15점)</li>
-                                    <li><strong>해당 시·도 거주기간</strong>: 거주 기간이 길수록 유리 (최대 5점)</li>
-                                </ul>
-                            </div>
-                            <p class="text-green-600 font-semibold">🎉 예비신혼부부도 가능! 혼인 예정일이 입주 전이면 청약 가능합니다.</p>
-                        </div>
-                    </div>
-                </div>
+                ${faqItemsHtml || '<div class="text-center py-12 text-gray-500"><i class="fas fa-inbox text-4xl mb-3"></i><p>등록된 FAQ가 없습니다.</p></div>'}
+                <!-- Dynamic FAQ from DB -->
             </div>
 
             <!-- CTA Section -->
