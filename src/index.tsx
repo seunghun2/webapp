@@ -10791,72 +10791,10 @@ app.get('/', (c) => {
                         <i class="fas fa-comment text-xl"></i>
                         <span>카카오로 시작하기</span>
                     </button>
-                    
-                    <!-- 네이버 로그인 -->
-                    <button onclick="window.location.href='/auth/naver/login'" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all">
-                        <span class="text-xl font-bold">N</span>
-                        <span>네이버로 시작하기</span>
-                    </button>
-                    
-                    <!-- 이메일 로그인 -->
-                    <button onclick="openEmailLoginModal()" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all">
-                        <i class="fas fa-envelope text-xl"></i>
-                        <span>이메일로 시작하기</span>
-                    </button>
-                </div>
-                
-                <!-- 회원가입 링크 -->
-                <div class="text-center mt-6">
-                    <p class="text-gray-600 text-sm">
-                        계정이 없으신가요? 
-                        <button onclick="openSignupModal()" class="text-primary font-bold hover:underline">회원가입</button>
-                    </p>
                 </div>
             </div>
         </div>
-        
-        <!-- 이메일 로그인 모달 -->
-        <div id="emailLoginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl max-w-md w-full p-8 relative">
-                <!-- 닫기 버튼 -->
-                <button onclick="closeEmailLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-                
-                <!-- 제목 -->
-                <div class="text-center mb-8">
-                    <h2 class="text-2xl font-bold text-gray-900 mb-2">이메일 로그인</h2>
-                    <p class="text-gray-600 text-sm">이메일과 비밀번호를 입력하세요</p>
-                </div>
-                
-                <!-- 로그인 폼 -->
-                <form id="emailLoginForm" class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">이메일</label>
-                        <input type="email" id="loginEmail" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="example@email.com">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">비밀번호</label>
-                        <input type="password" id="loginPassword" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="비밀번호를 입력하세요">
-                    </div>
-                    
-                    <button type="submit" class="w-full bg-primary hover:bg-primary-light text-white font-bold py-4 rounded-xl transition-all">
-                        로그인
-                    </button>
-                </form>
-                
-                <!-- 회원가입 링크 -->
-                <div class="text-center mt-6">
-                    <p class="text-gray-600 text-sm">
-                        계정이 없으신가요? 
-                        <button onclick="closeEmailLoginModal(); openSignupModal();" class="text-primary font-bold hover:underline">회원가입</button>
-                    </p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 회원가입 모달 -->
+
 
         <!-- 마이페이지 드롭다운 (사람인 스타일) -->
         <div id="myPageDropdown" class="hidden absolute top-16 right-4 w-80 bg-white rounded-lg shadow-2xl border border-gray-200 z-50">
