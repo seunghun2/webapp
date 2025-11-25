@@ -3227,6 +3227,199 @@ app.post('/api/ad-inquiries/:id/status', async (c) => {
   }
 })
 
+// ==================== FAQ API ====================
+
+// Get all FAQs (Public)
+app.get('/api/faqs', async (c) => {
+  try {
+    const { DB } = c.env
+    const category = c.req.query('category') || 'all'
+    const includeUnpublished = c.req.query('include_unpublished') === 'true'
+    
+    let query = 'SELECT * FROM faqs'
+    let params: any[] = []
+    let conditions: string[] = []
+    
+    if (!includeUnpublished) {
+      conditions.push('is_published = 1')
+    }
+    
+    if (category !== 'all') {
+      conditions.push('category = ?')
+      params.push(category)
+    }
+    
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ')
+    }
+    
+    query += ' ORDER BY display_order ASC, created_at DESC'
+    
+    let stmt = DB.prepare(query)
+    if (params.length > 0) {
+      stmt = stmt.bind(...params)
+    }
+    
+    const result = await stmt.all()
+    return c.json(result.results)
+  } catch (error) {
+    console.error('Error fetching FAQs:', error)
+    return c.json({ error: 'Failed to fetch FAQs' }, 500)
+  }
+})
+
+// Get single FAQ (Public)
+app.get('/api/faqs/:id', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    
+    // Increment view count
+    await DB.prepare(`
+      UPDATE faqs SET view_count = view_count + 1 WHERE id = ?
+    `).bind(id).run()
+    
+    const faq = await DB.prepare(`
+      SELECT * FROM faqs WHERE id = ?
+    `).bind(id).first()
+    
+    if (!faq) {
+      return c.json({ error: 'FAQ not found' }, 404)
+    }
+    
+    return c.json(faq)
+  } catch (error) {
+    console.error('Error fetching FAQ:', error)
+    return c.json({ error: 'Failed to fetch FAQ' }, 500)
+  }
+})
+
+// Create FAQ (Admin)
+app.post('/api/faqs/create', async (c) => {
+  try {
+    const { DB } = c.env
+    const { category, question, answer, display_order, is_published } = await c.req.json()
+    
+    if (!category || !question || !answer) {
+      return c.json({ error: 'Category, question, and answer are required' }, 400)
+    }
+    
+    const now = getKST()
+    
+    const result = await DB.prepare(`
+      INSERT INTO faqs (category, question, answer, display_order, is_published, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      category,
+      question,
+      answer,
+      display_order || 0,
+      is_published !== undefined ? (is_published ? 1 : 0) : 1,
+      now,
+      now
+    ).run()
+    
+    return c.json({ success: true, id: result.meta.last_row_id })
+  } catch (error) {
+    console.error('Error creating FAQ:', error)
+    return c.json({ error: 'Failed to create FAQ' }, 500)
+  }
+})
+
+// Update FAQ (Admin)
+app.post('/api/faqs/:id/update', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    const { category, question, answer, display_order, is_published } = await c.req.json()
+    
+    if (!category || !question || !answer) {
+      return c.json({ error: 'Category, question, and answer are required' }, 400)
+    }
+    
+    const now = getKST()
+    
+    await DB.prepare(`
+      UPDATE faqs 
+      SET category = ?,
+          question = ?,
+          answer = ?,
+          display_order = ?,
+          is_published = ?,
+          updated_at = ?
+      WHERE id = ?
+    `).bind(
+      category,
+      question,
+      answer,
+      display_order || 0,
+      is_published !== undefined ? (is_published ? 1 : 0) : 1,
+      now,
+      id
+    ).run()
+    
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error updating FAQ:', error)
+    return c.json({ error: 'Failed to update FAQ' }, 500)
+  }
+})
+
+// Delete FAQ (Admin)
+app.delete('/api/faqs/:id', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    
+    await DB.prepare(`
+      DELETE FROM faqs WHERE id = ?
+    `).bind(id).run()
+    
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting FAQ:', error)
+    return c.json({ error: 'Failed to delete FAQ' }, 500)
+  }
+})
+
+// Toggle FAQ publish status (Admin)
+app.post('/api/faqs/:id/toggle-publish', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    
+    const now = getKST()
+    
+    await DB.prepare(`
+      UPDATE faqs 
+      SET is_published = CASE WHEN is_published = 1 THEN 0 ELSE 1 END,
+          updated_at = ?
+      WHERE id = ?
+    `).bind(now, id).run()
+    
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error toggling FAQ publish status:', error)
+    return c.json({ error: 'Failed to toggle publish status' }, 500)
+  }
+})
+
+// Get FAQ categories (Public)
+app.get('/api/faqs/categories/list', async (c) => {
+  try {
+    const { DB } = c.env
+    
+    const result = await DB.prepare(`
+      SELECT DISTINCT category FROM faqs WHERE is_published = 1 ORDER BY category
+    `).all()
+    
+    return c.json(result.results)
+  } catch (error) {
+    console.error('Error fetching FAQ categories:', error)
+    return c.json({ error: 'Failed to fetch categories' }, 500)
+  }
+})
+
 // Terms of Service page
 app.get('/terms', (c) => {
   return c.html(`
@@ -5452,6 +5645,10 @@ app.get('/admin', (c) => {
                         <i class="fas fa-trash-restore text-lg w-5"></i>
                         <span class="sidebar-text">삭제된 매물</span>
                     </a>
+                    <a href="javascript:void(0)" onclick="showSection('faqs')" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700" data-section="faqs">
+                        <i class="fas fa-question-circle text-lg w-5"></i>
+                        <span class="sidebar-text">FAQ 관리</span>
+                    </a>
                     <a href="javascript:void(0)" onclick="showSection('statistics')" class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700" data-section="statistics">
                         <i class="fas fa-chart-bar text-lg w-5"></i>
                         <span class="sidebar-text">통계</span>
@@ -5735,6 +5932,69 @@ app.get('/admin', (c) => {
                                 <!-- Data will be loaded here -->
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ Section -->
+            <div id="faqsSection" class="section-content p-4 sm:p-6 lg:p-8 hidden">
+                <div class="bg-white rounded-xl shadow-sm mb-6 border border-gray-100 p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900">FAQ 관리</h3>
+                            <p class="text-sm text-gray-500 mt-1">자주 묻는 질문을 관리할 수 있습니다</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="loadFaqs()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
+                                <i class="fas fa-sync-alt mr-2"></i>새로고침
+                            </button>
+                            <button onclick="openAddFaqModal()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                                <i class="fas fa-plus mr-2"></i>FAQ 추가
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Category Filter -->
+                    <div class="flex flex-wrap gap-2 mb-6">
+                        <button onclick="filterFaqsByCategory('all')" class="faq-category-btn px-4 py-2 text-sm rounded-lg bg-blue-100 text-blue-700 font-medium" data-category="all">
+                            전체
+                        </button>
+                        <button onclick="filterFaqsByCategory('청약정보')" class="faq-category-btn px-4 py-2 text-sm rounded-lg bg-gray-100 text-gray-600" data-category="청약정보">
+                            청약정보
+                        </button>
+                        <button onclick="filterFaqsByCategory('당첨확률')" class="faq-category-btn px-4 py-2 text-sm rounded-lg bg-gray-100 text-gray-600" data-category="당첨확률">
+                            당첨확률
+                        </button>
+                        <button onclick="filterFaqsByCategory('특별공급')" class="faq-category-btn px-4 py-2 text-sm rounded-lg bg-gray-100 text-gray-600" data-category="특별공급">
+                            특별공급
+                        </button>
+                        <button onclick="filterFaqsByCategory('기타')" class="faq-category-btn px-4 py-2 text-sm rounded-lg bg-gray-100 text-gray-600" data-category="기타">
+                            기타
+                        </button>
+                    </div>
+                    
+                    <!-- FAQs Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full min-w-[640px]">
+                            <thead class="bg-gray-50 border-b">
+                                <tr>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">카테고리</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">질문</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">순서</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">조회수</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
+                                    <th class="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">작업</th>
+                                </tr>
+                            </thead>
+                            <tbody id="faqsTable" class="divide-y divide-gray-200">
+                                <!-- Data will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="noFaqs" class="hidden p-8 text-center text-gray-500">
+                        <i class="fas fa-inbox text-4xl mb-3"></i>
+                        <p>등록된 FAQ가 없습니다.</p>
                     </div>
                 </div>
             </div>
@@ -6842,6 +7102,7 @@ app.get('/admin', (c) => {
                     'dashboard': ['대시보드', '전체 현황을 확인하세요'],
                     'properties': ['매물 관리', '등록된 매물을 관리하세요'],
                     'deleted': ['삭제된 매물', '삭제된 매물을 복원하세요'],
+                    'faqs': ['FAQ 관리', '자주 묻는 질문을 관리하세요'],
                     'statistics': ['통계', '데이터 분석 및 통계'],
                     'users': ['회원 관리', '가입 회원을 관리하세요'],
                     'settings': ['설정', '시스템 설정을 관리하세요']
@@ -6856,6 +7117,8 @@ app.get('/admin', (c) => {
                     loadProperties();
                 } else if (sectionName === 'deleted') {
                     loadDeletedProperties();
+                } else if (sectionName === 'faqs') {
+                    loadFaqs();
                 } else if (sectionName === 'dashboard') {
                     loadDashboardStats();
                 } else if (sectionName === 'users') {
@@ -7374,6 +7637,170 @@ app.get('/admin', (c) => {
                 } catch (error) {
                     console.error('Failed to update status:', error);
                     alert('상태 업데이트에 실패했습니다.');
+                }
+            }
+            
+            // ==================== FAQ Functions ====================
+            
+            let currentFaqCategory = 'all';
+            
+            // Load FAQs
+            async function loadFaqs() {
+                try {
+                    const response = await axios.get(\`/api/faqs?category=\${currentFaqCategory}&include_unpublished=true\`);
+                    const faqs = response.data;
+                    
+                    const tableBody = document.getElementById('faqsTable');
+                    tableBody.innerHTML = '';
+                    
+                    if (faqs.length === 0) {
+                        document.getElementById('noFaqs').classList.remove('hidden');
+                        return;
+                    }
+                    
+                    document.getElementById('noFaqs').classList.add('hidden');
+                    
+                    faqs.forEach(faq => {
+                        const questionPreview = faq.question.length > 50 ? faq.question.substring(0, 50) + '...' : faq.question;
+                        const isPublished = faq.is_published === 1;
+                        
+                        const row = document.createElement('tr');
+                        row.className = 'hover:bg-gray-50';
+                        row.innerHTML = \`
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-900">#\${faq.id}</td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4">
+                                <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">\${faq.category}</span>
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-900">\${questionPreview}</td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-600 hidden md:table-cell">\${faq.display_order}</td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-gray-600 hidden md:table-cell">\${faq.view_count || 0}</td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4">
+                                <button onclick="toggleFaqPublish(\${faq.id})" class="px-2 py-1 text-xs font-medium rounded-full \${isPublished ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                                    \${isPublished ? '공개' : '비공개'}
+                                </button>
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4">
+                                <div class="flex gap-2">
+                                    <button onclick="openEditFaqModal(\${faq.id})" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                                        <i class="fas fa-edit mr-1"></i>수정
+                                    </button>
+                                    <button onclick="deleteFaq(\${faq.id})" class="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">
+                                        <i class="fas fa-trash mr-1"></i>삭제
+                                    </button>
+                                </div>
+                            </td>
+                        \`;
+                        tableBody.appendChild(row);
+                    });
+                } catch (error) {
+                    console.error('Failed to load FAQs:', error);
+                    alert('FAQ 목록을 불러오는데 실패했습니다.');
+                }
+            }
+            
+            // Filter FAQs by Category
+            function filterFaqsByCategory(category) {
+                currentFaqCategory = category;
+                document.querySelectorAll('.faq-category-btn').forEach(btn => {
+                    btn.classList.remove('bg-blue-100', 'text-blue-700', 'font-medium');
+                    btn.classList.add('bg-gray-100', 'text-gray-600');
+                });
+                const activeBtn = document.querySelector(\`[data-category="\${category}"]\`);
+                if (activeBtn) {
+                    activeBtn.classList.remove('bg-gray-100', 'text-gray-600');
+                    activeBtn.classList.add('bg-blue-100', 'text-blue-700', 'font-medium');
+                }
+                loadFaqs();
+            }
+            
+            // Open Add FAQ Modal
+            function openAddFaqModal() {
+                document.getElementById('faqModalTitle').textContent = 'FAQ 추가';
+                document.getElementById('faqId').value = '';
+                document.getElementById('faqForm').reset();
+                document.getElementById('faqModal').classList.add('active');
+            }
+            
+            // Open Edit FAQ Modal
+            async function openEditFaqModal(id) {
+                try {
+                    const response = await axios.get(\`/api/faqs/\${id}\`);
+                    const faq = response.data;
+                    
+                    document.getElementById('faqModalTitle').textContent = 'FAQ 수정';
+                    document.getElementById('faqId').value = faq.id;
+                    document.getElementById('faqCategory').value = faq.category;
+                    document.getElementById('faqQuestion').value = faq.question;
+                    document.getElementById('faqAnswer').value = faq.answer;
+                    document.getElementById('faqDisplayOrder').value = faq.display_order;
+                    document.getElementById('faqPublished').value = faq.is_published;
+                    
+                    document.getElementById('faqModal').classList.add('active');
+                } catch (error) {
+                    console.error('Failed to load FAQ:', error);
+                    alert('FAQ를 불러오는데 실패했습니다.');
+                }
+            }
+            
+            // Close FAQ Modal
+            function closeFaqModal() {
+                document.getElementById('faqModal').classList.remove('active');
+            }
+            
+            // Save FAQ
+            document.getElementById('faqForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const id = document.getElementById('faqId').value;
+                const data = {
+                    category: document.getElementById('faqCategory').value,
+                    question: document.getElementById('faqQuestion').value,
+                    answer: document.getElementById('faqAnswer').value,
+                    display_order: parseInt(document.getElementById('faqDisplayOrder').value),
+                    is_published: parseInt(document.getElementById('faqPublished').value)
+                };
+                
+                try {
+                    if (id) {
+                        await axios.post(\`/api/faqs/\${id}/update\`, data);
+                        alert('FAQ가 수정되었습니다.');
+                    } else {
+                        await axios.post('/api/faqs/create', data);
+                        alert('FAQ가 추가되었습니다.');
+                    }
+                    
+                    closeFaqModal();
+                    loadFaqs();
+                } catch (error) {
+                    console.error('Failed to save FAQ:', error);
+                    alert('FAQ 저장에 실패했습니다.');
+                }
+            });
+            
+            // Toggle FAQ Publish Status
+            async function toggleFaqPublish(id) {
+                try {
+                    await axios.post(\`/api/faqs/\${id}/toggle-publish\`);
+                    loadFaqs();
+                } catch (error) {
+                    console.error('Failed to toggle publish status:', error);
+                    alert('공개 상태 변경에 실패했습니다.');
+                }
+            }
+            
+            // Delete FAQ
+            async function deleteFaq(id) {
+                if (!confirm('이 FAQ를 삭제하시겠습니까?')) {
+                    return;
+                }
+                
+                try {
+                    await axios.delete(\`/api/faqs/\${id}\`);
+                    alert('FAQ가 삭제되었습니다.');
+                    loadFaqs();
+                } catch (error) {
+                    console.error('Failed to delete FAQ:', error);
+                    alert('FAQ 삭제에 실패했습니다.');
                 }
             }
             
@@ -11495,6 +11922,104 @@ app.get('/', (c) => {
         </div>
 
         <!-- 광고 문의 모달 (토스 스타일) -->
+        <!-- FAQ Add/Edit Modal -->
+        <div id="faqModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center p-4">
+            <div class="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
+                    <h2 id="faqModalTitle" class="text-xl font-bold text-gray-900">FAQ 추가</h2>
+                    <button onclick="closeFaqModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                <div class="p-6">
+                    <form id="faqForm" class="space-y-4">
+                        <input type="hidden" id="faqId">
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                카테고리 *
+                            </label>
+                            <select id="faqCategory" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="청약정보">청약정보</option>
+                                <option value="당첨확률">당첨확률</option>
+                                <option value="특별공급">특별공급</option>
+                                <option value="기타">기타</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                질문 *
+                            </label>
+                            <input 
+                                type="text" 
+                                id="faqQuestion" 
+                                required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                placeholder="예: 청약정보는 어디서 확인할 수 있나요?"
+                            >
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                답변 *
+                            </label>
+                            <textarea 
+                                id="faqAnswer" 
+                                required
+                                rows="8"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+                                placeholder="답변 내용을 입력하세요..."
+                            ></textarea>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    표시 순서
+                                </label>
+                                <input 
+                                    type="number" 
+                                    id="faqDisplayOrder" 
+                                    value="0"
+                                    min="0"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    placeholder="0"
+                                >
+                                <p class="text-xs text-gray-500 mt-1">낮은 숫자가 먼저 표시됩니다</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    공개 상태
+                                </label>
+                                <select id="faqPublished" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="1">공개</option>
+                                    <option value="0">비공개</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-3 pt-4">
+                            <button 
+                                type="button"
+                                onclick="closeFaqModal()"
+                                class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                            >
+                                취소
+                            </button>
+                            <button 
+                                type="submit"
+                                class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                            >
+                                저장
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
         <div id="adInquiryModal" class="fixed inset-0 z-[100] hidden">
             <!-- 백드롭 -->
             <div class="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300" onclick="closeAdInquiry()"></div>
