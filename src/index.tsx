@@ -7118,7 +7118,7 @@ app.get('/admin', (c) => {
                 } else if (sectionName === 'deleted') {
                     loadDeletedProperties();
                 } else if (sectionName === 'faqs') {
-                    loadFaqs();
+                    window.loadFaqs();
                 } else if (sectionName === 'dashboard') {
                     loadDashboardStats();
                 } else if (sectionName === 'users') {
@@ -7644,8 +7644,8 @@ app.get('/admin', (c) => {
             
             let currentFaqCategory = 'all';
             
-            // Load FAQs
-            async function loadFaqs() {
+            // Load FAQs (Global function)
+            window.loadFaqs = async function() {
                 try {
                     const response = await axios.get(\`/api/faqs?category=\${currentFaqCategory}&include_unpublished=true\`);
                     const faqs = response.data;
@@ -7696,10 +7696,10 @@ app.get('/admin', (c) => {
                     console.error('Failed to load FAQs:', error);
                     alert('FAQ 목록을 불러오는데 실패했습니다.');
                 }
-            }
+            };
             
-            // Filter FAQs by Category
-            function filterFaqsByCategory(category) {
+            // Filter FAQs by Category (Global function)
+            window.filterFaqsByCategory = function(category) {
                 currentFaqCategory = category;
                 document.querySelectorAll('.faq-category-btn').forEach(btn => {
                     btn.classList.remove('bg-blue-100', 'text-blue-700', 'font-medium');
@@ -7710,19 +7710,19 @@ app.get('/admin', (c) => {
                     activeBtn.classList.remove('bg-gray-100', 'text-gray-600');
                     activeBtn.classList.add('bg-blue-100', 'text-blue-700', 'font-medium');
                 }
-                loadFaqs();
-            }
+                window.loadFaqs();
+            };
             
-            // Open Add FAQ Modal
-            function openAddFaqModal() {
+            // Open Add FAQ Modal (Global function)
+            window.openAddFaqModal = function() {
                 document.getElementById('faqModalTitle').textContent = 'FAQ 추가';
                 document.getElementById('faqId').value = '';
                 document.getElementById('faqForm').reset();
                 document.getElementById('faqModal').classList.add('active');
-            }
+            };
             
-            // Open Edit FAQ Modal
-            async function openEditFaqModal(id) {
+            // Open Edit FAQ Modal (Global function)
+            window.openEditFaqModal = async function(id) {
                 try {
                     const response = await axios.get(\`/api/faqs/\${id}\`);
                     const faq = response.data;
@@ -7740,12 +7740,12 @@ app.get('/admin', (c) => {
                     console.error('Failed to load FAQ:', error);
                     alert('FAQ를 불러오는데 실패했습니다.');
                 }
-            }
+            };
             
-            // Close FAQ Modal
-            function closeFaqModal() {
+            // Close FAQ Modal (Global function)
+            window.closeFaqModal = function() {
                 document.getElementById('faqModal').classList.remove('active');
-            }
+            };
             
             // Save FAQ (Global function to be called from form submit)
             window.saveFaq = async function(e) {
@@ -7777,19 +7777,19 @@ app.get('/admin', (c) => {
                 }
             };
             
-            // Toggle FAQ Publish Status
-            async function toggleFaqPublish(id) {
+            // Toggle FAQ Publish Status (Global function)
+            window.toggleFaqPublish = async function(id) {
                 try {
                     await axios.post(\`/api/faqs/\${id}/toggle-publish\`);
-                    loadFaqs();
+                    window.loadFaqs();
                 } catch (error) {
                     console.error('Failed to toggle publish status:', error);
                     alert('공개 상태 변경에 실패했습니다.');
                 }
-            }
+            };
             
-            // Delete FAQ
-            async function deleteFaq(id) {
+            // Delete FAQ (Global function)
+            window.deleteFaq = async function(id) {
                 if (!confirm('이 FAQ를 삭제하시겠습니까?')) {
                     return;
                 }
@@ -7797,12 +7797,12 @@ app.get('/admin', (c) => {
                 try {
                     await axios.delete(\`/api/faqs/\${id}\`);
                     alert('FAQ가 삭제되었습니다.');
-                    loadFaqs();
+                    window.loadFaqs();
                 } catch (error) {
                     console.error('Failed to delete FAQ:', error);
                     alert('FAQ 삭제에 실패했습니다.');
                 }
-            }
+            };
             
             // Export Data
             function exportData() {
