@@ -9950,7 +9950,7 @@ app.get('/faq', async (c) => {
             </div>
             <i id="icon-${index + 1}" class="faq-icon fas fa-chevron-down text-gray-400 flex-shrink-0 ml-2"></i>
         </button>
-        <div id="answer-${index + 1}" class="faq-answer px-4 sm:px-6 pb-4 sm:pb-6">
+        <div id="answer-${index + 1}" class="faq-answer px-4 sm:px-6">
             <div class="pl-9 sm:pl-11 text-sm sm:text-base text-gray-700 leading-relaxed whitespace-pre-wrap">${faq.answer}</div>
         </div>
     </div>
