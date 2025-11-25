@@ -10034,12 +10034,12 @@ app.get('/faq', async (c) => {
           .faq-answer {
             max-height: 0;
             overflow: hidden;
-            transition: max-height 0.3s ease;
+            transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
             padding-top: 0;
             padding-bottom: 0;
           }
           .faq-answer.active {
-            max-height: 2000px;
+            max-height: 1000px;
             padding-top: 0.75rem;
             padding-bottom: 0.75rem;
           }
