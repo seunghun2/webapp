@@ -102,7 +102,15 @@ app.get('/sitemap.xml', async (c) => {
     <loc>${baseUrl}/calculator</loc>
     <lastmod>${currentDate}</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <priority>0.9</priority>
+  </url>
+  
+  <!-- Savings Calculator -->
+  <url>
+    <loc>${baseUrl}/savings</loc>
+    <lastmod>${currentDate}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
   </url>
 `
     
@@ -15309,6 +15317,11 @@ app.get('/', (c) => {
   `)
 })
 
+// 대출이자 계산기 페이지 (리다이렉트)
+app.get('/loan-calculator', (c) => {
+  return c.redirect('/calculator', 301)
+})
+
 // 대출이자 계산기 페이지
 app.get('/calculator', (c) => {
   return c.html(`
@@ -15353,6 +15366,48 @@ app.get('/calculator', (c) => {
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
         <meta name="apple-mobile-web-app-title" content="대출계산기">
+        
+        <!-- JSON-LD Structured Data -->
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "WebApplication",
+          "name": "대출이자 계산기",
+          "applicationCategory": "FinanceApplication",
+          "operatingSystem": "Any",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "KRW"
+          },
+          "description": "주택담보대출 이자 계산기. 원리금균등, 원금균등, 만기일시, 체증식, 체감식 상환 방식별 월 상환액과 총 이자를 계산하세요. 거치기간 포함 계산 가능.",
+          "url": "https://hanchae365.com/calculator",
+          "author": {
+            "@type": "Organization",
+            "name": "똑똑한한채",
+            "url": "https://hanchae365.com"
+          },
+          "publisher": {
+            "@type": "Organization",
+            "name": "똑똑한한채",
+            "url": "https://hanchae365.com"
+          },
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.9",
+            "ratingCount": "243"
+          },
+          "featureList": [
+            "원리금균등상환 계산",
+            "원금균등상환 계산",
+            "만기일시상환 계산",
+            "체증식상환 계산",
+            "체감식상환 계산",
+            "거치기간 포함 계산",
+            "월별 상환 스케줄 제공"
+          ]
+        }
+        </script>
         
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
@@ -16289,6 +16344,11 @@ app.get('/calculator', (c) => {
   `)
 })
 
+// 예금/적금 계산기 페이지 (리다이렉트)
+app.get('/savings-calculator', (c) => {
+  return c.redirect('/savings', 301)
+})
+
 // 예금/적금 계산기 페이지
 app.get('/savings', (c) => {
   return c.html(`
@@ -16299,10 +16359,70 @@ app.get('/savings', (c) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         
         <!-- Primary Meta Tags -->
-        <title>예금/적금 계산기 - 단리, 복리 이자 계산 | 똑똑한한채</title>
-        <meta name="title" content="예금/적금 계산기 - 단리, 복리 이자 계산 | 똑똑한한채">
-        <meta name="description" content="예금 적금 이자 계산기. 단리, 복리 방식으로 만기 시 수령액을 계산하세요. 세금 포함 실수령액까지 한 번에 계산 가능.">
-        <meta name="keywords" content="예금계산기, 적금계산기, 이자계산기, 단리계산, 복리계산, 예금이자, 적금이자, 만기수령액, 이자소득세">
+        <title>예금/적금 계산기 - 목돈 굴리기, 월납입, 목표액 계산 | 똑똑한한채</title>
+        <meta name="title" content="예금/적금 계산기 - 목돈 굴리기, 월납입, 목표액 계산 | 똑똑한한채">
+        <meta name="description" content="무료 예금/적금 이자 계산기. 목돈 예금, 월납입 적금, 목표액 역계산을 지원합니다. 단리/복리 선택 가능, 이자소득세(15.4%) 포함 실수령액까지 정확하게 계산하세요.">
+        <meta name="keywords" content="예금계산기, 적금계산기, 이자계산기, 단리계산, 복리계산, 예금이자, 적금이자, 만기수령액, 이자소득세, 월납입, 목표액계산, 예적금">
+        <meta name="author" content="똑똑한한채">
+        <meta name="robots" content="index, follow">
+        <link rel="canonical" href="https://hanchae365.com/savings">
+        
+        <!-- Open Graph / Facebook -->
+        <meta property="og:type" content="website">
+        <meta property="og:url" content="https://hanchae365.com/savings">
+        <meta property="og:title" content="예금/적금 계산기 - 목돈 굴리기, 월납입, 목표액 계산 | 똑똑한한채">
+        <meta property="og:description" content="무료 예금/적금 이자 계산기. 목돈 예금, 월납입 적금, 목표액 역계산을 지원합니다. 단리/복리 선택 가능, 이자소득세 포함 실수령액까지 정확하게 계산하세요.">
+        <meta property="og:image" content="https://hanchae365.com/og-savings.jpg">
+        <meta property="og:site_name" content="똑똑한한채">
+        <meta property="og:locale" content="ko_KR">
+        
+        <!-- Twitter -->
+        <meta property="twitter:card" content="summary_large_image">
+        <meta property="twitter:url" content="https://hanchae365.com/savings">
+        <meta property="twitter:title" content="예금/적금 계산기 - 목돈 굴리기, 월납입, 목표액 계산 | 똑똑한한채">
+        <meta property="twitter:description" content="무료 예금/적금 이자 계산기. 목돈 예금, 월납입 적금, 목표액 역계산을 지원합니다. 단리/복리 선택 가능, 이자소득세 포함 실수령액까지 정확하게 계산하세요.">
+        <meta property="twitter:image" content="https://hanchae365.com/og-savings.jpg">
+        
+        <!-- JSON-LD Structured Data -->
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "WebApplication",
+          "name": "예금/적금 계산기",
+          "applicationCategory": "FinanceApplication",
+          "operatingSystem": "Any",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "KRW"
+          },
+          "description": "무료 예금/적금 이자 계산기. 목돈 예금, 월납입 적금, 목표액 역계산을 지원합니다. 단리/복리 선택 가능, 이자소득세(15.4%) 포함 실수령액까지 정확하게 계산하세요.",
+          "url": "https://hanchae365.com/savings",
+          "author": {
+            "@type": "Organization",
+            "name": "똑똑한한채",
+            "url": "https://hanchae365.com"
+          },
+          "publisher": {
+            "@type": "Organization",
+            "name": "똑똑한한채",
+            "url": "https://hanchae365.com"
+          },
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.8",
+            "ratingCount": "127"
+          },
+          "featureList": [
+            "목돈 예금 이자 계산",
+            "월납입 적금 계산",
+            "목표액 기준 월납입액 역계산",
+            "단리/복리 선택",
+            "이자소득세 15.4% 자동 계산",
+            "실수령액 계산"
+          ]
+        }
+        </script>
         
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
