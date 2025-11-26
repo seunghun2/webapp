@@ -112,6 +112,14 @@ app.get('/sitemap.xml', async (c) => {
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
+  
+  <!-- Interest Rate Comparison -->
+  <url>
+    <loc>${baseUrl}/rates</loc>
+    <lastmod>${currentDate}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
 `
     
     // Add property detail pages
@@ -17069,6 +17077,759 @@ app.get('/savings', (c) => {
           
           // Initial calculation
           calculate();
+        </script>
+    </body>
+    </html>
+  `)
+})
+
+// 대출 금리 비교 페이지
+app.get('/rates', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        <!-- Primary Meta Tags -->
+        <title>주요 은행 주택담보대출 금리 비교 - 실시간 업데이트 | 똑똑한한채</title>
+        <meta name="title" content="주요 은행 주택담보대출 금리 비교 - 실시간 업데이트 | 똑똑한한채">
+        <meta name="description" content="주요 시중은행 주택담보대출 금리를 한눈에 비교하세요. 신규취급액 기준 금리, 최저금리 하이라이트, 주간 업데이트. 무료 금리 비교 서비스.">
+        <meta name="keywords" content="주택담보대출금리, 대출금리비교, 은행금리비교, 주담대금리, 최저금리, 대출이자, 주택대출, 부동산대출, 금리비교">
+        <meta name="author" content="똑똑한한채">
+        <meta name="robots" content="index, follow">
+        <link rel="canonical" href="https://hanchae365.com/rates">
+        
+        <!-- Open Graph / Facebook -->
+        <meta property="og:type" content="website">
+        <meta property="og:url" content="https://hanchae365.com/rates">
+        <meta property="og:title" content="주요 은행 주택담보대출 금리 비교 | 똑똑한한채">
+        <meta property="og:description" content="주요 시중은행 주택담보대출 금리를 한눈에 비교하세요. 매주 업데이트되는 최신 금리 정보.">
+        <meta property="og:image" content="https://hanchae365.com/og-rates.jpg">
+        <meta property="og:site_name" content="똑똑한한채">
+        
+        <!-- Twitter -->
+        <meta property="twitter:card" content="summary_large_image">
+        <meta property="twitter:url" content="https://hanchae365.com/rates">
+        <meta property="twitter:title" content="주요 은행 주택담보대출 금리 비교 | 똑똑한한채">
+        <meta property="twitter:description" content="주요 시중은행 주택담보대출 금리를 한눈에 비교하세요.">
+        
+        <!-- JSON-LD Structured Data -->
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "name": "주택담보대출 금리 비교",
+          "description": "주요 시중은행 주택담보대출 금리를 한눈에 비교하세요. 신규취급액 기준 금리, 최저금리 하이라이트, 주간 업데이트.",
+          "url": "https://hanchae365.com/rates",
+          "author": {
+            "@type": "Organization",
+            "name": "똑똑한한채",
+            "url": "https://hanchae365.com"
+          },
+          "publisher": {
+            "@type": "Organization",
+            "name": "똑똑한한채",
+            "url": "https://hanchae365.com"
+          }
+        }
+        </script>
+        
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+        
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+          }
+          
+          .rate-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 16px;
+            transition: all 0.3s ease;
+          }
+          
+          .rate-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+          }
+          
+          .rate-card.best {
+            border: 2px solid #10b981;
+            background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
+          }
+          
+          .bank-logo {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            background: #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+            color: #2563eb;
+          }
+          
+          .rate-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+          }
+          
+          .rate-badge.best {
+            background: #10b981;
+            color: white;
+          }
+          
+          .rate-badge.good {
+            background: #3b82f6;
+            color: white;
+          }
+          
+          .rate-badge.normal {
+            background: #6b7280;
+            color: white;
+          }
+          
+          .rate-number {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1f2937;
+          }
+          
+          .rate-trend {
+            font-size: 14px;
+            font-weight: 600;
+          }
+          
+          .rate-trend.up {
+            color: #ef4444;
+          }
+          
+          .rate-trend.down {
+            color: #10b981;
+          }
+          
+          .rate-trend.same {
+            color: #6b7280;
+          }
+          
+          .info-card {
+            background: #f0f9ff;
+            border-left: 4px solid #2563eb;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+          }
+          
+          .filter-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 2px solid #e5e7eb;
+            background: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+          
+          .filter-btn:hover {
+            border-color: #2563eb;
+            color: #2563eb;
+          }
+          
+          .filter-btn.active {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+          }
+          
+          .header {
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+            padding: 24px 0;
+            margin-bottom: 32px;
+          }
+          
+          .nav-menu {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+          }
+          
+          .nav-link {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: opacity 0.2s;
+          }
+          
+          .nav-link:hover {
+            opacity: 0.8;
+          }
+          
+          .mobile-menu-button {
+            display: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+          }
+          
+          @media (max-width: 768px) {
+            .nav-menu {
+              display: none;
+            }
+            
+            .mobile-menu-button {
+              display: block;
+            }
+          }
+          
+          .mobile-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+          }
+          
+          .mobile-menu-panel {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 280px;
+            background: white;
+            padding: 24px;
+            transform: translateX(0);
+            transition: transform 0.3s ease;
+          }
+          
+          .mobile-menu-panel.translate-x-full {
+            transform: translateX(100%);
+          }
+        </style>
+    </head>
+    <body class="bg-gray-50">
+        <!-- Header -->
+        <div class="header">
+            <div class="max-w-6xl mx-auto px-4">
+                <div class="flex justify-between items-center">
+                    <a href="/" class="text-2xl font-bold text-white">똑똑한한채</a>
+                    <nav class="nav-menu">
+                        <a href="/" class="nav-link">홈</a>
+                        <a href="/calculator" class="nav-link">대출 계산기</a>
+                        <a href="/savings" class="nav-link">적금 계산기</a>
+                        <a href="/rates" class="nav-link" style="opacity: 1; text-decoration: underline;">금리 비교</a>
+                    </nav>
+                    <div class="mobile-menu-button" onclick="openMobileMenu()">
+                        <i class="fas fa-bars"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Menu -->
+        <div id="mobileMenu" class="mobile-menu hidden">
+            <div class="mobile-menu-panel" id="mobileMenuPanel">
+                <div class="flex justify-between items-center mb-8">
+                    <h2 class="text-xl font-bold text-gray-800">메뉴</h2>
+                    <button onclick="closeMobileMenu()" class="text-gray-600">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                <nav class="flex flex-col gap-4">
+                    <a href="/" class="text-lg text-gray-700 hover:text-blue-600">홈</a>
+                    <a href="/calculator" class="text-lg text-gray-700 hover:text-blue-600">대출 계산기</a>
+                    <a href="/savings" class="text-lg text-gray-700 hover:text-blue-600">적금 계산기</a>
+                    <a href="/rates" class="text-lg text-blue-600 font-bold">금리 비교</a>
+                </nav>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="max-w-6xl mx-auto px-4 py-8">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800 mb-3">
+                    <i class="fas fa-chart-line text-blue-600 mr-2"></i>
+                    주택담보대출 금리 비교
+                </h1>
+                <p class="text-gray-600">주요 시중은행의 최신 금리를 한눈에 비교하세요</p>
+                <p class="text-sm text-gray-500 mt-2">📅 업데이트: 2025년 1월 26일 기준</p>
+            </div>
+            
+            <!-- Info Card -->
+            <div class="info-card">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-info-circle text-blue-600 mt-1"></i>
+                    <div class="flex-1">
+                        <p class="font-semibold text-gray-800 mb-1">📌 금리 안내</p>
+                        <p class="text-sm text-gray-700">• 신규취급액 기준 금리입니다 (변동금리)</p>
+                        <p class="text-sm text-gray-700">• 실제 적용 금리는 개인 신용도에 따라 달라질 수 있습니다</p>
+                        <p class="text-sm text-gray-700">• 매주 금요일 업데이트됩니다</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filters -->
+            <div class="flex gap-3 mb-6 flex-wrap">
+                <button class="filter-btn active" onclick="filterRates('all')">전체</button>
+                <button class="filter-btn" onclick="filterRates('city')">시중은행</button>
+                <button class="filter-btn" onclick="filterRates('internet')">인터넷은행</button>
+                <button class="filter-btn" onclick="sortByRate()">
+                    <i class="fas fa-sort-amount-down mr-1"></i>금리 낮은 순
+                </button>
+            </div>
+            
+            <!-- Best Rate Highlight -->
+            <div class="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400 rounded-2xl p-6 mb-6">
+                <div class="flex items-center gap-3 mb-2">
+                    <i class="fas fa-crown text-yellow-500 text-2xl"></i>
+                    <h2 class="text-xl font-bold text-gray-800">이번 주 최저 금리</h2>
+                </div>
+                <div class="flex items-end gap-4">
+                    <div>
+                        <p class="text-sm text-gray-600 mb-1">카카오뱅크</p>
+                        <p class="text-4xl font-bold text-green-600">3.42%</p>
+                    </div>
+                    <div class="mb-2">
+                        <span class="rate-trend down">
+                            <i class="fas fa-arrow-down mr-1"></i>0.05%p ↓
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Rate Cards -->
+            <div id="rateContainer">
+                <!-- 카카오뱅크 -->
+                <div class="rate-card best" data-type="internet">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="bank-logo" style="background: #fee500; color: #3c1e1e;">
+                                카뱅
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-lg text-gray-800">카카오뱅크</h3>
+                                <span class="rate-badge best">최저금리</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="rate-number">3.42<span class="text-lg">%</span></div>
+                            <div class="rate-trend down">
+                                <i class="fas fa-arrow-down mr-1"></i>0.05%p
+                            </div>
+                        </div>
+                    </div>
+                    <div class="border-t pt-3 grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-gray-500">최저금리</p>
+                            <p class="font-semibold text-gray-800">3.42%</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">최고금리</p>
+                            <p class="font-semibold text-gray-800">4.92%</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 케이뱅크 -->
+                <div class="rate-card best" data-type="internet">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="bank-logo" style="background: #ffcd00; color: #000;">
+                                K뱅
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-lg text-gray-800">케이뱅크</h3>
+                                <span class="rate-badge best">최저금리</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="rate-number">3.45<span class="text-lg">%</span></div>
+                            <div class="rate-trend down">
+                                <i class="fas fa-arrow-down mr-1"></i>0.03%p
+                            </div>
+                        </div>
+                    </div>
+                    <div class="border-t pt-3 grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-gray-500">최저금리</p>
+                            <p class="font-semibold text-gray-800">3.45%</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">최고금리</p>
+                            <p class="font-semibold text-gray-800">4.95%</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- KB국민은행 -->
+                <div class="rate-card" data-type="city">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="bank-logo" style="background: #ffb300; color: white;">
+                                KB
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-lg text-gray-800">KB국민은행</h3>
+                                <span class="rate-badge good">우대금리</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="rate-number">3.68<span class="text-lg">%</span></div>
+                            <div class="rate-trend same">
+                                <i class="fas fa-minus mr-1"></i>변동없음
+                            </div>
+                        </div>
+                    </div>
+                    <div class="border-t pt-3 grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-gray-500">최저금리</p>
+                            <p class="font-semibold text-gray-800">3.68%</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">최고금리</p>
+                            <p class="font-semibold text-gray-800">5.18%</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 신한은행 -->
+                <div class="rate-card" data-type="city">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="bank-logo" style="background: #0046ff; color: white;">
+                                신한
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-lg text-gray-800">신한은행</h3>
+                                <span class="rate-badge good">우대금리</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="rate-number">3.72<span class="text-lg">%</span></div>
+                            <div class="rate-trend up">
+                                <i class="fas fa-arrow-up mr-1"></i>0.02%p
+                            </div>
+                        </div>
+                    </div>
+                    <div class="border-t pt-3 grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-gray-500">최저금리</p>
+                            <p class="font-semibold text-gray-800">3.72%</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">최고금리</p>
+                            <p class="font-semibold text-gray-800">5.22%</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 하나은행 -->
+                <div class="rate-card" data-type="city">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="bank-logo" style="background: #008485; color: white;">
+                                하나
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-lg text-gray-800">하나은행</h3>
+                                <span class="rate-badge normal">일반금리</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="rate-number">3.75<span class="text-lg">%</span></div>
+                            <div class="rate-trend same">
+                                <i class="fas fa-minus mr-1"></i>변동없음
+                            </div>
+                        </div>
+                    </div>
+                    <div class="border-t pt-3 grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-gray-500">최저금리</p>
+                            <p class="font-semibold text-gray-800">3.75%</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">최고금리</p>
+                            <p class="font-semibold text-gray-800">5.25%</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 우리은행 -->
+                <div class="rate-card" data-type="city">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="bank-logo" style="background: #0b7cc4; color: white;">
+                                우리
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-lg text-gray-800">우리은행</h3>
+                                <span class="rate-badge normal">일반금리</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="rate-number">3.78<span class="text-lg">%</span></div>
+                            <div class="rate-trend up">
+                                <i class="fas fa-arrow-up mr-1"></i>0.01%p
+                            </div>
+                        </div>
+                    </div>
+                    <div class="border-t pt-3 grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-gray-500">최저금리</p>
+                            <p class="font-semibold text-gray-800">3.78%</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">최고금리</p>
+                            <p class="font-semibold text-gray-800">5.28%</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 농협은행 -->
+                <div class="rate-card" data-type="city">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="bank-logo" style="background: #00a651; color: white;">
+                                NH
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-lg text-gray-800">NH농협은행</h3>
+                                <span class="rate-badge normal">일반금리</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="rate-number">3.82<span class="text-lg">%</span></div>
+                            <div class="rate-trend same">
+                                <i class="fas fa-minus mr-1"></i>변동없음
+                            </div>
+                        </div>
+                    </div>
+                    <div class="border-t pt-3 grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-gray-500">최저금리</p>
+                            <p class="font-semibold text-gray-800">3.82%</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">최고금리</p>
+                            <p class="font-semibold text-gray-800">5.32%</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- IBK기업은행 -->
+                <div class="rate-card" data-type="city">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="bank-logo" style="background: #0e4a9d; color: white;">
+                                IBK
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-lg text-gray-800">IBK기업은행</h3>
+                                <span class="rate-badge normal">일반금리</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="rate-number">3.85<span class="text-lg">%</span></div>
+                            <div class="rate-trend down">
+                                <i class="fas fa-arrow-down mr-1"></i>0.01%p
+                            </div>
+                        </div>
+                    </div>
+                    <div class="border-t pt-3 grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-gray-500">최저금리</p>
+                            <p class="font-semibold text-gray-800">3.85%</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-500">최고금리</p>
+                            <p class="font-semibold text-gray-800">5.35%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Rate Trend Chart -->
+            <div class="rate-card mt-8">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-chart-area text-blue-600 mr-2"></i>
+                    최근 4주 금리 추이
+                </h3>
+                <canvas id="rateChart" style="max-height: 300px;"></canvas>
+            </div>
+            
+            <!-- Additional Info -->
+            <div class="mt-8 bg-white rounded-2xl p-6 shadow-sm">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">
+                    <i class="fas fa-lightbulb text-yellow-500 mr-2"></i>
+                    금리 선택 팁
+                </h3>
+                <div class="space-y-3 text-sm text-gray-700">
+                    <div class="flex gap-3">
+                        <i class="fas fa-check-circle text-green-500 mt-1"></i>
+                        <p><strong>신용도 확인</strong>: 개인 신용등급에 따라 최종 금리가 달라집니다</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <i class="fas fa-check-circle text-green-500 mt-1"></i>
+                        <p><strong>우대조건 확인</strong>: 급여이체, 자동이체 등으로 추가 금리 인하 가능</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <i class="fas fa-check-circle text-green-500 mt-1"></i>
+                        <p><strong>고정 vs 변동</strong>: 금리 변동 예상에 따라 고정/변동금리 선택</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <i class="fas fa-check-circle text-green-500 mt-1"></i>
+                        <p><strong>대출 계산기 활용</strong>: <a href="/calculator" class="text-blue-600 underline">대출 계산기</a>로 월 상환액 미리 계산해보세요</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- CTA -->
+            <div class="mt-8 text-center">
+                <a href="/calculator" class="inline-block bg-blue-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-lg">
+                    <i class="fas fa-calculator mr-2"></i>
+                    대출 계산기로 이동
+                </a>
+            </div>
+        </div>
+        
+        <script>
+          // Mobile menu functions
+          function openMobileMenu() {
+            const menu = document.getElementById('mobileMenu');
+            const panel = document.getElementById('mobileMenuPanel');
+            menu?.classList.remove('hidden');
+            setTimeout(() => {
+              panel?.classList.remove('translate-x-full');
+            }, 10);
+          }
+          
+          function closeMobileMenu() {
+            const menu = document.getElementById('mobileMenu');
+            const panel = document.getElementById('mobileMenuPanel');
+            panel?.classList.add('translate-x-full');
+            setTimeout(() => menu?.classList.add('hidden'), 300);
+          }
+          
+          document.getElementById('mobileMenu')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+              closeMobileMenu();
+            }
+          });
+          
+          // Filter functions
+          function filterRates(type) {
+            const cards = document.querySelectorAll('.rate-card');
+            const buttons = document.querySelectorAll('.filter-btn');
+            
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            cards.forEach(card => {
+              if (type === 'all') {
+                card.style.display = 'block';
+              } else {
+                const cardType = card.getAttribute('data-type');
+                card.style.display = cardType === type ? 'block' : 'none';
+              }
+            });
+          }
+          
+          function sortByRate() {
+            const container = document.getElementById('rateContainer');
+            const cards = Array.from(document.querySelectorAll('.rate-card'));
+            
+            cards.sort((a, b) => {
+              const rateA = parseFloat(a.querySelector('.rate-number').textContent);
+              const rateB = parseFloat(b.querySelector('.rate-number').textContent);
+              return rateA - rateB;
+            });
+            
+            cards.forEach(card => container.appendChild(card));
+            
+            const buttons = document.querySelectorAll('.filter-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+          }
+          
+          // Chart
+          const ctx = document.getElementById('rateChart').getContext('2d');
+          const rateChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: ['4주 전', '3주 전', '2주 전', '1주 전', '이번 주'],
+              datasets: [
+                {
+                  label: '카카오뱅크',
+                  data: [3.52, 3.50, 3.47, 3.47, 3.42],
+                  borderColor: '#fee500',
+                  backgroundColor: 'rgba(254, 229, 0, 0.1)',
+                  tension: 0.4
+                },
+                {
+                  label: '케이뱅크',
+                  data: [3.53, 3.51, 3.48, 3.48, 3.45],
+                  borderColor: '#ffcd00',
+                  backgroundColor: 'rgba(255, 205, 0, 0.1)',
+                  tension: 0.4
+                },
+                {
+                  label: 'KB국민은행',
+                  data: [3.70, 3.68, 3.68, 3.68, 3.68],
+                  borderColor: '#ffb300',
+                  backgroundColor: 'rgba(255, 179, 0, 0.1)',
+                  tension: 0.4
+                },
+                {
+                  label: '신한은행',
+                  data: [3.75, 3.72, 3.70, 3.70, 3.72],
+                  borderColor: '#0046ff',
+                  backgroundColor: 'rgba(0, 70, 255, 0.1)',
+                  tension: 0.4
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
+                legend: {
+                  display: true,
+                  position: 'bottom'
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      return context.dataset.label + ': ' + context.parsed.y + '%';
+                    }
+                  }
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: false,
+                  min: 3.3,
+                  max: 3.8,
+                  ticks: {
+                    callback: function(value) {
+                      return value + '%';
+                    }
+                  }
+                }
+              }
+            }
+          });
         </script>
     </body>
     </html>
