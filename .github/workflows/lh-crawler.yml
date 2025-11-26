@@ -1,9 +1,9 @@
 name: LH 청약센터 자동 크롤링
 
 on:
-  # 매일 한국시간 오전 9시 (UTC 00:00) 자동 실행
+  # 매일 한국시간 오전 8시 (UTC 23:00, 전날) 자동 실행
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 23 * * *'
   
   # 수동 실행도 가능
   workflow_dispatch:
