@@ -1,26 +1,26 @@
-name: LH 청약센터 자동 크롤링
+name: 청약홈 자동 크롤링
 
 on:
-  # 매일 한국시간 오전 9시 (UTC 00:00) 자동 실행
+  # 매일 한국시간 오전 9시 30분 (UTC 00:30) 자동 실행
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '30 0 * * *'
   
   # 수동 실행도 가능
   workflow_dispatch:
 
 jobs:
-  crawl-lh:
+  crawl-applyhome:
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Call LH Crawling API
+      - name: Call 청약홈 Crawling API
         run: |
-          echo "🚀 LH 청약센터 크롤링 시작..."
+          echo "🚀 청약홈 크롤링 시작..."
           
-          RESPONSE=$(curl -s -X POST https://hanchae365.com/api/crawl/lh \
+          RESPONSE=$(curl -s -X POST https://hanchae365.com/api/crawl/applyhome \
             -H "Content-Type: application/json")
           
           echo "📊 크롤링 결과:"
@@ -41,4 +41,4 @@ jobs:
       - name: Notify on failure
         if: failure()
         run: |
-          echo "⚠️ LH 크롤링 실패! GitHub Actions 로그를 확인하세요."
+          echo "⚠️ 청약홈 크롤링 실패! GitHub Actions 로그를 확인하세요."
