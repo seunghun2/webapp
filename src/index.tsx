@@ -17447,74 +17447,8 @@ app.get('/rates', (c) => {
         </style>
     </head>
     <body class="bg-gray-50">
-        <!-- 로그인 모달 -->
-        <div id="loginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[1001] flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl max-w-md w-full p-8 relative">
-                <!-- 닫기 버튼 -->
-                <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-                
-                <!-- 제목 -->
-                <div class="text-center mb-8">
-                    <h2 class="text-2xl font-bold text-gray-900 mb-2">로그인</h2>
-                    <p class="text-gray-600 text-sm">똑똑한한채에 오신 것을 환영합니다</p>
-                </div>
-                
-                <!-- 로그인 버튼들 -->
-                <div class="space-y-3">
-                    <!-- 카카오 로그인 -->
-                    <button onclick="window.location.href='/auth/kakao/login'" class="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all">
-                        <i class="fas fa-comment text-xl"></i>
-                        <span>카카오로 시작하기</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Hamburger Menu Overlay -->
-        <div id="hamburgerOverlay" class="hamburger-overlay" onclick="toggleHamburgerMenu()"></div>
-
-        <!-- Hamburger Menu -->
-        <div id="hamburgerMenu" class="hamburger-menu">
-            <div class="p-6">
-                <!-- Close Button -->
-                <div class="flex justify-end mb-6">
-                    <button onclick="toggleHamburgerMenu()" class="text-gray-400 hover:text-gray-600">
-                        <i class="fas fa-times text-2xl"></i>
-                    </button>
-                </div>
-                
-                <!-- Menu Items -->
-                <nav class="space-y-1">
-                    <a href="/" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
-                        <i class="fas fa-home text-blue-600 w-5"></i>
-                        <span class="font-medium">청약정보</span>
-                    </a>
-                    <a href="/calculator" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
-                        <i class="fas fa-calculator text-blue-600 w-5"></i>
-                        <span class="font-medium">대출계산기</span>
-                    </a>
-                    <a href="/savings" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
-                        <i class="fas fa-piggy-bank text-blue-600 w-5"></i>
-                        <span class="font-medium">예금/적금</span>
-                    </a>
-                    <a href="/faq" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
-                        <i class="fas fa-question-circle text-blue-600 w-5"></i>
-                        <span class="font-medium">FAQ</span>
-                    </a>
-                    <button onclick="toggleHamburgerMenu(); setTimeout(() => openLoginModal(), 300);" class="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition text-left">
-                        <i class="fas fa-bell text-blue-600 w-5"></i>
-                        <span class="font-medium">알림설정</span>
-                    </button>
-                </nav>
-                
-                <!-- Version Info at Bottom -->
-                <div class="absolute bottom-6 left-6 right-6">
-                    <p class="text-center text-sm text-gray-400">똑똑한한채 v1.0</p>
-                </div>
-            </div>
-        </div>
+        ${getLoginModal()}
+        ${getHamburgerMenu('/rates')}
         
         <!-- Header -->
         <div class="header">
