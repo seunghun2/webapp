@@ -17274,51 +17274,88 @@ app.get('/rates', (c) => {
             opacity: 0.8;
           }
           
-          .mobile-menu-button {
+          /* 햄버거 메뉴 스타일 (메인 페이지와 통일) */
+          .hamburger-menu {
             display: none;
-            color: white;
-            font-size: 24px;
-            cursor: pointer;
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 280px;
+            height: 100vh;
+            background: white;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+          }
+          
+          .hamburger-menu.active {
+            display: block;
+            transform: translateX(0);
+          }
+          
+          .hamburger-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+          }
+          
+          .hamburger-overlay.active {
+            display: block;
           }
           
           @media (max-width: 768px) {
             .nav-menu {
               display: none;
             }
-            
-            .mobile-menu-button {
-              display: block;
-            }
-          }
-          
-          .mobile-menu {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-          }
-          
-          .mobile-menu-panel {
-            position: absolute;
-            right: 0;
-            top: 0;
-            bottom: 0;
-            width: 280px;
-            background: white;
-            padding: 24px;
-            transform: translateX(0);
-            transition: transform 0.3s ease;
-          }
-          
-          .mobile-menu-panel.translate-x-full {
-            transform: translateX(100%);
           }
         </style>
     </head>
     <body class="bg-gray-50">
+        <!-- Hamburger Menu Overlay -->
+        <div id="hamburgerOverlay" class="hamburger-overlay" onclick="toggleHamburgerMenu()"></div>
+
+        <!-- Hamburger Menu -->
+        <div id="hamburgerMenu" class="hamburger-menu">
+            <div class="p-6">
+                <!-- Close Button -->
+                <div class="flex justify-end mb-6">
+                    <button onclick="toggleHamburgerMenu()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                
+                <!-- Menu Items -->
+                <nav class="space-y-1">
+                    <a href="/" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
+                        <i class="fas fa-home text-blue-600 w-5"></i>
+                        <span class="font-medium">청약정보</span>
+                    </a>
+                    <a href="/calculator" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
+                        <i class="fas fa-calculator text-blue-600 w-5"></i>
+                        <span class="font-medium">대출 계산기</span>
+                    </a>
+                    <a href="/savings" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
+                        <i class="fas fa-piggy-bank text-blue-600 w-5"></i>
+                        <span class="font-medium">적금 계산기</span>
+                    </a>
+                    <a href="/rates" class="flex items-center space-x-3 px-4 py-3 text-blue-600 bg-blue-50 rounded-lg">
+                        <i class="fas fa-chart-line w-5"></i>
+                        <span class="font-semibold">금리 비교</span>
+                    </a>
+                    <a href="/faq" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
+                        <i class="fas fa-question-circle text-blue-600 w-5"></i>
+                        <span class="font-medium">FAQ</span>
+                    </a>
+                </nav>
+            </div>
+        </div>
+        
         <!-- Header -->
         <div class="header">
             <div class="max-w-6xl mx-auto px-4">
@@ -17330,28 +17367,10 @@ app.get('/rates', (c) => {
                         <a href="/savings" class="nav-link">적금 계산기</a>
                         <a href="/rates" class="nav-link" style="opacity: 1; text-decoration: underline;">금리 비교</a>
                     </nav>
-                    <div class="mobile-menu-button" onclick="openMobileMenu()">
-                        <i class="fas fa-bars"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Mobile Menu -->
-        <div id="mobileMenu" class="mobile-menu hidden">
-            <div class="mobile-menu-panel" id="mobileMenuPanel">
-                <div class="flex justify-between items-center mb-8">
-                    <h2 class="text-xl font-bold text-gray-800">메뉴</h2>
-                    <button onclick="closeMobileMenu()" class="text-gray-600">
-                        <i class="fas fa-times text-2xl"></i>
+                    <button onclick="toggleHamburgerMenu()" class="text-white hover:text-gray-200">
+                        <i class="fas fa-bars text-2xl"></i>
                     </button>
                 </div>
-                <nav class="flex flex-col gap-4">
-                    <a href="/" class="text-lg text-gray-700 hover:text-blue-600">홈</a>
-                    <a href="/calculator" class="text-lg text-gray-700 hover:text-blue-600">대출 계산기</a>
-                    <a href="/savings" class="text-lg text-gray-700 hover:text-blue-600">적금 계산기</a>
-                    <a href="/rates" class="text-lg text-blue-600 font-bold">금리 비교</a>
-                </nav>
             </div>
         </div>
         
@@ -17704,24 +17723,15 @@ app.get('/rates', (c) => {
         </div>
         
         <script>
-          // Mobile menu functions
-          function openMobileMenu() {
-            const menu = document.getElementById('mobileMenu');
-            const panel = document.getElementById('mobileMenuPanel');
-            menu?.classList.remove('hidden');
-            setTimeout(() => {
-              panel?.classList.remove('translate-x-full');
-            }, 10);
+          // Hamburger menu functions (메인 페이지와 통일)
+          function toggleHamburgerMenu() {
+            const menu = document.getElementById('hamburgerMenu');
+            const overlay = document.getElementById('hamburgerOverlay');
+            menu.classList.toggle('active');
+            overlay.classList.toggle('active');
           }
           
-          function closeMobileMenu() {
-            const menu = document.getElementById('mobileMenu');
-            const panel = document.getElementById('mobileMenuPanel');
-            panel?.classList.add('translate-x-full');
-            setTimeout(() => menu?.classList.add('hidden'), 300);
-          }
-          
-          document.getElementById('mobileMenu')?.addEventListener('click', function(e) {
+          document.getElementById('hamburgerOverlay')?.addEventListener('click', function(e) {
             if (e.target === this) {
               closeMobileMenu();
             }
