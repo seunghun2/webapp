@@ -16801,66 +16801,8 @@ app.get('/savings', (c) => {
         </style>
     </head>
     <body class="bg-gray-50">
-        <!-- 로그인 모달 -->
-        <div id="loginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[1001] flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl max-w-md w-full p-8 relative">
-                <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-                <div class="text-center mb-8">
-                    <h2 class="text-2xl font-bold text-gray-900 mb-2">로그인</h2>
-                    <p class="text-gray-600 text-sm">똑똑한한채에 오신 것을 환영합니다</p>
-                </div>
-                <div class="space-y-3">
-                    <button onclick="window.location.href='/auth/kakao/login'" class="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all">
-                        <i class="fas fa-comment text-xl"></i>
-                        <span>카카오로 시작하기</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Mobile Menu -->
-        <div id="mobileMenu" class="fixed inset-0 bg-black bg-opacity-50 z-[1000] hidden">
-            <div class="fixed right-0 top-0 bottom-0 w-72 bg-white transform transition-transform duration-300 translate-x-full shadow-lg" id="mobileMenuPanel">
-                <!-- Menu Header -->
-                <div class="flex items-center justify-between p-4 border-b">
-                    <h2 class="text-lg font-bold text-gray-900">메뉴</h2>
-                    <button onclick="closeMobileMenu()" class="text-gray-600 hover:text-gray-900 p-2">
-                        <i class="fas fa-times text-xl"></i>
-                    </button>
-                </div>
-                
-                <!-- Menu Items -->
-                <nav class="p-4 space-y-1">
-                    <a href="/" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                        <i class="fas fa-home text-blue-600 text-lg"></i>
-                        <span class="font-medium">청약정보</span>
-                    </a>
-                    <a href="/calculator" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                        <i class="fas fa-calculator text-blue-600 text-lg"></i>
-                        <span class="font-medium">대출계산기</span>
-                    </a>
-                    <a href="/savings" class="flex items-center gap-3 px-4 py-3 text-blue-600 bg-blue-50 rounded-lg transition-colors">
-                        <i class="fas fa-piggy-bank text-blue-600 text-lg"></i>
-                        <span class="font-medium">예금/적금</span>
-                    </a>
-                    <a href="/faq" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                        <i class="fas fa-question-circle text-blue-600 text-lg"></i>
-                        <span class="font-medium">FAQ</span>
-                    </a>
-                    <button onclick="closeMobileMenu(); setTimeout(() => { alert('로그인이 필요한 서비스입니다.'); window.location.href='/'; }, 300);" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left">
-                        <i class="fas fa-bell text-blue-600 text-lg"></i>
-                        <span class="font-medium">알림설정</span>
-                    </button>
-                </nav>
-                
-                <!-- Menu Footer -->
-                <div class="absolute bottom-0 left-0 right-0 p-4 border-t bg-gray-50">
-                    <p class="text-xs text-gray-500 text-center">똑똑한한채 v1.0</p>
-                </div>
-            </div>
-        </div>
+        ${getLoginModal()}
+        ${getHamburgerMenu('/savings')}
 
         <!-- Header -->
         <header class="bg-white sticky top-0 z-50 shadow-sm border-b border-gray-200">
@@ -17260,45 +17202,11 @@ app.get('/savings', (c) => {
           }
           
           // Mobile Menu Functions
-          function openMobileMenu() {
-            const menu = document.getElementById('mobileMenu');
-            const panel = document.getElementById('mobileMenuPanel');
-            menu?.classList.remove('hidden');
-            setTimeout(() => panel?.classList.remove('translate-x-full'), 10);
-          }
-          
-          function closeMobileMenu() {
-            const menu = document.getElementById('mobileMenu');
-            const panel = document.getElementById('mobileMenuPanel');
-            panel?.classList.add('translate-x-full');
-            setTimeout(() => menu?.classList.add('hidden'), 300);
-          }
-          
-          // Login modal functions
-          function openLoginModal() {
-            document.getElementById('loginModal')?.classList.remove('hidden');
-          }
-          
-          function closeLoginModal() {
-            document.getElementById('loginModal')?.classList.add('hidden');
-          }
-          
-          document.getElementById('mobileMenu')?.addEventListener('click', function(e) {
-            if (e.target === this) {
-              closeMobileMenu();
-            }
-          });
-          
-          // Close login modal when clicking outside
-          document.getElementById('loginModal')?.addEventListener('click', function(e) {
-            if (e.target === this) {
-              closeLoginModal();
-            }
-          });
-          
           // Initial calculation
           calculate();
         </script>
+        
+        ${getCommonScripts()}
     </body>
     </html>
   `)
