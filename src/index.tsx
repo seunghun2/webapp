@@ -15759,6 +15759,10 @@ app.get('/calculator', (c) => {
                         <i class="fas fa-question-circle text-blue-600 text-lg"></i>
                         <span class="font-medium">FAQ</span>
                     </a>
+                    <button onclick="closeMobileMenu(); alert('로그인이 필요한 서비스입니다.');" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left">
+                        <i class="fas fa-bell text-blue-600 text-lg"></i>
+                        <span class="font-medium">알림설정</span>
+                    </button>
                 </nav>
                 
                 <!-- Menu Footer -->
@@ -16660,6 +16664,10 @@ app.get('/savings', (c) => {
                         <i class="fas fa-question-circle text-blue-600 text-lg"></i>
                         <span class="font-medium">FAQ</span>
                     </a>
+                    <button onclick="closeMobileMenu(); alert('로그인이 필요한 서비스입니다.');" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left">
+                        <i class="fas fa-bell text-blue-600 text-lg"></i>
+                        <span class="font-medium">알림설정</span>
+                    </button>
                 </nav>
                 
                 <!-- Menu Footer -->
@@ -17361,10 +17369,10 @@ app.get('/rates', (c) => {
                         <i class="fas fa-question-circle text-blue-600 w-5"></i>
                         <span class="font-medium">FAQ</span>
                     </a>
-                    <a href="/" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
+                    <button onclick="toggleHamburgerMenu(); alert('로그인이 필요한 서비스입니다.');" class="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition text-left">
                         <i class="fas fa-bell text-blue-600 w-5"></i>
                         <span class="font-medium">알림설정</span>
-                    </a>
+                    </button>
                 </nav>
                 
                 <!-- Version Info at Bottom -->
