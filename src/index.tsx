@@ -10102,13 +10102,21 @@ app.get('/faq', async (c) => {
                 
                 <!-- Menu Items -->
                 <nav class="space-y-1">
-                    <a href="/" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
-                        <i class="fas fa-home text-blue-600 w-5"></i>
-                        <span class="font-medium">청약정보</span>
+                    <a href="/" class="flex items-center space-x-3 px-4 py-3 text-blue-600 bg-blue-50 rounded-lg">
+                        <i class="fas fa-home w-5"></i>
+                        <span class="font-semibold">청약정보</span>
                     </a>
-                    <a href="/faq" class="flex items-center space-x-3 px-4 py-3 text-blue-600 bg-blue-50 rounded-lg">
-                        <i class="fas fa-question-circle w-5"></i>
-                        <span class="font-semibold">FAQ</span>
+                    <a href="/calculator" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
+                        <i class="fas fa-calculator text-blue-600 w-5"></i>
+                        <span class="font-medium">대출계산기</span>
+                    </a>
+                    <a href="/savings" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
+                        <i class="fas fa-piggy-bank text-blue-600 w-5"></i>
+                        <span class="font-medium">예금/적금</span>
+                    </a>
+                    <a href="/faq" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
+                        <i class="fas fa-question-circle text-blue-600 w-5"></i>
+                        <span class="font-medium">FAQ</span>
                     </a>
                     <button onclick="toggleHamburgerMenu(); ${!isLoggedIn ? 'setTimeout(() => openLoginModal(), 300);' : 'window.location.href=\'/mypage\';'}" class="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition text-left">
                         <i class="fas fa-bell text-blue-600 w-5"></i>
@@ -10132,6 +10140,11 @@ app.get('/faq', async (c) => {
                         </a>
                     </div>
                 `}
+                
+                <!-- Version Info at Bottom -->
+                <div class="absolute bottom-6 left-6 right-6">
+                    <p class="text-center text-sm text-gray-400">똑똑한한채 v1.0</p>
+                </div>
             </div>
         </div>
 
@@ -17338,21 +17351,26 @@ app.get('/rates', (c) => {
                     </a>
                     <a href="/calculator" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
                         <i class="fas fa-calculator text-blue-600 w-5"></i>
-                        <span class="font-medium">대출 계산기</span>
+                        <span class="font-medium">대출계산기</span>
                     </a>
                     <a href="/savings" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
                         <i class="fas fa-piggy-bank text-blue-600 w-5"></i>
-                        <span class="font-medium">적금 계산기</span>
-                    </a>
-                    <a href="/rates" class="flex items-center space-x-3 px-4 py-3 text-blue-600 bg-blue-50 rounded-lg">
-                        <i class="fas fa-chart-line w-5"></i>
-                        <span class="font-semibold">금리 비교</span>
+                        <span class="font-medium">예금/적금</span>
                     </a>
                     <a href="/faq" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
                         <i class="fas fa-question-circle text-blue-600 w-5"></i>
                         <span class="font-medium">FAQ</span>
                     </a>
+                    <a href="/" class="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition">
+                        <i class="fas fa-bell text-blue-600 w-5"></i>
+                        <span class="font-medium">알림설정</span>
+                    </a>
                 </nav>
+                
+                <!-- Version Info at Bottom -->
+                <div class="absolute bottom-6 left-6 right-6">
+                    <p class="text-center text-sm text-gray-400">똑똑한한채 v1.0</p>
+                </div>
             </div>
         </div>
         
