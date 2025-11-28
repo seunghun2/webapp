@@ -3131,9 +3131,9 @@ app.post('/api/properties/create', async (c) => {
       INSERT INTO properties (
         title, type, location, full_address, deadline, announcement_date,
         move_in_date, households, area_type, price, price_label, constructor, tags,
-        description, extended_data, status, sale_price_min, sale_price_max, 
+        description, extended_data, status, sale_price_min, sale_price_max, image_url,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, datetime('now'), datetime('now'))
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, datetime('now'), datetime('now'))
     `).bind(
       data.title,
       data.type,
@@ -3151,7 +3151,8 @@ app.post('/api/properties/create', async (c) => {
       data.description || '',
       data.extended_data || '{}',
       data.sale_price_min || 0,
-      data.sale_price_max || 0
+      data.sale_price_max || 0,
+      data.image_url || ''
     ).run()
     
     return c.json({
@@ -12081,14 +12082,12 @@ app.get('/', (c) => {
                   </div>
 
                   <!-- Thumbnail Image (대표이미지) - 제목과 위치 다음 -->
-                  \${property.image_url ? \`
-                    <div class="w-full rounded-lg overflow-hidden">
-                      <img src="\${property.image_url}" 
-                           alt="\${property.title} 대표이미지"
-                           class="w-full h-auto object-cover"
-                           onerror="this.parentElement.style.display='none'" />
-                    </div>
-                  \` : ''}
+                  <div class="w-full rounded-lg overflow-hidden bg-gray-100">
+                    <img src="\${property.image_url || 'https://via.placeholder.com/800x400/e5e7eb/6b7280?text=' + encodeURIComponent(property.title.substring(0, 20))}" 
+                         alt="\${property.title} 대표이미지"
+                         class="w-full h-auto object-cover"
+                         onerror="this.src='https://via.placeholder.com/800x400/e5e7eb/6b7280?text=No+Image'" />
+                  </div>
 
                   <!-- Basic Info (Toss Simple Style) -->
                   <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
