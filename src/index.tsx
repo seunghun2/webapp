@@ -10087,6 +10087,31 @@ app.get('/faq', async (c) => {
         </style>
     </head>
     <body class="bg-gray-50">
+        <!-- 로그인 모달 -->
+        <div id="loginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[1001] flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full p-8 relative">
+                <!-- 닫기 버튼 -->
+                <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+                
+                <!-- 제목 -->
+                <div class="text-center mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">로그인</h2>
+                    <p class="text-gray-600 text-sm">똑똑한한채에 오신 것을 환영합니다</p>
+                </div>
+                
+                <!-- 로그인 버튼들 -->
+                <div class="space-y-3">
+                    <!-- 카카오 로그인 -->
+                    <button onclick="window.location.href='/auth/kakao/login'" class="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all">
+                        <i class="fas fa-comment text-xl"></i>
+                        <span>카카오로 시작하기</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
         <!-- Hamburger Menu Overlay -->
         <div id="hamburgerOverlay" class="hamburger-overlay" onclick="toggleHamburgerMenu()"></div>
 
@@ -15713,6 +15738,31 @@ app.get('/calculator', (c) => {
         }
         </script>
         
+        <!-- 로그인 모달 -->
+        <div id="loginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[1001] flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full p-8 relative">
+                <!-- 닫기 버튼 -->
+                <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+                
+                <!-- 제목 -->
+                <div class="text-center mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">로그인</h2>
+                    <p class="text-gray-600 text-sm">똑똑한한채에 오신 것을 환영합니다</p>
+                </div>
+                
+                <!-- 로그인 버튼들 -->
+                <div class="space-y-3">
+                    <!-- 카카오 로그인 -->
+                    <button onclick="window.location.href='/auth/kakao/login'" class="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all">
+                        <i class="fas fa-comment text-xl"></i>
+                        <span>카카오로 시작하기</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
         <!-- Mobile Menu -->
         <div id="mobileMenu" class="fixed inset-0 bg-black bg-opacity-50 z-[1000] hidden">
             <div class="fixed right-0 top-0 bottom-0 w-72 bg-white transform transition-transform duration-300 translate-x-full shadow-lg" id="mobileMenuPanel">
@@ -15742,7 +15792,7 @@ app.get('/calculator', (c) => {
                         <i class="fas fa-question-circle text-blue-600 text-lg"></i>
                         <span class="font-medium">FAQ</span>
                     </a>
-                    <button onclick="closeMobileMenu(); setTimeout(() => { alert('로그인이 필요한 서비스입니다.'); window.location.href='/'; }, 300);" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left">
+                    <button onclick="closeMobileMenu(); setTimeout(() => openLoginModal(), 300);" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left">
                         <i class="fas fa-bell text-blue-600 text-lg"></i>
                         <span class="font-medium">알림설정</span>
                     </button>
@@ -16339,10 +16389,26 @@ app.get('/calculator', (c) => {
             setTimeout(() => menu?.classList.add('hidden'), 300);
           }
           
+          // Login modal functions
+          function openLoginModal() {
+            document.getElementById('loginModal')?.classList.remove('hidden');
+          }
+          
+          function closeLoginModal() {
+            document.getElementById('loginModal')?.classList.add('hidden');
+          }
+          
           // Close menu when clicking outside
           document.getElementById('mobileMenu')?.addEventListener('click', function(e) {
             if (e.target === this) {
               closeMobileMenu();
+            }
+          });
+          
+          // Close login modal when clicking outside
+          document.getElementById('loginModal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+              closeLoginModal();
             }
           });
         </script>
@@ -16618,6 +16684,31 @@ app.get('/savings', (c) => {
         </style>
     </head>
     <body class="bg-gray-50">
+        <!-- 로그인 모달 -->
+        <div id="loginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[1001] flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full p-8 relative">
+                <!-- 닫기 버튼 -->
+                <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+                
+                <!-- 제목 -->
+                <div class="text-center mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">로그인</h2>
+                    <p class="text-gray-600 text-sm">똑똑한한채에 오신 것을 환영합니다</p>
+                </div>
+                
+                <!-- 로그인 버튼들 -->
+                <div class="space-y-3">
+                    <!-- 카카오 로그인 -->
+                    <button onclick="window.location.href='/auth/kakao/login'" class="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all">
+                        <i class="fas fa-comment text-xl"></i>
+                        <span>카카오로 시작하기</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
         <!-- Mobile Menu -->
         <div id="mobileMenu" class="fixed inset-0 bg-black bg-opacity-50 z-[1000] hidden">
             <div class="fixed right-0 top-0 bottom-0 w-72 bg-white transform transition-transform duration-300 translate-x-full shadow-lg" id="mobileMenuPanel">
@@ -17072,9 +17163,25 @@ app.get('/savings', (c) => {
             setTimeout(() => menu?.classList.add('hidden'), 300);
           }
           
+          // Login modal functions
+          function openLoginModal() {
+            document.getElementById('loginModal')?.classList.remove('hidden');
+          }
+          
+          function closeLoginModal() {
+            document.getElementById('loginModal')?.classList.add('hidden');
+          }
+          
           document.getElementById('mobileMenu')?.addEventListener('click', function(e) {
             if (e.target === this) {
               closeMobileMenu();
+            }
+          });
+          
+          // Close login modal when clicking outside
+          document.getElementById('loginModal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+              closeLoginModal();
             }
           });
           
@@ -17321,6 +17428,31 @@ app.get('/rates', (c) => {
         </style>
     </head>
     <body class="bg-gray-50">
+        <!-- 로그인 모달 -->
+        <div id="loginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[1001] flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl max-w-md w-full p-8 relative">
+                <!-- 닫기 버튼 -->
+                <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+                
+                <!-- 제목 -->
+                <div class="text-center mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">로그인</h2>
+                    <p class="text-gray-600 text-sm">똑똑한한채에 오신 것을 환영합니다</p>
+                </div>
+                
+                <!-- 로그인 버튼들 -->
+                <div class="space-y-3">
+                    <!-- 카카오 로그인 -->
+                    <button onclick="window.location.href='/auth/kakao/login'" class="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all">
+                        <i class="fas fa-comment text-xl"></i>
+                        <span>카카오로 시작하기</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
         <!-- Hamburger Menu Overlay -->
         <div id="hamburgerOverlay" class="hamburger-overlay" onclick="toggleHamburgerMenu()"></div>
 
@@ -17352,7 +17484,7 @@ app.get('/rates', (c) => {
                         <i class="fas fa-question-circle text-blue-600 w-5"></i>
                         <span class="font-medium">FAQ</span>
                     </a>
-                    <button onclick="toggleHamburgerMenu(); setTimeout(() => { alert('로그인이 필요한 서비스입니다.'); window.location.href='/'; }, 300);" class="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition text-left">
+                    <button onclick="toggleHamburgerMenu(); setTimeout(() => openLoginModal(), 300);" class="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition text-left">
                         <i class="fas fa-bell text-blue-600 w-5"></i>
                         <span class="font-medium">알림설정</span>
                     </button>
@@ -17740,9 +17872,25 @@ app.get('/rates', (c) => {
             overlay.classList.toggle('active');
           }
           
+          // Login modal functions
+          function openLoginModal() {
+            document.getElementById('loginModal')?.classList.remove('hidden');
+          }
+          
+          function closeLoginModal() {
+            document.getElementById('loginModal')?.classList.add('hidden');
+          }
+          
           document.getElementById('hamburgerOverlay')?.addEventListener('click', function(e) {
             if (e.target === this) {
               closeMobileMenu();
+            }
+          });
+          
+          // Close login modal when clicking outside
+          document.getElementById('loginModal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+              closeLoginModal();
             }
           });
           
