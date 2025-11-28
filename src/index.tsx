@@ -19,6 +19,134 @@ const app = new Hono<{ Bindings: Bindings }>()
 // Enable CORS
 app.use('/api/*', cors())
 
+// ==================== 공통 컴포넌트 함수 ====================
+
+// 로그인 모달 HTML
+function getLoginModal() {
+  return `
+    <!-- 로그인 모달 -->
+    <div id="loginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[1001] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-8 relative">
+            <!-- 닫기 버튼 -->
+            <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            
+            <!-- 제목 -->
+            <div class="text-center mb-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">로그인</h2>
+                <p class="text-gray-600 text-sm">똑똑한한채에 오신 것을 환영합니다</p>
+            </div>
+            
+            <!-- 로그인 버튼들 -->
+            <div class="space-y-3">
+                <!-- 카카오 로그인 -->
+                <button onclick="window.location.href='/auth/kakao/login'" class="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all">
+                    <i class="fas fa-comment text-xl"></i>
+                    <span>카카오로 시작하기</span>
+                </button>
+            </div>
+        </div>
+    </div>
+  `
+}
+
+// 햄버거 메뉴 HTML (현재 페이지 표시용)
+function getHamburgerMenu(currentPage: string = '') {
+  const isHome = currentPage === '/'
+  const isCalculator = currentPage === '/calculator'
+  const isSavings = currentPage === '/savings'
+  const isFaq = currentPage === '/faq'
+  
+  return `
+    <!-- Mobile Menu -->
+    <div id="mobileMenu" class="fixed inset-0 bg-black bg-opacity-50 z-[1000] hidden">
+        <div class="fixed right-0 top-0 bottom-0 w-72 bg-white transform transition-transform duration-300 translate-x-full shadow-lg" id="mobileMenuPanel">
+            <!-- Menu Header -->
+            <div class="flex items-center justify-between p-4 border-b">
+                <h2 class="text-lg font-bold text-gray-900">메뉴</h2>
+                <button onclick="closeMobileMenu()" class="text-gray-600 hover:text-gray-900 p-2">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- Menu Items -->
+            <nav class="p-4 space-y-1">
+                <a href="/" class="flex items-center gap-3 px-4 py-3 ${isHome ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:bg-gray-100'} rounded-lg transition-colors">
+                    <i class="fas fa-home text-blue-600 text-lg"></i>
+                    <span class="font-medium">청약정보</span>
+                </a>
+                <a href="/calculator" class="flex items-center gap-3 px-4 py-3 ${isCalculator ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:bg-gray-100'} rounded-lg transition-colors">
+                    <i class="fas fa-calculator text-blue-600 text-lg"></i>
+                    <span class="font-medium">대출계산기</span>
+                </a>
+                <a href="/savings" class="flex items-center gap-3 px-4 py-3 ${isSavings ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:bg-gray-100'} rounded-lg transition-colors">
+                    <i class="fas fa-piggy-bank text-blue-600 text-lg"></i>
+                    <span class="font-medium">예금/적금</span>
+                </a>
+                <a href="/faq" class="flex items-center gap-3 px-4 py-3 ${isFaq ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:bg-gray-100'} rounded-lg transition-colors">
+                    <i class="fas fa-question-circle text-blue-600 text-lg"></i>
+                    <span class="font-medium">FAQ</span>
+                </a>
+                <button onclick="closeMobileMenu(); setTimeout(() => openLoginModal(), 300);" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left">
+                    <i class="fas fa-bell text-blue-600 text-lg"></i>
+                    <span class="font-medium">알림설정</span>
+                </button>
+            </nav>
+            
+            <!-- Menu Footer -->
+            <div class="absolute bottom-0 left-0 right-0 p-4 border-t bg-gray-50">
+                <p class="text-xs text-gray-500 text-center">똑똑한한채 v1.0</p>
+            </div>
+        </div>
+    </div>
+  `
+}
+
+// 공통 JavaScript 함수들
+function getCommonScripts() {
+  return `
+    <script>
+      // 모바일 메뉴 함수
+      function openMobileMenu() {
+        const menu = document.getElementById('mobileMenu');
+        const panel = document.getElementById('mobileMenuPanel');
+        menu?.classList.remove('hidden');
+        setTimeout(() => panel?.classList.remove('translate-x-full'), 10);
+      }
+      
+      function closeMobileMenu() {
+        const menu = document.getElementById('mobileMenu');
+        const panel = document.getElementById('mobileMenuPanel');
+        panel?.classList.add('translate-x-full');
+        setTimeout(() => menu?.classList.add('hidden'), 300);
+      }
+      
+      // 로그인 모달 함수
+      function openLoginModal() {
+        document.getElementById('loginModal')?.classList.remove('hidden');
+      }
+      
+      function closeLoginModal() {
+        document.getElementById('loginModal')?.classList.add('hidden');
+      }
+      
+      // 외부 클릭 시 닫기
+      document.getElementById('mobileMenu')?.addEventListener('click', function(e) {
+        if (e.target === this) {
+          closeMobileMenu();
+        }
+      });
+      
+      document.getElementById('loginModal')?.addEventListener('click', function(e) {
+        if (e.target === this) {
+          closeLoginModal();
+        }
+      });
+    </script>
+  `
+}
+
 // ==================== SEO Routes ====================
 
 // robots.txt
@@ -15741,20 +15869,14 @@ app.get('/calculator', (c) => {
         <!-- 로그인 모달 -->
         <div id="loginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[1001] flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-8 relative">
-                <!-- 닫기 버튼 -->
                 <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
                     <i class="fas fa-times text-xl"></i>
                 </button>
-                
-                <!-- 제목 -->
                 <div class="text-center mb-8">
                     <h2 class="text-2xl font-bold text-gray-900 mb-2">로그인</h2>
                     <p class="text-gray-600 text-sm">똑똑한한채에 오신 것을 환영합니다</p>
                 </div>
-                
-                <!-- 로그인 버튼들 -->
                 <div class="space-y-3">
-                    <!-- 카카오 로그인 -->
                     <button onclick="window.location.href='/auth/kakao/login'" class="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all">
                         <i class="fas fa-comment text-xl"></i>
                         <span>카카오로 시작하기</span>
@@ -15766,15 +15888,12 @@ app.get('/calculator', (c) => {
         <!-- Mobile Menu -->
         <div id="mobileMenu" class="fixed inset-0 bg-black bg-opacity-50 z-[1000] hidden">
             <div class="fixed right-0 top-0 bottom-0 w-72 bg-white transform transition-transform duration-300 translate-x-full shadow-lg" id="mobileMenuPanel">
-                <!-- Menu Header -->
                 <div class="flex items-center justify-between p-4 border-b">
                     <h2 class="text-lg font-bold text-gray-900">메뉴</h2>
                     <button onclick="closeMobileMenu()" class="text-gray-600 hover:text-gray-900 p-2">
                         <i class="fas fa-times text-xl"></i>
                     </button>
                 </div>
-                
-                <!-- Menu Items -->
                 <nav class="p-4 space-y-1">
                     <a href="/" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
                         <i class="fas fa-home text-blue-600 text-lg"></i>
@@ -15797,8 +15916,6 @@ app.get('/calculator', (c) => {
                         <span class="font-medium">알림설정</span>
                     </button>
                 </nav>
-                
-                <!-- Menu Footer -->
                 <div class="absolute bottom-0 left-0 right-0 p-4 border-t bg-gray-50">
                     <p class="text-xs text-gray-500 text-center">똑똑한한채 v1.0</p>
                 </div>
@@ -16687,20 +16804,14 @@ app.get('/savings', (c) => {
         <!-- 로그인 모달 -->
         <div id="loginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[1001] flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-md w-full p-8 relative">
-                <!-- 닫기 버튼 -->
                 <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
                     <i class="fas fa-times text-xl"></i>
                 </button>
-                
-                <!-- 제목 -->
                 <div class="text-center mb-8">
                     <h2 class="text-2xl font-bold text-gray-900 mb-2">로그인</h2>
                     <p class="text-gray-600 text-sm">똑똑한한채에 오신 것을 환영합니다</p>
                 </div>
-                
-                <!-- 로그인 버튼들 -->
                 <div class="space-y-3">
-                    <!-- 카카오 로그인 -->
                     <button onclick="window.location.href='/auth/kakao/login'" class="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all">
                         <i class="fas fa-comment text-xl"></i>
                         <span>카카오로 시작하기</span>
