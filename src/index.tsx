@@ -10124,23 +10124,6 @@ app.get('/faq', async (c) => {
                     </button>
                 </nav>
                 
-                ${!isLoggedIn ? `
-                    <div class="mt-8 space-y-3">
-                        <a href="/login" class="block w-full px-4 py-3 bg-gray-100 text-center text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition">
-                            로그인
-                        </a>
-                        <a href="/signup" class="block w-full px-4 py-3 bg-blue-600 text-center text-white font-semibold rounded-lg hover:bg-blue-700 transition">
-                            회원가입
-                        </a>
-                    </div>
-                ` : `
-                    <div class="mt-8">
-                        <a href="/auth/logout" class="block w-full px-4 py-3 bg-gray-100 text-center text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition">
-                            로그아웃
-                        </a>
-                    </div>
-                `}
-                
                 <!-- Version Info at Bottom -->
                 <div class="absolute bottom-6 left-6 right-6">
                     <p class="text-center text-sm text-gray-400">똑똑한한채 v1.0</p>
@@ -15759,7 +15742,7 @@ app.get('/calculator', (c) => {
                         <i class="fas fa-question-circle text-blue-600 text-lg"></i>
                         <span class="font-medium">FAQ</span>
                     </a>
-                    <button onclick="closeMobileMenu(); alert('로그인이 필요한 서비스입니다.');" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left">
+                    <button onclick="closeMobileMenu(); setTimeout(() => { alert('로그인이 필요한 서비스입니다.'); window.location.href='/'; }, 300);" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left">
                         <i class="fas fa-bell text-blue-600 text-lg"></i>
                         <span class="font-medium">알림설정</span>
                     </button>
@@ -16664,7 +16647,7 @@ app.get('/savings', (c) => {
                         <i class="fas fa-question-circle text-blue-600 text-lg"></i>
                         <span class="font-medium">FAQ</span>
                     </a>
-                    <button onclick="closeMobileMenu(); alert('로그인이 필요한 서비스입니다.');" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left">
+                    <button onclick="closeMobileMenu(); setTimeout(() => { alert('로그인이 필요한 서비스입니다.'); window.location.href='/'; }, 300);" class="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-left">
                         <i class="fas fa-bell text-blue-600 text-lg"></i>
                         <span class="font-medium">알림설정</span>
                     </button>
@@ -17369,7 +17352,7 @@ app.get('/rates', (c) => {
                         <i class="fas fa-question-circle text-blue-600 w-5"></i>
                         <span class="font-medium">FAQ</span>
                     </a>
-                    <button onclick="toggleHamburgerMenu(); alert('로그인이 필요한 서비스입니다.');" class="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition text-left">
+                    <button onclick="toggleHamburgerMenu(); setTimeout(() => { alert('로그인이 필요한 서비스입니다.'); window.location.href='/'; }, 300);" class="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg transition text-left">
                         <i class="fas fa-bell text-blue-600 w-5"></i>
                         <span class="font-medium">알림설정</span>
                     </button>
