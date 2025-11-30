@@ -9940,12 +9940,14 @@ app.get('/property/:id', async (c) => {
     </div>
 
     <!-- Thumbnail Image (대표이미지) - 제목과 위치 다음 -->
+    ${property.image_url ? `
     <div class="w-full rounded-lg overflow-hidden bg-gray-100">
-      <img src="${property.image_url || 'https://via.placeholder.com/800x400/e5e7eb/6b7280?text=' + encodeURIComponent(property.title.substring(0, 20))}" 
+      <img src="${property.image_url}" 
            alt="${property.title} 대표이미지"
            class="w-full h-auto object-cover"
-           onerror="this.src='https://via.placeholder.com/800x400/e5e7eb/6b7280?text=No+Image'" />
+           onerror="this.parentElement.style.display='none'" />
     </div>
+    ` : ''}
 
     <!-- Basic Info (Toss Simple Style) -->
     <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
