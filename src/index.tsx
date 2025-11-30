@@ -9822,250 +9822,744 @@ app.get('/property/:id', async (c) => {
   const { DB } = c.env
   const propertyId = c.req.param('id')
   
-  // Get property from database
   const property = await DB.prepare(`
     SELECT * FROM properties WHERE id = ? AND deleted_at IS NULL
   `).bind(propertyId).first()
   
   if (!property) {
-    return c.html(`
-      <script>
-        alert('매물을 찾을 수 없습니다.');
-        window.location.href = '/';
-      </script>
-    `)
+    return c.html(`<script>alert('매물을 찾을 수 없습니다.');window.location.href='/';</script>`)
   }
   
-  // Parse extended_data
   let extendedData = {}
-  try {
-    extendedData = JSON.parse(property.extended_data || '{}')
-  } catch (e) {
-    extendedData = {}
-  }
+  try { extendedData = JSON.parse(property.extended_data || '{}') } catch (e) {}
   
-  // Parse tags
   let tags = []
-  try {
-    tags = JSON.parse(property.tags || '[]')
-  } catch (e) {
-    tags = []
-  }
+  try { tags = JSON.parse(property.tags || '[]') } catch (e) {}
   
-  // SEO: Generate structured data (Schema.org)
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": "RealEstateListing",
-    "name": property.title,
-    "description": property.description || `${property.location} ${property.title} 분양 정보`,
-    "address": {
-      "@type": "PostalAddress",
-      "addressLocality": property.location,
-      "addressCountry": "KR"
-    },
-    "price": property.price,
-    "url": `https://hanchae365.com/property/${property.id}`,
-    "image": extendedData.images?.[0] || "https://hanchae365.com/og-image.jpg"
-  }
+  const ddayDate = (() => {
+    if (extendedData.steps && Array.isArray(extendedData.steps) && extendedData.steps.length > 0) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const futureSteps = extendedData.steps
+        .filter(step => {
+          if (!step.date) return false;
+          const stepDate = new Date(step.date);
+          stepDate.setHours(0, 0, 0, 0);
+          return stepDate >= today;
+        })
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+      if (futureSteps.length > 0) return futureSteps[0].date;
+    }
+    return property.deadline;
+  })();
   
-  const pageTitle = `${property.title} - ${property.location} 분양정보 | 똑똑한한채`
-  const pageDescription = `${property.title} ${property.location} 분양 정보. 가격: ${property.price}, 세대수: ${property.households || '미정'}. 마감일: ${property.deadline || '미정'}. 똑똑한한채에서 확인하세요.`
-  const keywords = `${property.title},${property.location},분양,청약,${tags.join(',')},부동산분양,아파트분양,똑똑한한채`
+  const calculateDDay = (deadlineStr) => {
+    if (!deadlineStr) return { text: '미정', class: 'bg-gray-400' };
+    const deadline = new Date(deadlineStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    deadline.setHours(0, 0, 0, 0);
+    const diffTime = deadline - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) return { text: '마감', class: 'bg-gray-400' };
+    else if (diffDays === 0) return { text: '오늘 마감', class: 'bg-red-500' };
+    else if (diffDays <= 7) return { text: `${diffDays}일 남음`, class: 'bg-red-500' };
+    else if (diffDays <= 30) return { text: `${diffDays}일 남음`, class: 'bg-orange-500' };
+    else return { text: `${diffDays}일 남음`, class: 'bg-blue-500' };
+  };
+  
+  const dday = calculateDDay(ddayDate);
+  
+  const pageTitle = `${property.title} - ${property.location} 분양정보 | 똑똑한한채`;
+  const pageDescription = `${property.title} ${property.location} 분양 정보. 똑똑한한채에서 확인하세요.`;
   
   return c.html(`
-    <!DOCTYPE html>
-    <html lang="ko">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${pageTitle}</title>
-        
-        <!-- SEO Meta Tags -->
-        <meta name="description" content="${pageDescription}">
-        <meta name="keywords" content="${keywords}">
-        <meta name="author" content="똑똑한한채">
-        <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
-        <link rel="canonical" href="https://hanchae365.com/property/${property.id}">
-        
-        <!-- Open Graph Meta Tags -->
-        <meta property="og:type" content="article">
-        <meta property="og:title" content="${pageTitle}">
-        <meta property="og:description" content="${pageDescription}">
-        <meta property="og:url" content="https://hanchae365.com/property/${property.id}">
-        <meta property="og:site_name" content="똑똑한한채">
-        <meta property="og:image" content="${extendedData.images?.[0] || 'https://hanchae365.com/og-image.jpg'}">
-        
-        <!-- Twitter Card Meta Tags -->
-        <meta name="twitter:card" content="summary_large_image">
-        <meta name="twitter:title" content="${pageTitle}">
-        <meta name="twitter:description" content="${pageDescription}">
-        <meta name="twitter:image" content="${extendedData.images?.[0] || 'https://hanchae365.com/og-image.jpg'}">
-        
-        <!-- Structured Data (Schema.org) -->
-        <script type="application/ld+json">
-        ${JSON.stringify(structuredData)}
-        </script>
-        
-        <!-- Google Analytics -->
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-470RN8J40M"></script>
-        <script>
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-470RN8J40M');
-        </script>
-        
-        <script src="https://cdn.tailwindcss.com"></script>
-        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
-    </head>
-    <body class="bg-gray-50">
-        <!-- 헤더 -->
-        <header class="bg-white border-b sticky top-0 z-50">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between items-center h-16">
-                    <a href="/" class="text-xl font-bold text-gray-900">똑똑한한채</a>
-                    <a href="/" class="text-sm text-gray-600 hover:text-gray-900">
-                        <i class="fas fa-home mr-1"></i> 홈으로
-                    </a>
-                </div>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${pageTitle}</title>
+    <meta name="description" content="${pageDescription}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+      .text-primary { color: #3b82f6; }
+      .bg-primary { background-color: #3b82f6; }
+      .badge-special { background-color: #ef4444; }
+      .badge-general { background-color: #3b82f6; }
+      .badge-remaining { background-color: #10b981; }
+    </style>
+</head>
+<body>
+    <!-- Background: Main page iframe -->
+    <iframe src="/" class="w-full h-full absolute inset-0" style="border: none;"></iframe>
+    
+    <!-- Overlay -->
+    <div class="fixed inset-0 bg-black bg-opacity-50 z-40" onclick="window.location.href='/'"></div>
+    
+    <!-- Modal -->
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden pointer-events-auto" onclick="event.stopPropagation()">
+            <div class="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-gray-900">매물 상세</h2>
+                <button onclick="window.location.href='/'" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
             </div>
-        </header>
+            <div class="overflow-y-auto max-h-[calc(90vh-60px)] p-4 sm:p-6">
+  <div class="space-y-4 sm:space-y-6">
+    <!-- Header -->
+    <div>
+      <div class="flex items-start justify-between mb-2 gap-3">
+        <h2 class="text-xl sm:text-2xl font-bold text-gray-900 flex-1 min-w-0 break-words leading-tight">${property.title}</h2>
+        ${property.badge ? `
+          <span class="badge-${property.badge.toLowerCase()} text-white text-xs font-bold px-3 py-1 rounded-full">
+            ${property.badge}
+          </span>
+        ` : ''}
+      </div>
+      
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2 text-gray-600 mb-2">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <i class="fas fa-map-marker-alt text-primary flex-shrink-0"></i>
+          <span class="text-xs sm:text-sm truncate">${property.full_address || property.location}</span>
+        </div>
+        <button onclick="openMap('${property.full_address || property.location}', ${property.lat}, ${property.lng})" 
+  class="text-primary text-xs sm:text-sm font-medium hover:underline active:text-primary-dark flex items-center gap-1 whitespace-nowrap">
+          <i class="fas fa-map-marked-alt"></i><span>지도에서 보기</span>
+        </button>
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <span class="${dday.class} text-white text-xs font-bold px-3 py-1 rounded-full">
+          ${dday.text}
+        </span>
+        <span class="text-sm text-gray-600">${ddayDate}까지</span>
+      </div>
+    </div>
+
+    <!-- Thumbnail Image (대표이미지) - 제목과 위치 다음 -->
+    <div class="w-full rounded-lg overflow-hidden bg-gray-100">
+      <img src="${property.image_url || 'https://via.placeholder.com/800x400/e5e7eb/6b7280?text=' + encodeURIComponent(property.title.substring(0, 20))}" 
+           alt="${property.title} 대표이미지"
+           class="w-full h-auto object-cover"
+           onerror="this.src='https://via.placeholder.com/800x400/e5e7eb/6b7280?text=No+Image'" />
+    </div>
+
+    <!-- Basic Info (Toss Simple Style) -->
+    <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+      <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">단지 정보</h3>
+      <div class="space-y-2 sm:space-y-3">
+        ${property.exclusive_area_range || property.area_type ? `
+          <div class="flex justify-between items-center py-2 border-b border-gray-200 gap-3">
+            <span class="text-xs sm:text-sm text-gray-600 flex-shrink-0">전용면적</span>
+            <span class="text-xs sm:text-sm font-semibold text-gray-900 text-right">${property.exclusive_area_range || property.area_type}</span>
+          </div>
+        ` : ''}
+        <div class="flex justify-between items-center py-2 border-b border-gray-200 gap-3">
+          <span class="text-xs sm:text-sm text-gray-600 flex-shrink-0">${
+            property.title && (property.title.includes('행복주택') || property.title.includes('희망타운') || property.title.includes('임대'))
+? '임대보증금'
+: '분양가'
+          }</span>
+          <span class="text-xs sm:text-sm font-semibold text-gray-900 text-right">${
+            (() => {
+// 메인 카드에 입력된 rental_deposit 값 사용 (extended_data.rentalDeposit)
+if (property.title && (property.title.includes('행복주택') || property.title.includes('희망타운') || property.title.includes('임대'))) {
+  if (extendedData.rentalDeposit) return extendedData.rentalDeposit;
+  if (property.rental_deposit_range) return property.rental_deposit_range;
+  if (property.rental_deposit_min && property.rental_deposit_max) {
+    return property.rental_deposit_min.toFixed(1) + '억~' + property.rental_deposit_max.toFixed(1) + '억';
+  }
+}
+return property.price;
+            })()
+          }</span>
+        </div>
+        <div class="flex justify-between items-center py-2 border-b border-gray-200 gap-3">
+          <span class="text-xs sm:text-sm text-gray-600 flex-shrink-0">모집세대</span>
+          <span class="text-xs sm:text-sm font-semibold text-gray-900 text-right">${
+            property.households 
+? (property.households.toString().includes('세대') ? property.households : property.households + '세대')
+: '-'
+          }</span>
+        </div>
+        ${property.move_in_date ? `
+          <div class="flex justify-between items-center py-2 border-b border-gray-200">
+            <span class="text-sm text-gray-600">입주예정</span>
+            <span class="text-sm font-semibold text-gray-900">${property.move_in_date}</span>
+          </div>
+        ` : ''}
+        ${property.parking || extendedData.details?.parking ? `
+          <div class="flex justify-between items-center py-2 border-b border-gray-200">
+            <span class="text-sm text-gray-600">주차</span>
+            <span class="text-sm font-semibold text-gray-900">${property.parking || extendedData.details.parking}</span>
+          </div>
+        ` : ''}
+        ${property.heating ? `
+          <div class="flex justify-between items-center py-2 border-b border-gray-200">
+            <span class="text-sm text-gray-600">난방</span>
+            <span class="text-sm font-semibold text-gray-900">${property.heating}</span>
+          </div>
+        ` : ''}
+        ${property.builder || extendedData.details?.constructor ? `
+          <div class="flex justify-between items-center py-2 border-b border-gray-200">
+            <span class="text-sm text-gray-600">시공사</span>
+            <span class="text-sm font-semibold text-gray-900">${property.builder || extendedData.details.constructor}</span>
+          </div>
+        ` : ''}
+        ${extendedData.details?.landArea ? `
+          <div class="flex justify-between items-center py-2 border-b border-gray-200">
+            <span class="text-sm text-gray-600">대지면적</span>
+            <span class="text-sm font-semibold text-gray-900">${extendedData.details.landArea}</span>
+          </div>
+        ` : ''}
+        ${extendedData.details?.totalHouseholds ? `
+          <div class="flex justify-between items-center py-2 border-b border-gray-200">
+            <span class="text-sm text-gray-600">총 세대수</span>
+            <span class="text-sm font-semibold text-gray-900">${extendedData.details.totalHouseholds}</span>
+          </div>
+        ` : ''}
+        ${extendedData.details?.website ? `
+          <div class="flex justify-between items-center py-2">
+            <span class="text-sm text-gray-600">홈페이지</span>
+            <a href="${extendedData.details.website}" target="_blank" class="text-sm font-semibold text-primary hover:underline">${extendedData.details.website}</a>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+    
+    
+    <!-- Supply Info from extended_data -->
+    ${extendedData.supplyInfo && extendedData.supplyInfo.length > 0 ? `
+      <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+        <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">공급 세대 정보</h3>
+        ${extendedData.supplyInfoImage && extendedData.supplyInfoImage !== 'undefined' && extendedData.supplyInfoImage !== '' ? `
+          <div class="mb-4 bg-white p-2 rounded-lg border border-gray-200">
+            <img 
+src="${extendedData.supplyInfoImage}" 
+alt="공급 세대 정보" 
+class="w-full rounded-lg shadow-sm" 
+style="max-height: 600px; object-fit: contain;"
+onerror="console.error('Image load failed:', this.src); this.parentElement.innerHTML='<p class=\\'text-sm text-red-600 p-2\\'>이미지를 불러올 수 없습니다.</p>';"
+onload="console.log('✅ Image loaded successfully:', this.src)">
+          </div>
+        ` : ''}
+        <div class="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+          <table class="w-full text-xs sm:text-sm">
+            <thead class="bg-white">
+<tr>
+  <th class="px-2 sm:px-3 py-2 text-left font-semibold text-gray-700 border-b whitespace-nowrap">타입</th>
+  <th class="px-2 sm:px-3 py-2 text-left font-semibold text-gray-700 border-b whitespace-nowrap">면적</th>
+  <th class="px-2 sm:px-3 py-2 text-left font-semibold text-gray-700 border-b whitespace-nowrap">세대수</th>
+  <th class="px-2 sm:px-3 py-2 text-left font-semibold text-gray-700 border-b whitespace-nowrap">가격</th>
+</tr>
+            </thead>
+            <tbody>
+${extendedData.supplyInfo.map(info => `
+  <tr class="border-b border-gray-200">
+    <td class="px-2 sm:px-3 py-2 text-gray-900 whitespace-nowrap">${
+      info.type ? (info.type.includes('m') || info.type.includes('㎡') || info.type.includes('평') ? info.type : info.type + 'm²') : '-'
+    }</td>
+    <td class="px-2 sm:px-3 py-2 text-gray-900 whitespace-nowrap">${
+      info.area ? (info.area.includes('평') || info.area.includes('m') || info.area.includes('㎡') ? info.area : info.area + '평') : '-'
+    }</td>
+    <td class="px-2 sm:px-3 py-2 text-gray-900 whitespace-nowrap">${
+      info.households ? (info.households.includes('세대') ? info.households : info.households + '세대') : '-'
+    }</td>
+    <td class="px-2 sm:px-3 py-2 text-gray-900">${info.price || '-'}</td>
+  </tr>
+`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ` : ''}
+
+    <!-- Selection Timeline (6 Steps) - Only show if extendedData.steps doesn't exist -->
+    ${(!extendedData.steps || extendedData.steps.length === 0) && (property.application_start_date || property.no_rank_date || property.first_rank_date || property.special_subscription_date) ? `
+      <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+        <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">📅 입주자 선정 일정</h3>
         
-        <!-- 매물 상세 정보 -->
-        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div class="bg-white rounded-lg shadow-sm p-6">
-                <!-- 제목 -->
-                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">${property.title}</h1>
-                
-                <!-- 위치 -->
-                <div class="flex items-center text-gray-600 mb-4">
-                    <i class="fas fa-map-marker-alt mr-2"></i>
-                    <span>${property.location}</span>
-                </div>
-                
-                <!-- 태그 -->
-                ${tags.length > 0 ? `
-                <div class="flex flex-wrap gap-2 mb-6">
-                    ${tags.map(tag => `<span class="px-3 py-1 bg-blue-100 text-gray-700 text-sm rounded-full">${tag}</span>`).join('')}
-                </div>
-                ` : ''}
-                
-                <!-- 주요 정보 -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                    <div class="bg-gray-50 p-4 rounded-lg">
-                        <p class="text-sm text-gray-600 mb-1">분양가</p>
-                        <p class="text-lg font-semibold text-gray-900">${property.price || '미정'}</p>
-                    </div>
-                    <div class="bg-gray-50 p-4 rounded-lg">
-                        <p class="text-sm text-gray-600 mb-1">세대수</p>
-                        <p class="text-lg font-semibold text-gray-900">${property.households || '미정'}</p>
-                    </div>
-                    <div class="bg-gray-50 p-4 rounded-lg">
-                        <p class="text-sm text-gray-600 mb-1">신청마감</p>
-                        <p class="text-lg font-semibold text-red-600">${property.deadline || '미정'}</p>
-                    </div>
-                </div>
-                
-                <!-- 설명 -->
-                ${property.description ? `
-                <div class="mb-6">
-                    <h2 class="text-xl font-bold text-gray-900 mb-3">상세 설명</h2>
-                    <p class="text-gray-700 whitespace-pre-line">${property.description}</p>
-                </div>
-                ` : ''}
-                
-                <!-- 이미지 -->
-                ${extendedData.images && extendedData.images.length > 0 ? `
-                <div class="mb-6">
-                    <h2 class="text-xl font-bold text-gray-900 mb-3">매물 사진</h2>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        ${extendedData.images.map(img => `
-                            <img src="${img}" alt="${property.title}" class="w-full h-64 object-cover rounded-lg">
-                        `).join('')}
-                    </div>
-                </div>
-                ` : ''}
-                
-                <!-- 일정 (Steps) -->
-                ${extendedData.steps && extendedData.steps.length > 0 ? `
-                <div class="mb-6">
-                    <h2 class="text-xl font-bold text-gray-900 mb-3">일정</h2>
-                    <div class="space-y-2">
-                        ${extendedData.steps.map(step => `
-                            <div class="flex justify-between items-center py-2 border-b">
-                                <span class="text-gray-700">${step.label}</span>
-                                <span class="text-gray-900 font-medium">${step.value}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-                ` : ''}
-                
-                <!-- CTA 버튼 -->
-                <div class="flex gap-4 mt-8">
-                    <a href="/" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white text-center rounded-lg font-medium transition-colors">
-                        <i class="fas fa-list mr-2"></i> 전체 매물 보기
-                    </a>
-                </div>
-            </div>
-            
-            <!-- 관련 매물 추천 -->
-            <div class="mt-8">
-                <h2 class="text-2xl font-bold text-gray-900 mb-4">
-                    <i class="fas fa-building mr-2"></i> 같은 지역 매물
-                </h2>
-                <div id="relatedProperties" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <!-- JavaScript로 로드 -->
-                </div>
-            </div>
-        </main>
-        
-        <!-- 푸터 -->
-        <footer class="bg-white border-t mt-12">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <p class="text-center text-gray-600 text-sm">
-                    © 2025 똑똑한한채. All rights reserved.
-                </p>
-            </div>
-        </footer>
-        
-        <script>
-          // 같은 지역 매물 불러오기
-          async function loadRelatedProperties() {
-            try {
-              const response = await fetch('/api/properties?location=${property.location}&limit=3')
-              const properties = await response.json()
-              
-              const container = document.getElementById('relatedProperties')
-              
-              if (properties.length === 0) {
-                container.innerHTML = '<p class="text-gray-600 col-span-3">관련 매물이 없습니다.</p>'
-                return
-              }
-              
-              container.innerHTML = properties
-                .filter(p => p.id !== ${property.id})
-                .slice(0, 3)
-                .map(p => \`
-                  <a href="/property/\${p.id}" class="block bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-4">
-                    <h3 class="font-bold text-gray-900 mb-2">\${p.title}</h3>
-                    <p class="text-sm text-gray-600 mb-2">
-                      <i class="fas fa-map-marker-alt mr-1"></i> \${p.location}
-                    </p>
-                    <p class="text-sm text-gray-900 font-medium">\${p.price}</p>
-                  </a>
-                \`).join('')
-            } catch (error) {
-              console.error('Failed to load related properties:', error)
-            }
+        <!-- Timeline Container -->
+        <div class="relative">
+          <!-- Vertical Line -->
+          <div class="absolute left-4 top-3 bottom-3 w-0.5 bg-gray-300"></div>
+          
+          <!-- Timeline Steps -->
+          <div class="space-y-3 sm:space-y-4">
+            ${(() => {
+// 오늘 날짜
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+// 각 단계의 날짜와 정보
+const steps = [
+  { 
+    date: property.application_end_date || property.application_start_date,
+    step: 1,
+    title: '청약신청',
+    subtitle: '현장·인터넷·모바일',
+    dateDisplay: property.application_start_date + (property.application_end_date && property.application_end_date !== property.application_start_date ? '~' + property.application_end_date : '')
+  },
+  { 
+    date: property.document_submission_date,
+    step: 2,
+    title: '서류제출 대상자 발표',
+    subtitle: '인터넷·모바일 신청자 한함',
+    dateDisplay: property.document_submission_date
+  },
+  { 
+    date: property.document_acceptance_end_date || property.document_acceptance_start_date,
+    step: 3,
+    title: '사업주체 대상자 서류접수',
+    subtitle: '인터넷 신청자',
+    dateDisplay: property.document_acceptance_start_date + (property.document_acceptance_end_date && property.document_acceptance_end_date !== property.document_acceptance_start_date ? '~' + property.document_acceptance_end_date : '')
+  },
+  { 
+    date: property.qualification_verification_date,
+    step: 4,
+    title: '입주자격 검증 및 부적격자 소명',
+    subtitle: '',
+    dateDisplay: property.qualification_verification_date
+  },
+  { 
+    date: property.appeal_review_date,
+    step: 5,
+    title: '소명 절차 및 심사',
+    subtitle: '',
+    dateDisplay: property.appeal_review_date
+  },
+  { 
+    date: property.final_announcement_date,
+    step: 6,
+    title: '예비입주자 당첨자 발표',
+    subtitle: '',
+    dateDisplay: property.final_announcement_date
+  }
+];
+
+// 현재 단계 찾기
+let currentStep = 6;
+for (const s of steps) {
+  if (s.date) {
+    const stepDate = new Date(s.date);
+    stepDate.setHours(0, 0, 0, 0);
+    if (stepDate >= today) {
+      currentStep = s.step;
+      break;
+    }
+  }
+}
+
+// 각 단계 렌더링
+return steps.filter(s => s.date).map(s => {
+  const isCurrent = s.step === currentStep;
+  const dotColor = isCurrent ? 'bg-primary' : 'bg-gray-400';
+  const labelColor = isCurrent ? 'text-primary font-bold' : 'text-gray-500';
+  const titleColor = isCurrent ? 'text-primary font-bold' : 'text-gray-700';
+  const dateColor = isCurrent ? 'text-primary font-bold' : 'text-gray-600';
+  
+  return `
+    <div class="relative pl-8 sm:pl-10">
+      <div class="absolute left-2 sm:left-2.5 top-1.5 w-2.5 sm:w-3 h-2.5 sm:h-3 ${dotColor} rounded-full border-2 border-white"></div>
+      <div class="bg-white rounded-lg p-2.5 sm:p-3 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 mb-1">
+          <div class="flex-1 min-w-0">
+            <span class="text-xs ${labelColor}">STEP ${s.step}</span>
+            <h4 class="text-xs sm:text-sm ${titleColor} break-words">${s.title}</h4>
+            ${s.subtitle ? `<p class="text-xs text-gray-500 mt-0.5 sm:mt-1">${s.subtitle}</p>` : ''}
+          </div>
+          <span class="text-xs ${dateColor} whitespace-nowrap flex-shrink-0">${s.dateDisplay}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}).join('');
+            })()}
+          </div>
+
+          </div>
+        </div>
+      </div>
+    ` : ''}
+    
+    <!-- Steps from extended_data (입주자 선정 일정으로 표시) -->
+    ${extendedData.steps && extendedData.steps.length > 0 ? `
+    <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+      <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">📅 입주자 선정 일정</h3>
+        <!-- Timeline Container -->
+        <div class="relative pl-8">
+          <!-- Vertical Line (centered) -->
+          <div class="absolute left-3 top-0 bottom-0 w-0.5 bg-gray-300"></div>
+          
+          <!-- Timeline Steps -->
+          <div class="space-y-4">
+            ${(() => {
+// 오늘 날짜 기준 가장 가까운 미래 스텝 찾기
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+let activeStepIdx = -1;
+for (let i = 0; i < extendedData.steps.length; i++) {
+  const step = extendedData.steps[i];
+  try {
+    const stepDateStr = step.date.split('~')[0].split(' ')[0].trim();
+    const stepDate = new Date(stepDateStr);
+    stepDate.setHours(0, 0, 0, 0);
+    
+    if (stepDate >= today) {
+      activeStepIdx = i;
+      break;
+    }
+  } catch (e) {
+    // 날짜 파싱 실패
+  }
+}
+
+// 모든 날짜가 지났으면 마지막 스텝 활성화
+if (activeStepIdx === -1 && extendedData.steps.length > 0) {
+  activeStepIdx = extendedData.steps.length - 1;
+}
+
+return extendedData.steps.map((step, idx) => {
+  const isActive = idx === activeStepIdx;
+  return `
+    <div class="relative">
+      <!-- Timeline Dot (centered on line) -->
+      <div class="absolute -left-7.5 top-1/2 -translate-y-1/2 w-3 h-3 ${isActive ? 'bg-blue-500' : 'bg-gray-400'} rounded-full border-2 border-white z-10" style="left: -1.625rem;"></div>
+      
+      <!-- White Box Container -->
+      <div class="bg-white rounded-lg p-3 shadow-sm">
+        <div class="text-xs ${isActive ? 'text-gray-600' : 'text-gray-400'} mb-1">STEP ${idx + 1}</div>
+        <h4 class="text-sm font-bold ${isActive ? 'text-blue-600' : 'text-gray-400'} mb-1 break-words">${step.title}</h4>
+        ${step.details ? `<p class="text-xs ${isActive ? 'text-gray-600' : 'text-gray-400'} mb-2">${step.details}</p>` : ''}
+        <p class="text-xs ${isActive ? 'text-gray-900' : 'text-gray-400'} font-medium">${step.date}</p>
+      </div>
+    </div>
+  `;
+}).join('');
+            })()}
+          </div>
+        </div>
+      </div>
+    ` : ''}
+
+    <!-- Toggle Button for Additional Details -->
+    <div class="text-center my-5 sm:my-6">
+      <button id="toggleDetailsBtn" onclick="toggleAdditionalDetails()" 
+class="inline-flex items-center gap-1 text-gray-700 hover:text-gray-900 active:text-gray-900 transition-colors group p-2 -m-2">
+        <span id="toggleDetailsText" class="text-xs sm:text-sm font-medium border-b-2 border-gray-700 pb-0.5">더보기</span>
+        <i id="toggleDetailsIcon" class="fas fa-chevron-down text-xs group-hover:translate-y-0.5 group-active:translate-y-0.5 transition-transform"></i>
+      </button>
+    </div>
+
+    <!-- Additional Details Container (Hidden by default) -->
+    <div id="additionalDetailsContainer" class="space-y-4" style="display: none;">
+    
+    <!-- 신청자격 (targetAudienceLines가 있는 경우) -->
+    ${extendedData.targetAudienceLines && extendedData.targetAudienceLines.length > 0 ? `
+      <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+        <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">🎯 신청자격</h3>
+        <div class="text-xs sm:text-sm text-gray-700 space-y-1.5 sm:space-y-2 leading-relaxed">
+          ${extendedData.targetAudienceLines.map(line => `
+            <p>• ${line}</p>
+          `).join('')}
+        </div>
+      </div>
+    ` : ''}
+    
+    <!-- 신청자격 from extended_data (기존 방식 - targetAudienceLines 없을 때만) -->
+    ${!extendedData.targetAudienceLines && (extendedData.details?.targetTypes || extendedData.details?.incomeLimit || extendedData.details?.assetLimit) ? `
+      <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+        <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">🎯 신청자격</h3>
+        <div class="text-xs sm:text-sm text-gray-700 space-y-1.5 sm:space-y-2">
+          ${extendedData.details.targetTypes ? `<p><strong>대상:</strong> ${extendedData.details.targetTypes}</p>` : ''}
+          ${extendedData.details.incomeLimit ? `<p><strong>소득기준:</strong> ${extendedData.details.incomeLimit}</p>` : ''}
+          ${extendedData.details.assetLimit ? `<p><strong>자산기준:</strong> ${extendedData.details.assetLimit}</p>` : ''}
+          ${extendedData.details.homelessPeriod ? `<p><strong>무주택기간:</strong> ${extendedData.details.homelessPeriod}</p>` : ''}
+          ${extendedData.details.savingsAccount ? `<p><strong>청약통장:</strong> ${extendedData.details.savingsAccount}</p>` : ''}
+        </div>
+      </div>
+    ` : ''}
+    
+    <!-- 입주자 선정 기준 -->
+    ${extendedData.details?.selectionMethod || extendedData.details?.scoringCriteria ? `
+      <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+        <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">📊 입주자 선정 기준</h3>
+        <div class="text-xs sm:text-sm text-gray-700 space-y-1.5 sm:space-y-2">
+          ${extendedData.details.selectionMethod ? `<p><strong>선정방식:</strong> ${extendedData.details.selectionMethod}</p>` : ''}
+          ${extendedData.details.scoringCriteria ? `<p><strong>가점항목:</strong> ${extendedData.details.scoringCriteria}</p>` : ''}
+        </div>
+      </div>
+    ` : ''}
+    
+    <!-- 주의사항 -->
+    ${extendedData.details?.notices ? `
+      <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+        <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">⚠️ 주의사항</h3>
+        <div class="text-xs sm:text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">${extendedData.details.notices}</div>
+      </div>
+    ` : ''}
+    
+    <!-- 온라인 신청 -->
+    ${extendedData.details?.applicationMethod || extendedData.details?.applicationUrl ? `
+      <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+        <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">💻 온라인 신청</h3>
+        <div class="text-xs sm:text-sm text-gray-700 space-y-1.5 sm:space-y-2 break-words">
+          ${extendedData.details.applicationMethod ? `<p><strong>신청방법:</strong> ${extendedData.details.applicationMethod}</p>` : ''}
+          ${extendedData.details.applicationUrl ? `<p><strong>신청URL:</strong> <a href="${extendedData.details.applicationUrl}" target="_blank" class="text-primary hover:underline">${extendedData.details.applicationUrl}</a></p>` : ''}
+          ${extendedData.details.requiredDocs ? `<p><strong>필요서류:</strong> ${extendedData.details.requiredDocs}</p>` : ''}
+        </div>
+      </div>
+    ` : ''}
+    
+    <!-- 문의처 -->
+    ${extendedData.details?.contactDept || extendedData.details?.contactPhone ? `
+      <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+        <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">📞 문의처</h3>
+        <div class="text-xs sm:text-sm text-gray-700 space-y-1.5 sm:space-y-2">
+          ${extendedData.details.contactDept ? `<p><strong>담당부서:</strong> ${extendedData.details.contactDept}</p>` : ''}
+          ${extendedData.details.contactPhone ? `<p><strong>전화번호:</strong> <a href="tel:${extendedData.details.contactPhone}" class="text-primary hover:underline">${extendedData.details.contactPhone}</a></p>` : ''}
+          ${extendedData.details.contactEmail ? `<p><strong>이메일:</strong> <a href="mailto:${extendedData.details.contactEmail}" class="text-primary hover:underline">${extendedData.details.contactEmail}</a></p>` : ''}
+          ${extendedData.details.contactAddress ? `<p><strong>주소:</strong> ${extendedData.details.contactAddress}</p>` : ''}
+        </div>
+      </div>
+    ` : ''}
+    
+    <!-- 단지 개요 -->
+    ${extendedData.details?.features || extendedData.details?.surroundings || extendedData.details?.transportation ? `
+      <div class="bg-gray-50 rounded-lg p-4 sm:p-5">
+        <h3 class="text-sm sm:text-base font-bold text-gray-900 mb-3 sm:mb-4">🏢 단지 개요</h3>
+        <div class="text-xs sm:text-sm text-gray-700 space-y-1.5 sm:space-y-2">
+          ${extendedData.details.features ? `<p><strong>단지특징:</strong> ${extendedData.details.features}</p>` : ''}
+          ${extendedData.details.surroundings ? `<p><strong>주변환경:</strong> ${extendedData.details.surroundings}</p>` : ''}
+          ${extendedData.details.transportation ? `<p><strong>교통여건:</strong> ${extendedData.details.transportation}</p>` : ''}
+          ${extendedData.details.education ? `<p><strong>교육시설:</strong> ${extendedData.details.education}</p>` : ''}
+        </div>
+      </div>
+    ` : ''}
+    
+    </div>
+    <!-- End of Additional Details Container -->
+
+    <!-- Detailed Description (Simple Style) -->
+    ${property.description ? `
+      <div class="space-y-4">
+        ${(() => {
+          const desc = property.description;
+          const sections = [];
+          
+          // 단지 개요 추출
+          const overviewMatch = desc.match(/🏢 단지 개요([\\s\\S]*?)(?=📐|💰|🏡|🎯|✨|📞|⚠️|💻|🔗|👍|$)/);
+          if (overviewMatch) {
+            sections.push(`
+<div class="bg-gray-50 rounded-lg p-5">
+  <h3 class="text-base font-bold text-gray-900 mb-3">단지 개요</h3>
+  <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${overviewMatch[1].trim()}</div>
+</div>
+            `);
           }
           
-          loadRelatedProperties()
-        </script>
-    </body>
-    </html>
+          // 임대 조건 추출
+          const rentalMatch = desc.match(/💰 임대 조건([\\s\\S]*?)(?=🎯|📐|🏡|✨|📞|⚠️|💻|🔗|👍|$)/);
+          if (rentalMatch) {
+            sections.push(`
+<div class="bg-gray-50 rounded-lg p-5">
+  <h3 class="text-base font-bold text-gray-900 mb-3">💰 임대 조건</h3>
+  <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${rentalMatch[1].trim()}</div>
+</div>
+            `);
+          }
+          
+          // 신청자격 추출
+          const qualificationMatch = desc.match(/🎯 신청자격([\\s\\S]*?)(?=📐|🏡|⚠️|💻|📞|🔗|👍|$)/);
+          if (qualificationMatch) {
+            sections.push(`
+<div class="bg-gray-50 rounded-lg p-5">
+  <h3 class="text-base font-bold text-gray-900 mb-3">🎯 신청자격</h3>
+  <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${qualificationMatch[1].trim()}</div>
+</div>
+            `);
+          }
+          
+          // 공급 세대수 및 면적 추출
+          const supplyMatch = desc.match(/📐 공급 세대수 및 면적([\\s\\S]*?)(?=🏡|⚠️|💻|📞|🔗|👍|$)/);
+          if (supplyMatch) {
+            sections.push(`
+<div class="bg-gray-50 rounded-lg p-5">
+  <h3 class="text-base font-bold text-gray-900 mb-3">📐 공급 세대수 및 면적</h3>
+  <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${supplyMatch[1].trim()}</div>
+</div>
+            `);
+          }
+          
+          // 입주자 선정 기준 추출
+          const selectionMatch = desc.match(/🏡 입주자 선정 기준([\\s\\S]*?)(?=⚠️|💻|📞|🔗|👍|$)/);
+          if (selectionMatch) {
+            sections.push(`
+<div class="bg-gray-50 rounded-lg p-5">
+  <h3 class="text-base font-bold text-gray-900 mb-3">🏡 입주자 선정 기준</h3>
+  <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${selectionMatch[1].trim()}</div>
+</div>
+            `);
+          }
+          
+          // 주의사항 추출
+          const warningMatch = desc.match(/⚠️ 주의사항([\\s\\S]*?)(?=💻|📞|🔗|👍|$)/);
+          if (warningMatch) {
+            sections.push(`
+<div class="bg-gray-50 rounded-lg p-5">
+  <h3 class="text-base font-bold text-gray-900 mb-3">⚠️ 주의사항</h3>
+  <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${warningMatch[1].trim()}</div>
+</div>
+            `);
+          }
+          
+          // 온라인 신청 추출
+          const onlineMatch = desc.match(/💻 온라인 신청([\\s\\S]*?)(?=📞|🔗|👍|$)/);
+          if (onlineMatch) {
+            sections.push(`
+<div class="bg-gray-50 rounded-lg p-5">
+  <h3 class="text-base font-bold text-gray-900 mb-3">💻 온라인 신청</h3>
+  <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${onlineMatch[1].trim()}</div>
+</div>
+            `);
+          }
+          
+          // 문의처 추출
+          const contactMatch = desc.match(/📞 문의처([\\s\\S]*?)(?=🔗|👍|$)/);
+          if (contactMatch) {
+            sections.push(`
+<div class="bg-gray-50 rounded-lg p-5">
+  <h3 class="text-base font-bold text-gray-900 mb-3">📞 문의처</h3>
+  <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${contactMatch[1].trim()}</div>
+</div>
+            `);
+          }
+          
+          // 특정 섹션이 없으면 전체 description을 그대로 표시 (PDF 파싱된 내용)
+          if (sections.length === 0) {
+            sections.push(`
+<div class="bg-gray-50 rounded-lg p-5">
+  <h3 class="text-base font-bold text-gray-900 mb-3">상세 정보</h3>
+  <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">${desc}</div>
+</div>
+            `);
+          }
+          
+          return sections.join('');
+        })()}
+      </div>
+    ` : ''}
+
+    <!-- Brochure/Pamphlet Section (Images) -->
+    ${property.brochure_images ? `
+      <div class="bg-gray-50 rounded-lg p-5">
+        <h3 class="text-base font-bold text-gray-900 mb-4 flex items-center">
+          <i class="fas fa-book-open text-primary mr-2"></i>
+          단지 팸플릿
+        </h3>
+        <div class="space-y-4">
+          <p class="text-sm text-gray-600">단지의 상세 정보를 확인하세요 (총 ${JSON.parse(property.brochure_images).length}페이지)</p>
+          ${(() => {
+            try {
+const images = JSON.parse(property.brochure_images);
+return images.map((imgUrl, index) => `
+  <div class="bg-white rounded-lg p-2 shadow-sm">
+    <div class="text-xs text-gray-500 mb-2 font-medium">페이지 ${index + 1}</div>
+    <img src="${imgUrl}" 
+         alt="팸플릿 페이지 ${index + 1}"
+         class="w-full rounded border border-gray-200"
+         loading="lazy" />
+  </div>
+`).join('');
+            } catch (e) {
+return '<p class="text-sm text-gray-500">이미지를 불러올 수 없습니다.</p>';
+            }
+          })()}
+        </div>
+      </div>
+    ` : ''}
+
+  </div>
+
+    <!-- Official Documents -->
+    <div class="flex gap-3">
+      ${property.lh_notice_url ? `
+        <a href="${property.lh_notice_url}" target="_blank" 
+           class="flex-1 bg-primary text-white text-center py-3 rounded-xl font-bold hover:bg-primary-light transition-all">
+          <i class="fas fa-external-link-alt mr-2"></i>LH 공고 보기
+        </a>
+      ` : ''}
+      ${property.pdf_url ? `
+        <a href="${property.pdf_url}" target="_blank" 
+           class="flex-1 bg-gray-800 text-white text-center py-3 rounded-xl font-bold hover:bg-gray-700 transition-all">
+          <i class="fas fa-file-pdf mr-2"></i>PDF 다운로드
+        </a>
+      ` : ''}
+    </div>
+    
+    <!-- Detail Images Gallery -->
+    ${extendedData.details && extendedData.details.detailImages && extendedData.details.detailImages.length > 0 ? `
+      <div class="mt-4 sm:mt-6">
+        <div class="grid grid-cols-1 gap-0">
+          ${extendedData.details.detailImages.map((imageUrl, index) => `
+            <div class="relative">
+<img 
+  src="${imageUrl}" 
+  alt="상세 이미지 ${index + 1}" 
+  class="w-full h-auto cursor-pointer"
+  onclick="openImageModal('${imageUrl}')"
+  onerror="this.parentElement.style.display='none'"
+>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : ''}
+  </div>
+
+            </div>
+        </div>
+    </div>
+    <script>
+    function openMap(address, lat, lng) {
+      if (lat && lng && lat !== 0 && lng !== 0) {
+        window.open('https://map.naver.com/p?c=' + lng + ',' + lat + ',15,0,0,0,dh&title=' + encodeURIComponent(address), '_blank');
+      } else {
+        window.open('https://map.naver.com/p/search/' + encodeURIComponent(address), '_blank');
+      }
+    }
+    function toggleAdditionalDetails() {
+      const element = document.getElementById('additionalDetailsContainer');
+      const icon = document.getElementById('toggleDetailsIcon');
+      const text = document.getElementById('toggleDetailsText');
+      
+      if (element) {
+        if (element.style.display === 'none') {
+          element.style.display = 'block';
+          if (icon) icon.classList.remove('fa-chevron-down');
+          if (icon) icon.classList.add('fa-chevron-up');
+          if (text) text.textContent = '접기';
+        } else {
+          element.style.display = 'none';
+          if (icon) icon.classList.remove('fa-chevron-up');
+          if (icon) icon.classList.add('fa-chevron-down');
+          if (text) text.textContent = '더보기';
+        }
+      }
+    }
+    function openImageModal(imageUrl) {
+      window.open(imageUrl, '_blank');
+    }
+    </script>
+</body>
+</html>
   `)
 })
+
 
 // FAQ page
 app.get('/faq', async (c) => {
@@ -13728,7 +14222,7 @@ app.get('/', (c) => {
                       <!-- Action Buttons -->
                       <div class="flex gap-2">
                         <!-- 상세 정보 버튼 (모든 타입 공통) -->
-                        <button onclick="showDetail(\${property.id})" 
+                        <button onclick="window.location.href='/property/\${property.id}'" 
                                 class="w-full bg-white border border-gray-200 text-gray-600 font-medium py-3 sm:py-2.5 rounded-lg hover:border-gray-300 hover:bg-gray-50 active:bg-gray-100 transition-all text-sm touch-manipulation">
                           상세정보 보기
                         </button>
