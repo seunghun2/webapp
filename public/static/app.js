@@ -49,3 +49,45 @@ function formatPrice(price) {
   if (!price || price === 0) return '-';
   return `${price.toFixed(1)}억`;
 }
+
+// Image Loading Optimization
+// Intersection Observer로 이미지 지연 로딩 강화
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('🚀 이미지 최적화 초기화 시작');
+  
+  // Intersection Observer 설정
+  const imageObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const img = entry.target;
+        
+        // data-src가 있으면 실제 src로 변경
+        if (img.dataset.src) {
+          img.src = img.dataset.src;
+          img.removeAttribute('data-src');
+        }
+        
+        // 로딩 완료 후 처리
+        img.onload = () => {
+          img.classList.add('loaded');
+          img.classList.remove('loading');
+        };
+        
+        // 관찰 중지
+        observer.unobserve(img);
+      }
+    });
+  }, {
+    rootMargin: '50px', // 뷰포트 50px 전에 로딩 시작
+    threshold: 0.01
+  });
+  
+  // 모든 lazy 이미지 관찰
+  const lazyImages = document.querySelectorAll('img[loading="lazy"]');
+  lazyImages.forEach(img => {
+    img.classList.add('loading');
+    imageObserver.observe(img);
+  });
+  
+  console.log(`✅ ${lazyImages.length}개 이미지 최적화 적용 완료`);
+});

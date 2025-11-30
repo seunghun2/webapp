@@ -5687,6 +5687,7 @@ app.get('/admin', (c) => {
         <title>Admin - 한채365</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="/static/styles.css">
         <style>
           @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
           
@@ -9945,6 +9946,7 @@ app.get('/property/:id', async (c) => {
       <img src="${property.image_url}" 
            alt="${property.title} 대표이미지"
            class="w-full h-auto object-cover"
+           loading="lazy"
            onerror="this.parentElement.style.display='none'" />
     </div>
     ` : ''}
@@ -11020,6 +11022,9 @@ app.get('/', (c) => {
         <!-- Theme Color -->
         <meta name="theme-color" content="#3182F6">
         <meta name="msapplication-TileColor" content="#3182F6">
+        
+        <!-- Custom Styles -->
+        <link rel="stylesheet" href="/static/styles.css">
         
         <!-- Cache Control -->
         <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -12731,6 +12736,7 @@ app.get('/', (c) => {
                     <img src="\${property.image_url || 'https://via.placeholder.com/800x400/e5e7eb/6b7280?text=' + encodeURIComponent(property.title.substring(0, 20))}" 
                          alt="\${property.title} 대표이미지"
                          class="w-full h-auto object-cover"
+                         loading="lazy"
                          onerror="this.src='https://via.placeholder.com/800x400/e5e7eb/6b7280?text=No+Image'" />
                   </div>
 
@@ -12829,6 +12835,7 @@ app.get('/', (c) => {
                             alt="공급 세대 정보" 
                             class="w-full rounded-lg shadow-sm" 
                             style="max-height: 600px; object-fit: contain;"
+                            loading="lazy"
                             onerror="console.error('Image load failed:', this.src); this.parentElement.innerHTML='<p class=\\'text-sm text-red-600 p-2\\'>이미지를 불러올 수 없습니다.</p>';"
                             onload="console.log('✅ Image loaded successfully:', this.src)">
                         </div>
@@ -13334,7 +13341,7 @@ app.get('/', (c) => {
                 <button onclick="this.closest('.fixed').remove()" class="absolute top-4 right-4 bg-white text-gray-900 rounded-full w-10 h-10 flex items-center justify-center hover:bg-gray-100 z-10">
                   <i class="fas fa-times"></i>
                 </button>
-                <img src="\${imageUrl}" alt="상세 이미지" class="w-full h-auto rounded-lg shadow-2xl">
+                <img src="\${imageUrl}" alt="상세 이미지" class="w-full h-auto rounded-lg shadow-2xl" loading="lazy">
               </div>
             \`;
             
@@ -13823,6 +13830,7 @@ app.get('/', (c) => {
                           <img src="\${property.image_url}" 
                                alt="\${property.title} 대표이미지"
                                class="w-full h-48 sm:h-56 object-cover"
+                               loading="lazy"
                                onerror="this.parentElement.style.display='none'" />
                         </div>
                       \` : ''}
@@ -16063,6 +16071,7 @@ app.get('/calculator', (c) => {
         
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="/static/styles.css">
         <style>
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
@@ -17112,6 +17121,7 @@ app.get('/savings', (c) => {
         
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="/static/styles.css">
         <style>
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;

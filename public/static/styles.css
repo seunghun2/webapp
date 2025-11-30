@@ -1,0 +1,51 @@
+/* Image Loading Optimization Styles */
+
+/* 이미지 로딩 중 Skeleton 애니메이션 */
+img.loading {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e0e0e0 50%,
+    #f0f0f0 75%
+  );
+  background-size: 200% 100%;
+  animation: loading 1.5s ease-in-out infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* 이미지 로드 완료 후 페이드인 효과 */
+img.loaded {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 로딩 중 최소 높이 설정 (레이아웃 시프트 방지) */
+img[loading="lazy"] {
+  min-height: 200px;
+  background-color: #f5f5f5;
+}
+
+/* 카드 이미지 특정 크기 */
+.property-card img[loading="lazy"] {
+  min-height: 192px; /* h-48 = 12rem = 192px */
+}
+
+.property-card-sm img[loading="lazy"] {
+  min-height: 224px; /* h-56 = 14rem = 224px */
+}
