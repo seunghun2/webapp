@@ -1218,6 +1218,9 @@ app.get('/api/properties', async (c) => {
     if (type === 'today') {
       // 오늘청약: 오늘이 청약일인 항목만 표시
       query += " AND date(deadline) = date('now')"
+    } else if (type === 'new') {
+      // 신규공고: 최근 7일 이내 등록된 항목
+      query += " AND date(created_at) >= date('now', '-7 days')"
     } else if (type !== 'all') {
       query += ' AND type = ?'
       params.push(type)
@@ -12032,11 +12035,37 @@ app.get('/', (c) => {
             </div>
         </div>
 
+
+
         <!-- Stats Cards -->
         <section class="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3" id="statsContainer">
+            <!-- Mobile: 오늘마감/신규공고 (2개) → 일반청약/임대주택/잔여세대 (3개) -->
+            <div id="statsContainer" class="grid gap-2.5 sm:gap-3" style="grid-template-columns: repeat(6, 1fr);">
                 <!-- Stats will be loaded here -->
             </div>
+            <style>
+              /* Mobile: 첫 2개는 3칸씩 (총 6칸 중), 다음 3개는 2칸씩 차지 */
+              @media (max-width: 767px) {
+                #statsContainer > div:nth-child(1),
+                #statsContainer > div:nth-child(2) {
+                  grid-column: span 3 / span 3;
+                }
+                #statsContainer > div:nth-child(3),
+                #statsContainer > div:nth-child(4),
+                #statsContainer > div:nth-child(5) {
+                  grid-column: span 2 / span 2;
+                }
+              }
+              /* Desktop: 모든 카드 1칸씩 (5개 균등 배치) */
+              @media (min-width: 768px) {
+                #statsContainer {
+                  grid-template-columns: repeat(5, 1fr) !important;
+                }
+                #statsContainer > div {
+                  grid-column: span 1 / span 1 !important;
+                }
+              }
+            </style>
         </section>
 
         <!-- Main Content -->
@@ -12531,9 +12560,156 @@ app.get('/', (c) => {
             </div>
         </div>
 
+        <!-- Floating Button (Bottom Right) -->
+        <div id="floatingNewAlert" class="fixed bottom-20 right-4 sm:right-6 z-50 hidden">
+            <!-- Popup Panel (Above button) -->
+            <div id="newPropertiesPopup" class="hidden absolute bottom-full right-0 mb-3 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-bell"></i>
+                        <span class="font-bold">신규공고 (<span id="popupCount">0</span>건)</span>
+                    </div>
+                    <button onclick="toggleNewPropertiesPopup()" class="text-white hover:text-gray-200">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <!-- List -->
+                <div id="newPropertiesList" class="max-h-96 overflow-y-auto">
+                    <!-- Items will be loaded here -->
+                </div>
+                
+                <!-- Footer -->
+                <div class="bg-gray-50 p-3 border-t">
+                    <button onclick="showAllNewProperties()" 
+                            class="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors">
+                        전체보기
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Floating Button (Read-only notification) -->
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full px-4 sm:px-6 py-3 shadow-lg pointer-events-none flex items-center gap-2">
+                <i class="fas fa-bell animate-bell-ring"></i>
+                <span class="text-sm font-medium">신규공고 <strong class="ml-1"><span id="newCount5">0</span>건</strong></span>
+            </div>
+        </div>
+        
+        <!-- Bell Ring Animation CSS -->
+        <style>
+          @keyframes bell-ring {
+            0% { transform: rotate(0deg); }
+            10% { transform: rotate(15deg); }
+            20% { transform: rotate(-15deg); }
+            30% { transform: rotate(10deg); }
+            40% { transform: rotate(-10deg); }
+            50% { transform: rotate(5deg); }
+            60% { transform: rotate(-5deg); }
+            70% { transform: rotate(0deg); }
+            100% { transform: rotate(0deg); }
+          }
+          
+          .animate-bell-ring {
+            animation: bell-ring 2s ease-in-out infinite;
+          }
+        </style>
+
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script src="/static/app.js?v=${Date.now()}"></script>
         <script>
+          // New Properties Popup Functions
+          function toggleNewPropertiesPopup() {
+            const popup = document.getElementById('newPropertiesPopup');
+            const isHidden = popup.classList.contains('hidden');
+            
+            if (isHidden) {
+              // Show popup and load new properties
+              popup.classList.remove('hidden');
+              loadNewPropertiesForPopup();
+            } else {
+              // Hide popup
+              popup.classList.add('hidden');
+            }
+          }
+          
+          async function loadNewPropertiesForPopup() {
+            try {
+              const response = await axios.get('/api/properties?region=all&type=all&household=all&area=all&sort=latest');
+              let properties = response.data;
+              
+              // Filter properties created in last 7 days
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const sevenDaysAgo = new Date(today);
+              sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+              
+              const newProperties = properties.filter(p => {
+                try {
+                  const createdDate = new Date(p.created_at);
+                  createdDate.setHours(0, 0, 0, 0);
+                  return createdDate >= sevenDaysAgo;
+                } catch (e) {
+                  return false;
+                }
+              }).slice(0, 5); // Show only top 5
+              
+              const listContainer = document.getElementById('newPropertiesList');
+              document.getElementById('popupCount').textContent = newProperties.length;
+              
+              if (newProperties.length === 0) {
+                listContainer.innerHTML = '<div class="p-6 text-center text-gray-500">신규 공고가 없습니다</div>';
+                return;
+              }
+              
+              listContainer.innerHTML = newProperties.map(property => {
+                const dDay = calculateDDay(property.deadline);
+                return \`
+                  <div class="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer" 
+                       onclick="window.location.href='/property/\${property.id}'">
+                    <div class="p-4">
+                      <div class="flex items-start justify-between gap-3">
+                        <div class="flex-1 min-w-0">
+                          <h3 class="font-medium text-gray-900 mb-1 line-clamp-2">\${property.title}</h3>
+                          <div class="flex items-center gap-2 text-xs text-gray-600">
+                            <span>\${property.location}</span>
+                            <span class="text-gray-400">|</span>
+                            <span class="\${dDay.color}">\${dDay.text}</span>
+                          </div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400 text-sm mt-1"></i>
+                      </div>
+                    </div>
+                  </div>
+                \`;
+              }).join('');
+              
+            } catch (error) {
+              console.error('Failed to load new properties:', error);
+              document.getElementById('newPropertiesList').innerHTML = 
+                '<div class="p-6 text-center text-red-500">불러오기 실패</div>';
+            }
+          }
+          
+          function showAllNewProperties() {
+            // Close popup
+            document.getElementById('newPropertiesPopup').classList.add('hidden');
+            
+            // Set newOnly filter
+            filters.newOnly = 'true';
+            filters.type = 'all';
+            filters.todayOnly = '';
+            
+            // Scroll to properties
+            const propertiesContainer = document.getElementById('propertiesContainer');
+            if (propertiesContainer) {
+              propertiesContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            
+            // Load properties with newOnly filter
+            loadProperties();
+          }
+          
           // Mobile Menu Functions
           function openMobileMenu() {
             const menu = document.getElementById('mobileMenu');
@@ -12698,6 +12874,12 @@ app.get('/', (c) => {
             } else {
               scrollToTopBtn.classList.remove('opacity-100', 'visible');
               scrollToTopBtn.classList.add('opacity-0', 'invisible');
+            }
+            
+            // Hide floating new alert on scroll
+            const floatingAlert = document.getElementById('floatingNewAlert');
+            if (floatingAlert && window.pageYOffset > 100) {
+              floatingAlert.classList.add('hidden');
             }
           });
           
@@ -13643,11 +13825,22 @@ app.get('/', (c) => {
               const statsContainer = document.getElementById('statsContainer');
               // Calculate today's deadline count
               const todayDeadlineCount = stats.todayDeadline || 0;
+              const newPropertiesCount = stats.newProperties || 0;
+              
+              // Show new properties floating button if count > 0
+              if (newPropertiesCount > 0) {
+                document.getElementById('newCount5').textContent = newPropertiesCount;
+                document.getElementById('floatingNewAlert').classList.remove('hidden');
+              }
               
               statsContainer.innerHTML = \`
                 <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 active cursor-pointer hover:shadow-md transition-shadow" data-type="today">
                   <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">오늘마감</div>
                   <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${todayDeadlineCount}</div>
+                </div>
+                <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 cursor-pointer hover:shadow-md transition-shadow" data-type="new">
+                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">신규공고</div>
+                  <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${newPropertiesCount}</div>
                 </div>
                 <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 cursor-pointer hover:shadow-md transition-shadow" data-type="general">
                   <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">일반청약</div>
