@@ -1043,7 +1043,8 @@ app.get('/api/stats', async (c) => {
       SELECT 
         type,
         deadline,
-        extended_data
+        extended_data,
+        created_at
       FROM properties
       WHERE deleted_at IS NULL
         AND status = 'active'
@@ -1057,21 +1058,84 @@ app.get('/api/stats', async (c) => {
       rental: 0,
       general: 0,
       unsold: 0,
-      today: 0
+      todayDeadline: 0,
+      newProperties: 0
     }
+    
+    // Calculate 7 days ago
+    const sevenDaysAgo = new Date(today)
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    sevenDaysAgo.setHours(0, 0, 0, 0)
     
     result.results.forEach((row: any) => {
       let shouldCount = true
       
       // Get the last step date from extended_data.steps
       let finalDeadline = row.deadline
+      let hasTodayStep = false
+      
       try {
         if (row.extended_data) {
           const extendedData = JSON.parse(row.extended_data)
           if (extendedData.steps && Array.isArray(extendedData.steps) && extendedData.steps.length > 0) {
+            // Check if any step has today's date
+            for (const step of extendedData.steps) {
+              if (step.date && step.title) {
+                // Only count steps related to application/subscription (exclude announcement, winner announcement, contract)
+                const title = step.title.toLowerCase()
+                
+                // Skip non-application steps
+                if (title.includes('발표') || 
+                    title.includes('당첨') || 
+                    title.includes('계약') ||
+                    title.includes('공고') ||
+                    title.includes('서류') ||
+                    title.includes('동호지정') ||
+                    title.includes('예비입주자') ||
+                    title.includes('입주') ||
+                    title.includes('개방') ||
+                    title.includes('견본주택') ||
+                    title.includes('모델하우스')) {
+                  continue
+                }
+                
+                // Only count actual application/subscription steps
+                const isApplicationStep = 
+                  title.includes('접수') || 
+                  title.includes('신청') || 
+                  title.includes('모집') ||
+                  title.includes('청약') ||
+                  title.includes('마감')
+                
+                if (!isApplicationStep) {
+                  continue
+                }
+                
+                // Handle date ranges (e.g., "2025-11-08~2025-11-10")
+                const dateParts = step.date.split('~')
+                const stepStartDate = dateParts[0].trim()
+                const stepEndDate = dateParts.length === 2 ? dateParts[1].trim() : stepStartDate
+                
+                try {
+                  const startDate = new Date(stepStartDate)
+                  startDate.setHours(0, 0, 0, 0)
+                  const endDate = new Date(stepEndDate)
+                  endDate.setHours(0, 0, 0, 0)
+                  
+                  // Check if today is within this step's date range
+                  if (today.getTime() >= startDate.getTime() && today.getTime() <= endDate.getTime()) {
+                    hasTodayStep = true
+                    break
+                  }
+                } catch (e) {
+                  // Skip invalid dates
+                }
+              }
+            }
+            
+            // Get last step for final deadline
             const lastStep = extendedData.steps[extendedData.steps.length - 1]
             if (lastStep.date) {
-              // Handle date ranges (e.g., "2025-11-08~2025-11-10")
               const dateParts = lastStep.date.split('~')
               finalDeadline = dateParts.length === 2 ? dateParts[1].trim() : dateParts[0].trim()
             }
@@ -1079,6 +1143,24 @@ app.get('/api/stats', async (c) => {
         }
       } catch (e) {
         // If parsing fails, use row.deadline
+      }
+      
+      // Count today's deadline if any step is happening today
+      if (hasTodayStep) {
+        stats.todayDeadline++
+      }
+      
+      // Count new properties (created in last 7 days)
+      if (row.created_at) {
+        try {
+          const createdDate = new Date(row.created_at)
+          createdDate.setHours(0, 0, 0, 0)
+          if (createdDate >= sevenDaysAgo) {
+            stats.newProperties++
+          }
+        } catch (e) {
+          // Skip invalid dates
+        }
       }
       
       // Apply deadline filtering
@@ -12484,7 +12566,9 @@ app.get('/', (c) => {
             type: 'all',
             household: 'all',
             area: 'all',
-            sort: 'deadline'
+            sort: 'deadline',
+            todayOnly: '',
+            newOnly: ''
           };
           
           // Search state
@@ -13557,22 +13641,25 @@ app.get('/', (c) => {
               const stats = response.data;
               
               const statsContainer = document.getElementById('statsContainer');
+              // Calculate today's deadline count
+              const todayDeadlineCount = stats.todayDeadline || 0;
+              
               statsContainer.innerHTML = \`
-                <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 active cursor-pointer hover:shadow-md transition-shadow" data-type="all">
-                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">전체분양</div>
-                  <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${stats.rental + stats.general + stats.unsold}</div>
-                </div>
-                <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 cursor-pointer hover:shadow-md transition-shadow" data-type="rental">
-                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">임대분양</div>
-                  <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${stats.rental || 0}</div>
+                <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 active cursor-pointer hover:shadow-md transition-shadow" data-type="today">
+                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">오늘마감</div>
+                  <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${todayDeadlineCount}</div>
                 </div>
                 <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 cursor-pointer hover:shadow-md transition-shadow" data-type="general">
-                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">청약분양</div>
+                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">일반청약</div>
                   <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${stats.general || 0}</div>
                 </div>
+                <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 cursor-pointer hover:shadow-md transition-shadow" data-type="rental">
+                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">임대주택</div>
+                  <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${stats.rental || 0}</div>
+                </div>
                 <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 cursor-pointer hover:shadow-md transition-shadow" data-type="unsold">
-                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">줍줍분양</div>
-                  <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${stats.unsold}</div>
+                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">잔여세대(줍줍)</div>
+                  <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${stats.unsold || 0}</div>
                 </div>
               \`;
               
@@ -13580,7 +13667,14 @@ app.get('/', (c) => {
               document.querySelectorAll('.stat-card').forEach(card => {
                 const type = card.dataset.type;
                 card.addEventListener('click', () => {
-                  filters.type = type;
+                  // Handle "today" type specially
+                  if (type === 'today') {
+                    filters.type = 'all';
+                    filters.todayOnly = 'true';
+                  } else {
+                    filters.type = type;
+                    filters.todayOnly = '';
+                  }
                   loadProperties();
                   
                   // Update active state
@@ -13617,6 +13711,7 @@ app.get('/', (c) => {
               properties = properties.filter(property => {
                 // Get the last step date from extended_data.steps
                 let finalDeadline = property.deadline;
+                let hasTodayStep = false;
                 
                 try {
                   if (property.extended_data) {
@@ -13625,9 +13720,61 @@ app.get('/', (c) => {
                       : property.extended_data;
                     
                     if (extendedData.steps && Array.isArray(extendedData.steps) && extendedData.steps.length > 0) {
+                      // Check if any step has today's date
+                      for (const step of extendedData.steps) {
+                        if (step.date && step.title) {
+                          // Only count steps related to application/subscription (exclude announcement, winner announcement, contract)
+                          const title = step.title.toLowerCase();
+                          const isApplicationStep = 
+                            title.includes('접수') || 
+                            title.includes('신청') || 
+                            title.includes('모집') ||
+                            title.includes('청약') ||
+                            title.includes('마감');
+                          
+                          // Skip non-application steps
+                          if (title.includes('발표') || 
+                              title.includes('당첨') || 
+                              title.includes('계약') ||
+                              title.includes('공고') ||
+                              title.includes('서류') ||
+                              title.includes('동호지정') ||
+                              title.includes('예비입주자') ||
+                              title.includes('입주') ||
+                              title.includes('개방') ||
+                              title.includes('견본주택') ||
+                              title.includes('모델하우스')) {
+                            continue;
+                          }
+                          
+                          if (!isApplicationStep) {
+                            continue;
+                          }
+                          
+                          const dateParts = step.date.split('~');
+                          const stepStartDate = dateParts[0].trim();
+                          const stepEndDate = dateParts.length === 2 ? dateParts[1].trim() : stepStartDate;
+                          
+                          try {
+                            const startDate = new Date(stepStartDate);
+                            startDate.setHours(0, 0, 0, 0);
+                            const endDate = new Date(stepEndDate);
+                            endDate.setHours(0, 0, 0, 0);
+                            
+                            // Check if today is within this step's date range
+                            if (today.getTime() >= startDate.getTime() && today.getTime() <= endDate.getTime()) {
+                              hasTodayStep = true;
+                              break;
+                            }
+                          } catch (e) {
+                            // Skip invalid dates
+                          }
+                        }
+                      }
+                      
+                      // Get last step for final deadline
                       const lastStep = extendedData.steps[extendedData.steps.length - 1];
                       if (lastStep.date) {
-                        // Handle date ranges (e.g., "2025-11-08~2025-11-10")
                         const dateParts = lastStep.date.split('~');
                         finalDeadline = dateParts.length === 2 ? dateParts[1].trim() : dateParts[0].trim();
                       }
@@ -13635,6 +13782,26 @@ app.get('/', (c) => {
                   }
                 } catch (e) {
                   // If parsing fails, use property.deadline
+                }
+                
+                // If todayOnly filter is active, only show properties with steps happening today
+                if (filters.todayOnly === 'true') {
+                  if (!hasTodayStep) return false;
+                }
+                
+                // If newOnly filter is active, only show properties created in last 7 days
+                if (filters.newOnly === 'true') {
+                  try {
+                    const createdDate = new Date(property.created_at);
+                    createdDate.setHours(0, 0, 0, 0);
+                    const sevenDaysAgo = new Date(today);
+                    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                    sevenDaysAgo.setHours(0, 0, 0, 0);
+                    
+                    if (createdDate < sevenDaysAgo) return false;
+                  } catch (e) {
+                    // If parsing fails, don't filter
+                  }
                 }
                 
                 if (!finalDeadline) return true; // deadline이 없으면 표시
