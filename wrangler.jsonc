@@ -4,9 +4,6 @@
   "compatibility_date": "2025-11-09",
   "pages_build_output_dir": "./dist",
   "compatibility_flags": ["nodejs_compat"],
-  "triggers": {
-    "crons": ["0 9 * * *"]
-  },
   "d1_databases": [
     {
       "binding": "DB",
