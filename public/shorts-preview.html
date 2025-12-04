@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>쇼츠 미리보기</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Pretendard', -apple-system, sans-serif;
+        }
+        
+        .phone {
+            width: 360px;
+            height: 640px;
+            background: #fff;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        
+        .slide {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            box-sizing: border-box;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        
+        .slide.active {
+            opacity: 1;
+        }
+        
+        /* Slide 1: 타이틀 */
+        .slide-1 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .slide-1 .emoji {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: bounce 1s infinite;
+        }
+        
+        .slide-1 h1 {
+            font-size: 36px;
+            font-weight: bold;
+            margin: 0;
+            text-align: center;
+        }
+        
+        .slide-1 p {
+            font-size: 28px;
+            margin-top: 20px;
+        }
+        
+        /* Slide 2-4: 매물 카드 */
+        .slide-2, .slide-3, .slide-4 {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .property-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            width: 100%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .badge {
+            background: #ef4444;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        
+        .property-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 20px;
+            line-height: 1.3;
+        }
+        
+        .property-info {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .info-row {
+            display: flex;
+            align-items: center;
+            font-size: 18px;
+            color: #4b5563;
+        }
+        
+        .info-row .icon {
+            margin-right: 10px;
+            font-size: 20px;
+        }
+        
+        /* Slide 5: CTA */
+        .slide-5 {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: #1f2937;
+        }
+        
+        .slide-5 h2 {
+            font-size: 32px;
+            margin-bottom: 30px;
+        }
+        
+        .slide-5 .url {
+            font-size: 28px;
+            font-weight: bold;
+            background: white;
+            padding: 20px 40px;
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .slide-5 .hashtags {
+            margin-top: 30px;
+            font-size: 16px;
+            color: #6b7280;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        .timer {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.5);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="phone">
+        <!-- Slide 1: 타이틀 -->
+        <div class="slide slide-1 active">
+            <div class="emoji">🚨</div>
+            <h1>긴급!</h1>
+            <p>오늘 마감 청약 9건</p>
+        </div>
+        
+        <!-- Slide 2: 매물 1 -->
+        <div class="slide slide-2">
+            <div class="property-card">
+                <div class="badge">오늘 18시 마감</div>
+                <div class="property-title">e편한세상 내포<br>에듀플라츠</div>
+                <div class="property-info">
+                    <div class="info-row">
+                        <span class="icon">📍</span>
+                        <span>서울 강남구</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="icon">💰</span>
+                        <span>3억 2천만원</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="icon">🏠</span>
+                        <span>842세대</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 3: 매물 2 -->
+        <div class="slide slide-3">
+            <div class="property-card">
+                <div class="badge">오늘 20시 마감</div>
+                <div class="property-title">서수원 에피트<br>센트럴마크</div>
+                <div class="property-info">
+                    <div class="info-row">
+                        <span class="icon">📍</span>
+                        <span>경기 수원시</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="icon">💰</span>
+                        <span>4억 5천만원</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="icon">🏠</span>
+                        <span>1,234세대</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 4: 매물 3 -->
+        <div class="slide slide-4">
+            <div class="property-card">
+                <div class="badge">오늘 17시 마감</div>
+                <div class="property-title">시흥센트럴<br>푸르지오</div>
+                <div class="property-info">
+                    <div class="info-row">
+                        <span class="icon">📍</span>
+                        <span>인천 연수구</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="icon">💰</span>
+                        <span>2억 8천만원</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="icon">🏠</span>
+                        <span>512세대</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 5: CTA -->
+        <div class="slide slide-5">
+            <h2>👉 전체 보기</h2>
+            <div class="url">hanchae365.com</div>
+            <div class="hashtags">#청약 #분양 #오늘마감</div>
+        </div>
+        
+        <div class="timer" id="timer">0초 / 15초</div>
+    </div>
+    
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const timer = document.getElementById('timer');
+        let elapsed = 0;
+        
+        // 슬라이드 전환 타이밍 (초)
+        const timings = [0, 3, 6, 9, 12];
+        
+        function updateSlide() {
+            slides.forEach(s => s.classList.remove('active'));
+            slides[currentSlide].classList.add('active');
+        }
+        
+        setInterval(() => {
+            elapsed++;
+            timer.textContent = `${elapsed}초 / 15초`;
+            
+            if (timings.includes(elapsed)) {
+                currentSlide = timings.indexOf(elapsed);
+                updateSlide();
+            }
+            
+            if (elapsed >= 15) {
+                elapsed = 0;
+                currentSlide = 0;
+                updateSlide();
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

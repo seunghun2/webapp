@@ -149,6 +149,137 @@ function getCommonScripts() {
 
 // ==================== SEO Routes ====================
 
+// Shorts preview (정적 HTML 파일 서빙)
+app.get('/shorts-preview.html', (c) => {
+  // Inline HTML for shorts preview
+  return c.html(`<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>쇼츠 미리보기</title>
+    <style>
+        body { margin: 0; padding: 20px; background: #000; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: 'Pretendard', -apple-system, sans-serif; }
+        .phone { width: 360px; height: 640px; background: #fff; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.5); position: relative; }
+        .slide { width: 100%; height: 100%; position: absolute; top: 0; left: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px; box-sizing: border-box; opacity: 0; transition: opacity 0.5s; }
+        .slide.active { opacity: 1; }
+        .slide-1 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .slide-1 .emoji { font-size: 80px; margin-bottom: 20px; animation: bounce 1s infinite; }
+        .slide-1 h1 { font-size: 36px; font-weight: bold; margin: 0; text-align: center; }
+        .slide-1 p { font-size: 28px; margin-top: 20px; }
+        .slide-2, .slide-3, .slide-4 { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .property-card { background: white; border-radius: 20px; padding: 30px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .badge { background: #ef4444; color: white; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: bold; display: inline-block; margin-bottom: 20px; }
+        .property-title { font-size: 24px; font-weight: bold; color: #1f2937; margin-bottom: 20px; line-height: 1.3; }
+        .property-info { display: flex; flex-direction: column; gap: 12px; }
+        .info-row { display: flex; align-items: center; font-size: 18px; color: #4b5563; }
+        .info-row .icon { margin-right: 10px; font-size: 20px; }
+        .slide-5 { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: #1f2937; }
+        .slide-5 h2 { font-size: 32px; margin-bottom: 30px; }
+        .slide-5 .url { font-size: 28px; font-weight: bold; background: white; padding: 20px 40px; border-radius: 50px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .slide-5 .hashtags { margin-top: 30px; font-size: 16px; color: #6b7280; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+        .timer { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.5); color: white; padding: 8px 16px; border-radius: 20px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="phone">
+        <div class="slide slide-1 active">
+            <div class="emoji">🚨</div>
+            <h1>긴급!</h1>
+            <p>오늘 마감 청약 9건</p>
+        </div>
+        <div class="slide slide-2">
+            <div class="property-card">
+                <div class="badge">⏰ 오늘 18시 마감</div>
+                <div class="property-title">e편한세상 내포<br>에듀플라츠</div>
+                <div class="property-info">
+                    <div class="info-row"><span class="icon">📍</span><span>서울 강남구</span></div>
+                    <div class="info-row"><span class="icon">💰</span><span>3억 2천만원</span></div>
+                    <div class="info-row"><span class="icon">📐</span><span>84㎡ (25평)</span></div>
+                    <div class="info-row"><span class="icon">🏠</span><span>842세대</span></div>
+                    <div class="info-row"><span class="icon">🚇</span><span>강남역 도보 5분</span></div>
+                    <div class="info-row"><span class="icon">✨</span><span>특별공급 40%</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="slide slide-3">
+            <div class="property-card">
+                <div class="badge">⏰ 오늘 20시 마감</div>
+                <div class="property-title">서수원 에피트<br>센트럴마크</div>
+                <div class="property-info">
+                    <div class="info-row"><span class="icon">📍</span><span>경기 수원시</span></div>
+                    <div class="info-row"><span class="icon">💰</span><span>4억 5천만원</span></div>
+                    <div class="info-row"><span class="icon">📐</span><span>101㎡ (30평)</span></div>
+                    <div class="info-row"><span class="icon">🏠</span><span>1,234세대</span></div>
+                    <div class="info-row"><span class="icon">🚇</span><span>수원역 도보 10분</span></div>
+                    <div class="info-row"><span class="icon">📅</span><span>2026년 12월 입주</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="slide slide-4">
+            <div class="property-card">
+                <div class="badge">⏰ 오늘 17시 마감</div>
+                <div class="property-title">시흥센트럴<br>푸르지오</div>
+                <div class="property-info">
+                    <div class="info-row"><span class="icon">📍</span><span>인천 연수구</span></div>
+                    <div class="info-row"><span class="icon">💰</span><span>2억 8천만원</span></div>
+                    <div class="info-row"><span class="icon">📐</span><span>59㎡ (17평)</span></div>
+                    <div class="info-row"><span class="icon">🏠</span><span>512세대</span></div>
+                    <div class="info-row"><span class="icon">🎓</span><span>학군: 연수초/중/고</span></div>
+                    <div class="info-row"><span class="icon">🔥</span><span>즉시입주 가능</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="slide slide-5">
+            <h2>👉 전체 9건 보기</h2>
+            <div class="url">hanchae365.com</div>
+            <div class="hashtags" style="margin-top: 20px; font-size: 14px;">(링크는 프로필!)</div>
+            <div class="hashtags">#청약 #분양 #오늘마감 #부동산 #아파트</div>
+        </div>
+        <div class="timer" id="timer">0초 / 15초</div>
+    </div>
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const timer = document.getElementById('timer');
+        let elapsed = 0;
+        const timings = [0, 3, 6, 9, 12];
+        function updateSlide() {
+            slides.forEach(s => s.classList.remove('active'));
+            slides[currentSlide].classList.add('active');
+        }
+        setInterval(() => {
+            elapsed++;
+            timer.textContent = elapsed + '초 / 15초';
+            if (timings.includes(elapsed)) {
+                currentSlide = timings.indexOf(elapsed);
+                updateSlide();
+            }
+            if (elapsed >= 15) {
+                elapsed = 0;
+                currentSlide = 0;
+                updateSlide();
+            }
+        }, 1000);
+    </script>
+</body>
+</html>`)
+})
+
+// Newspaper style shorts (신문 광고 스타일)
+app.get('/newspaper', (c) => {
+  return c.html(`<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>신문광고 스타일 쇼츠</title></head>
+<body style="background:#000;color:#fff;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;font-family:sans-serif;">
+<div style="text-align:center;padding:20px;">
+<h1 style="font-size:48px;margin-bottom:20px;">🔥 신문광고 스타일</h1>
+<p style="font-size:24px;margin-bottom:40px;">청량리역 롯데캐슬 스타일의 쇼츠입니다!</p>
+<a href="/" style="color:#3b82f6;font-size:18px;">← 홈으로 돌아가기</a>
+</div>
+</body></html>`)
+})
+
 // robots.txt
 app.get('/robots.txt', (c) => {
   const robotsTxt = `User-agent: *
@@ -177,6 +308,63 @@ Allow: /`
 })
 
 // sitemap.xml
+// RSS Feed for blog automation
+app.get('/rss.xml', async (c) => {
+  const { DB } = c.env
+  
+  // Get latest 10 properties with today or future deadline
+  const properties = await DB.prepare(`
+    SELECT * FROM properties 
+    WHERE DATE(deadline) >= DATE('now')
+    AND deleted_at IS NULL
+    ORDER BY deadline ASC, created_at DESC
+    LIMIT 10
+  `).all()
+
+  const items = properties.results.map((prop: any) => {
+    let extendedData: any = {}
+    try {
+      extendedData = JSON.parse(prop.extended_data || '{}')
+    } catch (e) {}
+
+    const pubDate = new Date(prop.created_at).toUTCString()
+    const description = `
+📍 ${prop.location || '위치 정보 없음'}
+💰 ${extendedData.price || '문의'}
+🏠 ${extendedData.households || '문의'}세대
+⏰ 마감: ${prop.deadline || '미정'}
+
+https://hanchae365.com/property/${prop.id}
+    `.trim()
+
+    return `
+    <item>
+      <title>${prop.title}</title>
+      <link>https://hanchae365.com/property/${prop.id}</link>
+      <description><![CDATA[${description}]]></description>
+      <pubDate>${pubDate}</pubDate>
+      <guid>https://hanchae365.com/property/${prop.id}</guid>
+    </item>`
+  }).join('\n')
+
+  const rss = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>똑똑한한채 - 청약 정보</title>
+    <link>https://hanchae365.com</link>
+    <description>전국 부동산 분양 청약 정보</description>
+    <language>ko</language>
+    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+    <atom:link href="https://hanchae365.com/rss.xml" rel="self" type="application/rss+xml"/>
+    ${items}
+  </channel>
+</rss>`
+
+  return c.text(rss, 200, {
+    'Content-Type': 'application/xml; charset=utf-8'
+  })
+})
+
 app.get('/sitemap.xml', async (c) => {
   try {
     const { DB } = c.env
@@ -19113,4 +19301,114 @@ app.get('/favicon.ico', (c) => {
   return c.text('', 204)
 })
 
-export default app
+// ==================== Naver Blog Auto Posting ====================
+
+async function postToNaverBlog(env: Bindings) {
+  try {
+    // 1. DB에서 오늘 마감 청약 가져오기
+    const today = new Date().toISOString().split('T')[0]
+    const properties = await env.DB.prepare(`
+      SELECT * FROM properties 
+      WHERE DATE(deadline) = DATE('now')
+      AND deleted_at IS NULL
+      ORDER BY created_at DESC
+      LIMIT 5
+    `).all()
+
+    if (!properties.results || properties.results.length === 0) {
+      console.log('오늘 마감 청약 없음')
+      return { success: false, message: '오늘 마감 청약 없음' }
+    }
+
+    // 2. 블로그 글 내용 생성
+    const title = `🚨 오늘 마감 청약 ${properties.results.length}건 - ${new Date().toLocaleDateString('ko-KR')}`
+    
+    let content = `<div style="font-family: 'Malgun Gothic', sans-serif;">
+<h2 style="color: #ef4444; font-size: 24px; margin-bottom: 20px;">⏰ 오늘 마감되는 청약 정보</h2>
+<p style="font-size: 16px; line-height: 1.8; margin-bottom: 30px;">
+오늘 마감되는 청약 <strong>${properties.results.length}건</strong>을 소개합니다!<br>
+놓치지 마시고 꼭 확인하세요! 👇
+</p>
+<hr style="border: 1px solid #e5e7eb; margin: 30px 0;">
+`
+
+    // 3. 매물 정보 추가
+    properties.results.forEach((prop: any, index: number) => {
+      let extendedData: any = {}
+      try {
+        extendedData = JSON.parse(prop.extended_data || '{}')
+      } catch (e) {}
+
+      content += `
+<div style="background: #f9fafb; padding: 20px; margin-bottom: 20px; border-left: 4px solid #3b82f6;">
+  <h3 style="font-size: 20px; font-weight: bold; color: #1f2937; margin-bottom: 10px;">
+    ${index + 1}. ${prop.title}
+  </h3>
+  <p style="font-size: 14px; color: #6b7280; margin-bottom: 10px;">
+    📍 ${prop.location || '위치 정보 없음'}
+  </p>
+  <ul style="list-style: none; padding: 0; margin: 10px 0;">
+    <li style="margin: 5px 0;">💰 <strong>가격:</strong> ${extendedData.price || '문의'}</li>
+    <li style="margin: 5px 0;">🏠 <strong>세대수:</strong> ${extendedData.households || '문의'}</li>
+    <li style="margin: 5px 0;">⏰ <strong>마감:</strong> ${prop.deadline || '미정'}</li>
+  </ul>
+  <a href="https://hanchae365.com/property/${prop.id}" 
+     style="display: inline-block; background: #3b82f6; color: white; padding: 10px 20px; 
+            text-decoration: none; border-radius: 5px; margin-top: 10px;">
+    자세히 보기 →
+  </a>
+</div>
+`
+    })
+
+    content += `
+<hr style="border: 1px solid #e5e7eb; margin: 30px 0;">
+<div style="text-align: center; padding: 20px; background: #eff6ff; border-radius: 10px;">
+  <p style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">
+    👉 전체 청약 정보 확인하기
+  </p>
+  <a href="https://hanchae365.com" 
+     style="display: inline-block; background: #1e40af; color: white; padding: 15px 30px; 
+            text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">
+    똑똑한한채 바로가기
+  </a>
+</div>
+</div>
+`
+
+    // 4. 네이버 블로그 API 호출 (현재는 로그만)
+    // TODO: 실제 네이버 API 연동 필요
+    console.log('네이버 블로그 포스팅:', title)
+    console.log('매물 수:', properties.results.length)
+    
+    return {
+      success: true,
+      title,
+      count: properties.results.length,
+      message: '블로그 글 생성 완료 (API 연동 대기 중)'
+    }
+
+  } catch (error) {
+    console.error('블로그 포스팅 오류:', error)
+    return { success: false, error: String(error) }
+  }
+}
+
+// Test API endpoint for blog posting
+app.get('/api/test-blog-post', async (c) => {
+  const result = await postToNaverBlog(c.env)
+  return c.json(result)
+})
+
+// Scheduled handler (매일 오전 9시 실행)
+export default {
+  fetch: app.fetch,
+  
+  async scheduled(event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
+    console.log('Cron 실행:', new Date().toISOString())
+    
+    // 매일 오전 9시에 네이버 블로그 자동 포스팅
+    const result = await postToNaverBlog(env)
+    console.log('블로그 포스팅 결과:', result)
+  }
+}
