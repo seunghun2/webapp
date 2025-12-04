@@ -9967,6 +9967,18 @@ app.get('/property/:id', async (c) => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${pageTitle}</title>
     <meta name="description" content="${pageDescription}">
+    
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-470RN8J40M"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-470RN8J40M', {
+        page_path: '/property/${propertyId}'
+      });
+    </script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -12149,56 +12161,14 @@ app.get('/', (c) => {
             </div>
         </main>
 
-        <!-- Event Banner -->
-        <section class="max-w-6xl mx-auto px-3 sm:px-4 pb-8 sm:pb-12">
-            <div class="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl sm:rounded-2xl shadow-xl p-5 sm:p-8 text-white fade-in">
-                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                        <h3 class="text-xl sm:text-2xl font-bold mb-2">🎉 1월 관심등록 이벤트</h3>
-                        <p class="text-sm sm:text-base text-purple-100">시흥센트럴 푸르지오 관심등록하고 상품권 받아가세요!</p>
-                    </div>
-                    <button class="bg-white text-purple-600 px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-bold hover:bg-purple-50 transition-all text-sm sm:text-base w-full sm:w-auto">
-                        자세히 보기
-                    </button>
-                </div>
-            </div>
-        </section>
 
-        <!-- Notice Section -->
-        <section class="max-w-6xl mx-auto px-3 sm:px-4 pb-8 sm:pb-12">
-            <div class="bg-gray-100 border-l-4 border-gray-400 p-4 sm:p-6 rounded-lg sm:rounded-xl">
-                <div class="flex items-start gap-2 sm:gap-3">
-                    <i class="fas fa-info-circle text-gray-500 text-base sm:text-lg mt-1 flex-shrink-0"></i>
-                    <div>
-                        <h3 class="font-bold text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base">공지사항</h3>
-                        <ul class="text-xs sm:text-sm text-gray-600 space-y-1.5 sm:space-y-2">
-                            <li>• 줍줍분양에 게시된 분양공고 내용을 외부에 등록 할 경우 반드시 출처에 "줍줍분양"를 표시하셔야 합니다.</li>
-                            <li>• 분양공고 상세문의는 각 공고처(LH공사, SH공사)로 연락하세요.</li>
-                            <li>• LH주택공사 고객센터: <strong>1600-1004</strong></li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </section>
 
         <!-- Footer -->
         <footer class="bg-gray-900 text-gray-400 py-8 sm:py-12">
             <div class="max-w-6xl mx-auto px-3 sm:px-4">
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-                    <div>
-                        <h4 class="text-white font-bold mb-3 sm:mb-4 text-sm sm:text-base">똑똑한한채</h4>
-                        <p class="text-xs sm:text-sm">실전 투자 정보를 한눈에</p>
-                    </div>
-                    <div>
-                        <h4 class="text-white font-bold mb-3 sm:mb-4 text-sm sm:text-base">고객센터</h4>
-                        <p class="text-xs sm:text-sm">0505-321-8000</p>
-                        <p class="text-xs sm:text-sm">평일 09:00 - 18:00</p>
-                    </div>
-                    <div class="sm:col-span-2 lg:col-span-1">
-                        <h4 class="text-white font-bold mb-3 sm:mb-4 text-sm sm:text-base">협력사</h4>
-                        <p class="text-xs sm:text-sm">LH주택공사: 1600-1004</p>
-                        <p class="text-xs sm:text-sm">SH공사: 1600-3456</p>
-                    </div>
+                <div class="mb-6 sm:mb-8">
+                    <h4 class="text-white font-bold mb-3 sm:mb-4 text-sm sm:text-base">똑똑한한채</h4>
+                    <p class="text-xs sm:text-sm">실전 투자 정보를 한눈에</p>
                 </div>
                 <div class="border-t border-gray-800 mt-6 sm:mt-8 pt-6 sm:pt-8 text-center text-xs sm:text-sm">
                     <!-- 광고 문의 버튼 -->
@@ -16328,6 +16298,313 @@ app.get('/', (c) => {
             } catch (error) {
               console.error('Signup error:', error);
               alert(error.response?.data?.message || '회원가입 중 오류가 발생했습니다.');
+            }
+          }
+
+          // Load Recommendations
+          async function loadRecommendations() {
+            try {
+              const response = await axios.get('/api/properties?sort=deadline');
+              const allProperties = response.data;
+              
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              
+              // 1. 당첨 확률 높음 (경쟁률 낮을 것으로 예상되는 매물)
+              // - 미분양/잔여세대
+              // - 지방 지역
+              // - 세대수 많은 곳
+              const easyWin = allProperties
+                .filter(p => {
+                  // 마감되지 않은 매물만
+                  if (!p.deadline) return false;
+                  const deadline = new Date(p.deadline);
+                  deadline.setHours(0, 0, 0, 0);
+                  if (deadline < today) return false;
+                  
+                  // 잔여세대 우선
+                  if (p.type === 'unsold') return true;
+                  
+                  // 지방 지역 (서울/경기/인천 제외)
+                  const location = p.location || '';
+                  if (!location.includes('서울') && !location.includes('경기') && !location.includes('인천')) {
+                    return true;
+                  }
+                  
+                  return false;
+                })
+                .sort((a, b) => {
+                  // 세대수 많은 순
+                  const aHouse = parseInt(a.households) || 0;
+                  const bHouse = parseInt(b.households) || 0;
+                  return bHouse - aHouse;
+                })[0];
+              
+              // 2. 인기 급상승 (신규 + 인기 지역)
+              // - 서울/경기 지역
+              // - 최근 등록
+              const trending = allProperties
+                .filter(p => {
+                  if (!p.deadline) return false;
+                  const deadline = new Date(p.deadline);
+                  deadline.setHours(0, 0, 0, 0);
+                  if (deadline < today) return false;
+                  
+                  const location = p.location || '';
+                  return location.includes('서울') || location.includes('경기') || location.includes('인천');
+                })
+                .sort((a, b) => {
+                  const aDate = new Date(a.created_at);
+                  const bDate = new Date(b.created_at);
+                  return bDate - aDate;
+                })[0];
+              
+              // 3. 마감 임박 (D-3 이내)
+              const urgent = allProperties
+                .filter(p => {
+                  if (!p.deadline) return false;
+                  const deadline = new Date(p.deadline);
+                  deadline.setHours(0, 0, 0, 0);
+                  const dDay = Math.floor((deadline - today) / (1000 * 60 * 60 * 24));
+                  return dDay >= 0 && dDay <= 3;
+                })
+                .sort((a, b) => {
+                  const aDeadline = new Date(a.deadline);
+                  const bDeadline = new Date(b.deadline);
+                  return aDeadline - bDeadline;
+                })[0];
+              
+              // 렌더링
+              const container = document.getElementById('recommendationContainer');
+              const recommendations = [
+                { property: easyWin, badge: '당첨 확률 높음', icon: 'fa-thumbs-up', color: 'green', desc: '경쟁률이 낮을 것으로 예상됩니다' },
+                { property: trending, badge: '인기 급상승', icon: 'fa-fire', color: 'orange', desc: '최근 조회수가 높은 매물입니다' },
+                { property: urgent, badge: '마감 임박', icon: 'fa-clock', color: 'red', desc: '지금 확인하지 않으면 놓칩니다' }
+              ].filter(item => item.property);
+              
+              if (recommendations.length === 0) {
+                container.innerHTML = '<div class="col-span-3 text-center text-gray-500 py-8">추천할 매물이 없습니다.</div>';
+                return;
+              }
+              
+              container.innerHTML = recommendations.map(({ property, badge, icon, color, desc }) => {
+                const dDay = property.deadline ? Math.floor((new Date(property.deadline) - today) / (1000 * 60 * 60 * 24)) : null;
+                
+                return \`
+                  <div onclick="window.location.href='/property/\${property.id}'" 
+                       class="bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 sm:p-5 shadow-md hover:shadow-xl transition-all cursor-pointer border-2 border-\${color}-200 hover:border-\${color}-400">
+                    <div class="flex items-center gap-2 mb-3">
+                      <div class="bg-\${color}-500 text-white rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0">
+                        <i class="fas \${icon} text-sm"></i>
+                      </div>
+                      <span class="text-sm font-bold text-\${color}-700">\${badge}</span>
+                    </div>
+                    
+                    <div class="mb-3">
+                      <div class="flex items-center gap-2 mb-2">
+                        <span class="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">
+                          \${property.location || '전국'}
+                        </span>
+                        \${dDay !== null && dDay <= 7 ? \`
+                          <span class="text-xs px-2 py-0.5 rounded bg-\${dDay <= 3 ? 'red' : 'orange'}-50 text-\${dDay <= 3 ? 'red' : 'orange'}-600 font-bold">
+                            D-\${dDay}
+                          </span>
+                        \` : ''}
+                      </div>
+                      <h3 class="font-bold text-gray-900 mb-2 line-clamp-2 text-sm sm:text-base">
+                        \${property.title}
+                      </h3>
+                      <p class="text-xs text-gray-600 mb-3">
+                        \${desc}
+                      </p>
+                    </div>
+                    
+                    <div class="flex items-center justify-between text-xs text-gray-600 pt-3 border-t">
+                      <span><i class="fas fa-won-sign"></i> \${property.price || '미정'}</span>
+                      <span><i class="fas fa-home"></i> \${property.households || '-'}세대</span>
+                    </div>
+                    
+                    <button class="w-full mt-3 bg-\${color}-500 hover:bg-\${color}-600 text-white font-medium py-2 rounded-lg text-sm transition-colors">
+                      상세보기 <i class="fas fa-arrow-right ml-1"></i>
+                    </button>
+                  </div>
+                \`;
+              }).join('');
+              
+            } catch (error) {
+              console.error('Failed to load recommendations:', error);
+            }
+          }
+
+          // Load Instagram Stories
+          async function loadStories() {
+            try {
+              const response = await axios.get('/api/properties?sort=deadline');
+              let properties = response.data;
+              
+              // 오늘 날짜
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              
+              // D-7 이내 + 인기 지역 매물 추출
+              const stories = properties
+                .filter(property => {
+                  try {
+                    let hasRecentDeadline = false;
+                    
+                    if (property.extended_data) {
+                      const extendedData = typeof property.extended_data === 'string' 
+                        ? JSON.parse(property.extended_data) 
+                        : property.extended_data;
+                      
+                      if (extendedData.steps && Array.isArray(extendedData.steps)) {
+                        const applicationSteps = extendedData.steps.filter(step => {
+                          const title = step.title || '';
+                          return (title.includes('접수') || title.includes('신청') || title.includes('청약') || title.includes('모집') || title.includes('마감'))
+                            && !title.includes('발표') && !title.includes('당첨') && !title.includes('계약') && !title.includes('공고')
+                            && !title.includes('서류') && !title.includes('개방') && !title.includes('입주');
+                        });
+                        
+                        for (const step of applicationSteps) {
+                          const stepDate = new Date(step.date);
+                          stepDate.setHours(0, 0, 0, 0);
+                          const dDay = Math.floor((stepDate - today) / (1000 * 60 * 60 * 24));
+                          if (dDay >= 0 && dDay <= 7) {
+                            hasRecentDeadline = true;
+                            break;
+                          }
+                        }
+                      }
+                    }
+                    
+                    return hasRecentDeadline;
+                  } catch (e) {
+                    return false;
+                  }
+                })
+                .slice(0, 10); // 최대 10개
+              
+              const container = document.getElementById('storyContainer');
+              
+              if (stories.length === 0) {
+                container.innerHTML = '<div class="text-sm text-gray-500 py-8 px-4">곧 마감되는 청약이 없습니다.</div>';
+                return;
+              }
+              
+              container.innerHTML = stories.map((property, index) => {
+                // D-Day 계산
+                let dDay = null;
+                let dDayText = '';
+                let dDayColor = 'bg-gray-500';
+                
+                try {
+                  if (property.extended_data) {
+                    const extendedData = typeof property.extended_data === 'string' 
+                      ? JSON.parse(property.extended_data) 
+                      : property.extended_data;
+                    
+                    if (extendedData.steps && Array.isArray(extendedData.steps)) {
+                      const applicationSteps = extendedData.steps.filter(step => {
+                        const title = step.title || '';
+                        return (title.includes('접수') || title.includes('신청') || title.includes('청약') || title.includes('모집') || title.includes('마감'))
+                          && !title.includes('발표') && !title.includes('당첨') && !title.includes('계약') && !title.includes('공고')
+                          && !title.includes('서류') && !title.includes('개방') && !title.includes('입주');
+                      });
+                      
+                      let closestDate = null;
+                      for (const step of applicationSteps) {
+                        const stepDate = new Date(step.date);
+                        stepDate.setHours(0, 0, 0, 0);
+                        if (stepDate >= today && (!closestDate || stepDate < closestDate)) {
+                          closestDate = stepDate;
+                        }
+                      }
+                      
+                      if (closestDate) {
+                        dDay = Math.floor((closestDate - today) / (1000 * 60 * 60 * 24));
+                        
+                        if (dDay === 0) {
+                          dDayText = '오늘 마감';
+                          dDayColor = 'bg-red-500';
+                        } else if (dDay === 1) {
+                          dDayText = '내일 마감';
+                          dDayColor = 'bg-orange-500';
+                        } else if (dDay <= 3) {
+                          dDayText = \`D-\${dDay}\`;
+                          dDayColor = 'bg-orange-400';
+                        } else {
+                          dDayText = \`D-\${dDay}\`;
+                          dDayColor = 'bg-blue-500';
+                        }
+                      }
+                    }
+                  }
+                } catch (e) {
+                  console.error('D-Day calculation error:', e);
+                }
+                
+                // 그라데이션 색상 (다양하게)
+                const gradients = [
+                  'from-purple-500 to-pink-500',
+                  'from-blue-500 to-cyan-500',
+                  'from-orange-500 to-red-500',
+                  'from-green-500 to-teal-500',
+                  'from-indigo-500 to-purple-500',
+                  'from-yellow-500 to-orange-500',
+                  'from-pink-500 to-rose-500',
+                  'from-cyan-500 to-blue-500'
+                ];
+                const gradient = gradients[index % gradients.length];
+                
+                return \`
+                  <div onclick="window.location.href='/property/\${property.id}'" 
+                       class="story-card bg-gradient-to-br \${gradient} rounded-2xl shadow-lg cursor-pointer transform hover:scale-105 transition-all duration-200 relative overflow-hidden">
+                    <!-- 배경 패턴 -->
+                    <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle, white 1px, transparent 1px); background-size: 20px 20px;"></div>
+                    
+                    <!-- 컨텐츠 -->
+                    <div class="relative h-full flex flex-col justify-between p-4 text-white">
+                      <!-- 상단: D-Day 배지 -->
+                      <div class="flex justify-between items-start">
+                        \${dDayText ? \`
+                          <span class="\${dDayColor} text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg">
+                            \${dDayText}
+                          </span>
+                        \` : ''}
+                        <span class="text-xs bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full">
+                          \${property.type === 'general' ? '일반' : property.type === 'rental' ? '임대' : '잔여'}
+                        </span>
+                      </div>
+                      
+                      <!-- 중간: 제목 -->
+                      <div class="flex-1 flex items-center justify-center text-center px-2">
+                        <h3 class="text-sm sm:text-base font-bold leading-tight line-clamp-3 drop-shadow-lg">
+                          \${property.title}
+                        </h3>
+                      </div>
+                      
+                      <!-- 하단: 정보 -->
+                      <div class="space-y-1.5 text-xs">
+                        <div class="flex items-center gap-1 bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1">
+                          <i class="fas fa-map-marker-alt text-xs"></i>
+                          <span class="font-medium truncate">\${property.location || '전국'}</span>
+                        </div>
+                        <div class="flex items-center gap-1 bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1">
+                          <i class="fas fa-won-sign text-xs"></i>
+                          <span class="font-medium truncate">\${property.price || '미정'}</span>
+                        </div>
+                        <div class="flex items-center gap-1 bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1">
+                          <i class="fas fa-home text-xs"></i>
+                          <span class="font-medium">\${property.households || '-'}세대</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                \`;
+              }).join('');
+              
+            } catch (error) {
+              console.error('Failed to load stories:', error);
             }
           }
 
