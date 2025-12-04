@@ -13835,24 +13835,29 @@ app.get('/', (c) => {
               
               statsContainer.innerHTML = \`
                 <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 active cursor-pointer hover:shadow-md transition-shadow" data-type="today">
-                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">오늘마감</div>
-                  <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${todayDeadlineCount}</div>
+                  <div class="text-xs text-gray-500 mb-1 font-medium">오늘마감</div>
+                  <div class="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">\${todayDeadlineCount}</div>
+                  <div class="text-xs text-gray-400">오늘 청약 접수 마감</div>
                 </div>
                 <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 cursor-pointer hover:shadow-md transition-shadow" data-type="new">
-                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">신규공고</div>
-                  <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${newPropertiesCount}</div>
+                  <div class="text-xs text-gray-500 mb-1 font-medium">신규공고</div>
+                  <div class="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">\${newPropertiesCount}</div>
+                  <div class="text-xs text-gray-400">최근 7일 신규</div>
                 </div>
                 <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 cursor-pointer hover:shadow-md transition-shadow" data-type="general">
-                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">일반청약</div>
-                  <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${stats.general || 0}</div>
+                  <div class="text-xs text-gray-500 mb-1 font-medium">일반청약</div>
+                  <div class="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">\${stats.general || 0}</div>
+                  <div class="text-xs text-gray-400">일반분양·특별공급</div>
                 </div>
                 <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 cursor-pointer hover:shadow-md transition-shadow" data-type="rental">
-                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">임대주택</div>
-                  <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${stats.rental || 0}</div>
+                  <div class="text-xs text-gray-500 mb-1 font-medium">임대주택</div>
+                  <div class="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">\${stats.rental || 0}</div>
+                  <div class="text-xs text-gray-400">공공·국민임대</div>
                 </div>
                 <div class="stat-card bg-white rounded-xl shadow-sm p-4 sm:p-5 cursor-pointer hover:shadow-md transition-shadow" data-type="unsold">
-                  <div class="text-xs text-gray-500 mb-1.5 sm:mb-2 font-medium">잔여세대(줍줍)</div>
-                  <div class="text-2xl sm:text-3xl font-bold text-gray-900">\${stats.unsold || 0}</div>
+                  <div class="text-xs text-gray-500 mb-1 font-medium">잔여세대(줍줍)</div>
+                  <div class="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">\${stats.unsold || 0}</div>
+                  <div class="text-xs text-gray-400">미분양·잔여세대</div>
                 </div>
               \`;
               
